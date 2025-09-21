@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>总部管理系统 - 用户投诉反馈（阶段独立 + 可见性分离）</title>
+  <!-- 依赖保持与站内一致 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+  <style>
+    :root{
+      --primary:#3b7ddd; --primary-light:#e8f0fe; --white:#fff; --light:#f5f6f8; --border:#e2e8f0; --text:#2d3748;
+      --dot-platform:#3b7ddd; --dot-user:#2fb67b; --dot-team:#f6a035; --dot-system:#7a5af8;
+      --danger:#dc3545; --success:#2fb67b; --warning:#f6a035; --muted:#64748b;
+    }
+    body{background-color:var(--light);font-family:'Segoe UI',Tahoma,Arial,sans-serif;color:var(--text);}
+    .navbar{background:var(--white);border-bottom:1px solid var(--border);box-shadow:0 2px 10px rgba(0,0,0,.05);
+      position:fixed;top:0;left:0;right:0;z-index:1030;padding-left:260px}
+    .navbar-brand{color:var(--primary);font-weight:700;display:flex;gap:.6rem;align-items:center}
+    .navbar-toggler{display:none;border:none;font-size:1.25rem}
+    .navbar-toggler:focus{box-shadow:none}
+    .sidebar{background:var(--white);height:100vh;position:fixed;left:0;top:0;width:260px;padding-top:60px;
+      border-right:1px solid var(--border);box-shadow:2px 0 10px rgba(0,0,0,.05);z-index:1000;overflow-y:auto}
+    .sidebar .nav-link{color:#4a5568;padding:.8rem 1rem;margin:.1rem .5rem;border-radius:6px;display:flex;gap:.55rem;align-items:center}
+    .sidebar .nav-link i{color:#718096}
+    .sidebar .nav-link:hover,.sidebar .nav-link.active{color:var(--primary);background:var(--primary-light)}
+    .sidebar .nav-link.active i,.sidebar .nav-link:hover i{color:var(--primary)}
+    .sidebar .menu-section{padding:.75rem 1rem .25rem;color:#94a3b8;font-weight:700;font-size:.75rem;letter-spacing:.06em;text-transform:uppercase}
+    .cat-dot{display:inline-block;width:.6rem;height:.6rem;border-radius:2px}
+    .dot-platform{background:var(--dot-platform)} .dot-user{background:var(--dot-user)} .dot-team{background:var(--dot-team)} .dot-system{background:var(--dot-system)}
+    .main-content{margin-left:260px;padding:20px 20px 40px 20px;padding-top:80px}
+    .dashboard-card{background:var(--white);border-radius:10px;box-shadow:0 4px 6px rgba(0,0,0,.04);margin-bottom:18px;border:none}
+    .card-header{background:var(--white);border-bottom:1px solid var(--border);font-weight:600}
+    .small-muted{color:#6b7280}
+    .table-sm>:not(caption)>*>*{padding:.38rem .5rem}
+    .table thead th{font-weight:600;color:#4a5568;border-bottom:2px solid var(--border)}
+    .badge-soft{border-radius:6px;padding:.25rem .5rem}
+    .b-new{background:#e7f1ff;color:#1d4ed8}
+    .b-processing{background:#fff8e1;color:#b7791f}
+    .b-resolved{background:#e6fffa;color:#2c7a7b}
+    .b-need{background:#fef3c7;color:#92400e}
+    .b-reject{background:#fff1f2;color:#b91c1c}
+    .text-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Courier New",monospace}
+    .kpi{display:flex;align-items:center;gap:.6rem}
+    .kpi .icon{font-size:1.1rem;color:#64748b}
+    .kpi .val{font-weight:800;font-size:1.15rem}
+    /* 右侧抽屉（处理详情） */
+    .drawer{position:fixed;right:-920px;top:56px;bottom:0;width:920px;background:#fff;border-left:1px solid var(--border);
+      box-shadow:-8px 0 24px rgba(0,0,0,.08);transition:right .25s;z-index:1060;display:flex;flex-direction:column}
+    .drawer.open{right:0}
+    .drawer-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+    .drawer-body{padding:16px;overflow:auto}
+    .kv{display:grid;grid-template-columns:160px 1fr;gap:.5rem 1rem;align-items:center}
+    .kv .k{color:#64748b}
+    .kv .v{font-weight:600}
+    .timeline{border-left:3px solid var(--border);padding-left:12px;margin-left:6px}
+    .timeline .item{position:relative;margin-bottom:.9rem}
+    .timeline .item::before{content:'';position:absolute;left:-10px;top:.35rem;width:8px;height:8px;border-radius:50%;background:#1d4ed8}
+    .tl-meta{color:#64748b}
+    .tl-visibility{font-size:.75rem;border:1px solid #e5e7eb;border-radius:999px;padding:.05rem .4rem;margin-left:.35rem}
+    .btn-round{border-radius:999px}
+    .truncate{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    @media (max-width: 992px){
+      .sidebar{width:84px;padding-top:70px}
+      .sidebar .nav-link span.text,.sidebar .menu-section{display:none}
+      .main-content{margin-left:84px}
+      .navbar{padding-left:84px}
+      .drawer{width:100%}
+    }
+    @media (max-width: 768px){
+      .sidebar{transform:translateX(-100%);width:260px}
+      .sidebar.show{transform:translateX(0)}
+      .main-content{margin-left:0}
+      .navbar{padding-left:15px}
+      .navbar-toggler{display:block}
+    }
+  </style>
+</head>
+<body>
+  <!-- 顶部导航 -->
+  <nav class="navbar navbar-expand-lg navbar-light">
+    <div class="container-fluid">
+      <button class="navbar-toggler" type="button" id="sidebarToggle"><span class="navbar-toggler-icon"></span></button>
+      <a class="navbar-brand" href="#"><strong><i class="bi bi-building me-2"></i>总部管理系统</strong></a>
+      <div class="collapse navbar-collapse">
+        <ul class="navbar-nav ms-auto me-5">
+          <li class="nav-item dropdown ms-2">
+            <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" data-bs-toggle="dropdown">
+              <i class="bi bi-person-circle me-2"></i> 管理员
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li><a class="dropdown-item" href="#" id="btnLogout"><i class="bi bi-box-arrow-right me-2"></i>退出</a></li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- 左侧菜单 -->
+  <aside class="sidebar" id="sidebar">
+    <ul class="nav flex-column">
+      <li class="menu-section">平台</li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-dashboard.html"><span class="cat-dot dot-platform"></span><i class="bi bi-speedometer2"></i><span class="text">平台总仪表盘</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-finance-platform-fund-flow.html"><span class="cat-dot dot-platform"></span><i class="bi bi-currency-exchange"></i><span class="text">平台资金流水</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-tasks-global-management.html"><span class="cat-dot dot-platform"></span><i class="bi bi-list-task"></i><span class="text">任务全局管理</span></a></li>
+
+      <li class="menu-section">用户</li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-users-list.html"><span class="cat-dot dot-user"></span><i class="bi bi-people"></i><span class="text">平台用户列表</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-finance-recharge-review.html"><span class="cat-dot dot-user"></span><i class="bi bi-wallet2"></i><span class="text">用户充值审核</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-finance-withdrawal-payout.html"><span class="cat-dot dot-user"></span><i class="bi bi-cash-coin"></i><span class="text">用户提现审核</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-finance-user-fund-flow.html"><span class="cat-dot dot-user"></span><i class="bi bi-currency-exchange"></i><span class="text">用户资金流水</span></a></li>
+      <li class="nav-item"><a class="nav-link active" href="hq-admin-users-feedback.html"><span class="cat-dot dot-user"></span><i class="bi bi-chat-left-text"></i><span class="text">用户投诉反馈</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-audit-task-publish.html"><span class="cat-dot dot-user"></span><i class="bi bi-send-check"></i><span class="text">用户发布审核</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-audit-task-completion.html"><span class="cat-dot dot-user"></span><i class="bi bi-check2-circle"></i><span class="text">任务完成审核</span></a></li>
+
+      <li class="menu-section">团队</li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-team-dashboard.html"><span class="cat-dot dot-team"></span><i class="bi bi-graph-up"></i><span class="text">团队数据概览</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-team-list.html"><span class="cat-dot dot-team"></span><i class="bi bi-building"></i><span class="text">平台团队列表</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-finance-team-withdrawal-review.html"><span class="cat-dot dot-team"></span><i class="bi bi-bank"></i><span class="text">团队提现审核</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-finance-team-fund-flow.html"><span class="cat-dot dot-team"></span><i class="bi bi-currency-exchange"></i><span class="text">团队资金流水</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-team-feedback.html"><span class="cat-dot dot-team"></span><i class="bi bi-chat-left-text"></i><span class="text">团队投诉反馈</span></a></li>
+
+      <li class="menu-section">系统</li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-settings-categories.html"><span class="cat-dot dot-system"></span><i class="bi bi-tags"></i><span class="text">业务分类管理</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-system-api-management-monitoring.html"><span class="cat-dot dot-system"></span><i class="bi bi-hdd-network"></i><span class="text">接口管理监控</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-settings-system.html"><span class="cat-dot dot-system"></span><i class="bi bi-gear-fill"></i><span class="text">系统设置</span></a></li>
+    </ul>
+  </aside>
+
+  <!-- 主内容 -->
+  <main class="main-content">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <div>
+        <h4 class="mb-0">用户投诉反馈</h4>
+        <div class="small-muted">处理阶段由单独选择设置；新增记录分为“用户可见/仅内部”，避免误操作。</div>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-outline-primary btn-sm" id="btnExport"><i class="bi bi-download me-1"></i>导出 CSV</button>
+      </div>
+    </div>
+
+    <!-- KPI -->
+    <div class="row g-3 mb-3">
+      <div class="col-sm-6 col-lg-3"><div class="dashboard-card card h-100"><div class="card-body kpi"><i class="bi bi-chat-left icon"></i><div><div class="sub">新建</div><div class="val" id="kpiNew">0</div></div></div></div></div>
+      <div class="col-sm-6 col-lg-3"><div class="dashboard-card card h-100"><div class="card-body kpi"><i class="bi bi-hourglass-split icon"></i><div><div class="sub">处理中</div><div class="val" id="kpiProcessing">0</div></div></div></div></div>
+      <div class="col-sm-6 col-lg-3"><div class="dashboard-card card h-100"><div class="card-body kpi"><i class="bi bi-check2-circle icon"></i><div><div class="sub">已处理</div><div class="val" id="kpiResolved">0</div></div></div></div></div>
+      <div class="col-sm-6 col-lg-3"><div class="dashboard-card card h-100"><div class="card-body kpi"><i class="bi bi-exclamation-triangle icon"></i><div><div class="sub">需用户补充</div><div class="val" id="kpiNeed">0</div></div></div></div></div>
+    </div>
+
+    <!-- 筛选 -->
+    <div class="dashboard-card card">
+      <div class="card-body">
+        <form id="filterForm" class="row g-3 align-items-end">
+          <div class="col-12">
+            <div class="d-flex flex-wrap gap-2">
+              <button type="button" class="btn btn-sm btn-outline-primary btn-round active" data-status="all">全部</button>
+              <button type="button" class="btn btn-sm btn-outline-primary btn-round" data-status="new">新建</button>
+              <button type="button" class="btn btn-sm btn-outline-primary btn-round" data-status="processing">处理中</button>
+              <button type="button" class="btn btn-sm btn-outline-primary btn-round" data-status="need">需用户补充</button>
+              <button type="button" class="btn btn-sm btn-outline-primary btn-round" data-status="resolved">已处理</button>
+              <button type="button" class="btn btn-sm btn-outline-primary btn-round" data-status="reject">已驳回</button>
+            </div>
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label">反馈类型</label>
+            <select class="form-select" id="fType">
+              <option value="">全部类型</option>
+              <option value="投诉">投诉</option>
+              <option value="建议">建议</option>
+              <option value="BUG">BUG</option>
+              <option value="其他">其他</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label">用户性质</label>
+            <select class="form-select" id="fRole">
+              <option value="">全部</option>
+              <option value="publisher">发布用户</option>
+              <option value="receiver">接单用户</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label">时间范围</label>
+            <input type="date" class="form-control" id="fStart">
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label">至</label>
+            <input type="date" class="form-control" id="fEnd">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">关键词</label>
+            <input type="text" class="form-control" id="fKeyword" placeholder="用户ID/昵称/内容 等关键字">
+          </div>
+          <div class="col-12 d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="btnReset">重置</button>
+            <button type="button" class="btn btn-primary btn-sm" id="btnSearch"><i class="bi bi-search me-1"></i>查询</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 列表 -->
+    <div class="dashboard-card card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>用户反馈列表</span>
+        <div class="d-flex align-items-center gap-2">
+          <span class="text-muted small">每页</span>
+          <select class="form-select form-select-sm" id="pageSize" style="width:84px">
+            <option>10</option><option selected>15</option><option>20</option><option>30</option>
+          </select>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0" id="fbTable">
+            <thead>
+              <tr>
+                <th width="120">反馈ID</th>
+                <th width="90">类型</th>
+                <th>内容摘要</th>
+                <th width="120">用户</th>
+                <th width="140">所属团队</th>
+                <th width="120">用户性质</th>
+                <th width="120">优先级</th>
+                <th width="120">当前状态</th>
+                <th width="150">提交时间</th>
+                <th width="120">操作</th>
+              </tr>
+            </thead>
+            <tbody id="fbTbody"></tbody>
+          </table>
+        </div>
+        <div class="d-flex justify-content-between align-items-center p-2">
+          <div class="small text-muted" id="pageHint">第 1 / 1 页</div>
+          <nav><ul class="pagination pagination-sm mb-0" id="pager"></ul></nav>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 右侧抽屉 -->
+  <section class="drawer" id="drawer">
+    <div class="drawer-header">
+      <div class="d-flex align-items-center gap-2">
+        <span class="text-mono" id="dId">#</span>
+        <span id="dStatusBadge" class="badge-soft b-new">新建</span>
+      </div>
+      <button class="btn btn-sm btn-outline-secondary" id="btnCloseDrawer"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="drawer-body">
+
+      <!-- A. 处理阶段设置（独立于新增记录） -->
+      <div class="dashboard-card card">
+        <div class="card-header">处理阶段设置</div>
+        <div class="card-body">
+          <div class="d-flex flex-wrap gap-2 align-items-center">
+            <div class="input-group input-group-sm" style="width:320px">
+              <span class="input-group-text">当前阶段</span>
+              <select class="form-select" id="stageSelect">
+                <option value="new">新建</option>
+                <option value="processing">处理中</option>
+                <option value="need">需用户补充</option>
+                <option value="resolved">已处理</option>
+                <option value="reject">已驳回</option>
+              </select>
+            </div>
+            <button class="btn btn-sm btn-outline-success" id="btnSaveStage"><i class="bi bi-check2-circle me-1"></i>保存阶段</button>
+            <div class="small text-muted">提示：阶段仅通过本处保存生效；新增记录不会改变阶段。</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- B. 反馈基础信息：新增“用户ID” -->
+      <div class="dashboard-card card">
+        <div class="card-header">反馈基础信息</div>
+        <div class="card-body kv">
+          <div class="k">反馈ID</div><div class="v" id="dBaseId">-</div>
+          <div class="k">反馈类型</div><div class="v" id="dBaseType">-</div>
+          <div class="k">内容</div><div class="v" id="dBaseContent">-</div>
+          <div class="k">提交时间</div><div class="v" id="dBaseTime">-</div>
+          <div class="k">用户ID</div><div class="v" id="dBaseUserId">-</div>
+        </div>
+      </div>
+
+      <!-- C. 关联信息（手动填写） -->
+      <div class="dashboard-card card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>关联信息（手动填写）</span>
+          <button class="btn btn-sm btn-outline-primary" id="btnSaveAssoc"><i class="bi bi-save2 me-1"></i>保存关联信息</button>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">关联类型</label>
+              <select class="form-select" id="assocType">
+                <option value="">未选择</option>
+                <option value="资金">资金</option>
+                <option value="任务">任务</option>
+                <option value="其他">其他</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">关联编号/ID</label>
+              <input type="text" id="assocId" class="form-control" placeholder="如：资金流水号/任务ID">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">联系方式</label>
+              <input type="text" id="assocContact" class="form-control" placeholder="电话/微信/邮箱">
+            </div>
+            <div class="col-12">
+              <label class="form-label">关联说明</label>
+              <textarea id="assocNote" class="form-control" rows="2" placeholder="说明与备注..."></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label">附件（模拟）</label>
+              <input type="file" id="assocFile" class="form-control">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- D. 处理日志（时间线） -->
+      <div class="dashboard-card card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>处理日志</span>
+          <div class="small text-muted">记录显示“记录时的阶段”。</div>
+        </div>
+        <div class="card-body">
+          <div class="timeline" id="dTimeline"></div>
+        </div>
+      </div>
+
+      <!-- E. 新增处理记录：分离为“用户可见 / 仅内部”两块 -->
+      <div class="row g-3">
+        <div class="col-lg-6">
+          <div class="dashboard-card card">
+            <div class="card-header">新增处理记录（用户可见）</div>
+            <div class="card-body">
+              <div class="mb-2 small text-muted">此处新增的记录默认对用户可见，不会改变当前阶段。</div>
+              <div class="mb-3">
+                <label class="form-label">处理说明（不少于10字）</label>
+                <textarea id="logContentUser" class="form-control" rows="3" placeholder="写给用户看的说明…"></textarea>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">附件（模拟）</label>
+                <input type="file" id="logFileUser" class="form-control">
+              </div>
+              <div class="text-end">
+                <button class="btn btn-primary" id="btnAddLogUser"><i class="bi bi-plus-circle me-1"></i>添加记录</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="dashboard-card card">
+            <div class="card-header">新增处理记录（仅内部）</div>
+            <div class="card-body">
+              <div class="mb-2 small text-muted">此处新增的记录仅内部可见，不会改变当前阶段。</div>
+              <div class="mb-3">
+                <label class="form-label">处理说明（不少于10字）</label>
+                <textarea id="logContentInternal" class="form-control" rows="3" placeholder="内部沟通与处理说明…"></textarea>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">附件（模拟）</label>
+                <input type="file" id="logFileInternal" class="form-control">
+              </div>
+              <div class="text-end">
+                <button class="btn btn-outline-secondary" id="btnAddLogInternal"><i class="bi bi-plus-circle me-1"></i>添加记录</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 必要脚本 -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // ============== 模拟数据（新增 userId 字段；时间线统一使用 stageAt 记录“当时阶段”） ==============
+    const mockFeedback = [
+      { id:'FB20250912-001', userId:'U10001', type:'投诉', content:'提交完成审核后等待超48小时仍无结果。', user:'用户A', team:'星海传媒', role:'receiver', priority:'P2', status:'new', createdAt:'2025-09-11 20:03',
+        timeline:[ {time:'2025-09-11 20:03', user:'系统', stageAt:'new', visibility:'both', text:'用户提交反馈。'} ],
+        assoc:{ type:'任务', id:'1000', note:'关联到任务审核队列。', contact:'', file:'' }
+      },
+      { id:'FB20250912-002', userId:'U10002', type:'BUG', content:'移动端提交按钮点击无反应，无法上传。', user:'用户B', team:'星海传媒', role:'receiver', priority:'P1', status:'processing', createdAt:'2025-09-11 18:12',
+        timeline:[ {time:'2025-09-11 18:15', user:'张三', stageAt:'processing', visibility:'internal', text:'已复现，定位为表单校验冲突。'} ],
+        assoc:{ type:'任务', id:'1001', note:'表单校验异常。', contact:'', file:'' }
+      },
+      { id:'FB20250912-003', userId:'U10003', type:'建议', content:'任务大厅建议按平台+分类双维度筛选。', user:'用户C', team:'自由团队', role:'publisher', priority:'P3', status:'resolved', createdAt:'2025-09-10 10:22',
+        timeline:[
+          {time:'2025-09-10 10:23', user:'李四', stageAt:'processing', visibility:'both', text:'收到建议，评估中。'},
+          {time:'2025-09-11 09:10', user:'李四', stageAt:'resolved', visibility:'both', text:'已纳入版本计划，下周小版本上线。'}
+        ],
+        assoc:{ type:'其他', id:'', note:'需求已排期。', contact:'', file:'' }
+      },
+      { id:'FB20250912-004', userId:'U10004', type:'投诉', content:'提现排队超过24小时。', user:'用户D', team:'晨曦团队', role:'publisher', priority:'P1', status:'need', createdAt:'2025-09-12 08:05',
+        timeline:[ {time:'2025-09-12 09:00', user:'王五', stageAt:'need', visibility:'both', text:'请补充打款记录截图与实际到账时间。'} ],
+        assoc:{ type:'资金', id:'R20250912001', note:'关联到提现审核记录。', contact:'', file:'' }
+      },
+      { id:'FB20250912-005', userId:'U10005', type:'其他', content:'频繁收到风控提醒消息。', user:'用户E', team:'星海传媒', role:'receiver', priority:'P3', status:'reject', createdAt:'2025-09-09 12:30',
+        timeline:[ {time:'2025-09-09 13:02', user:'张三', stageAt:'reject', visibility:'both', text:'经核验为正常提示，非异常行为，不予处理。'} ],
+        assoc:{ type:'其他', id:'', note:'无进一步处理。', contact:'', file:'' }
+      }
+    ];
+
+    // ============== 工具函数 ==============
+    const $ = (sel, root=document)=>root.querySelector(sel);
+    const $$ = (sel, root=document)=>Array.from(root.querySelectorAll(sel));
+    function fmtStatusBadge(st){
+      const map={new:['b-new','新建'],processing:['b-processing','处理中'],resolved:['b-resolved','已处理'],need:['b-need','需补充'],reject:['b-reject','已驳回']};
+      if(!map[st]) return '<span class="badge-soft b-new">新建</span>';
+      return `<span class="badge-soft ${map[st][0]}">${map[st][1]}</span>`;
+    }
+    function escapeHtml(s){return (s??'').toString().replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m]);}
+    function inRange(dateStr, start, end){
+      if(!start && !end) return true;
+      const ts = new Date(dateStr.replace(/-/g,'/')).getTime();
+      if(start && ts < new Date(start).getTime()) return false;
+      if(end && ts > new Date(end).getTime()+24*3600*1000-1) return false;
+      return true;
+    }
+    function toCSV(rows){
+      // 导出字段保持为列表维度字段（不包含基础信息中的用户ID）
+      const head=['反馈ID','类型','内容','用户','团队','用户性质','优先级','状态','提交时间','关联类型','关联编号'];
+      const data = rows.map(r=>[r.id,r.type,r.content,r.user,r.team,r.role,r.priority,r.status,r.createdAt,(r.assoc?.type)||'',(r.assoc?.id)||'']);
+      const csv = [head, ...data].map(a=>a.map(v=>`"${(v??'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+      return csv;
+    }
+    function stageText(s){
+      return {new:'新建',processing:'处理中',need:'需补充',resolved:'已处理',reject:'已驳回'}[s]||s;
+    }
+    function nowStr(){
+      const d=new Date(); const p=n=>n<10?'0'+n:n;
+      return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    }
+
+    // ============== 页面状态 ==============
+    let state = {
+      data:[...mockFeedback],
+      view:[],
+      page:1, pageSize:15,
+      status:'all', type:'', role:'', start:'', end:'', keyword:'',
+      current:null
+    };
+
+    // ============== 渲染 ==============
+    function renderKPI(){
+      const cnt = (s)=>state.data.filter(r=>r.status===s).length;
+      $('#kpiNew').textContent = cnt('new');
+      $('#kpiProcessing').textContent = cnt('processing');
+      $('#kpiResolved').textContent = cnt('resolved');
+      $('#kpiNeed').textContent = cnt('need');
+    }
+
+    function applyFilters(){
+      const {status,type,role,start,end,keyword} = state;
+      let list = [...state.data];
+      if(status!=='all'){ list = list.filter(r=>r.status===status); }
+      if(type){ list = list.filter(r=>r.type===type); }
+      if(role){ list = list.filter(r=>r.role===role); }
+      if(start || end){ list = list.filter(r=>inRange(r.createdAt,start,end)); }
+      if(keyword){
+        const kw = keyword.trim().toLowerCase();
+        list = list.filter(r=> (r.id+r.content+r.user+r.team+(r.userId||'')).toLowerCase().includes(kw));
+      }
+      state.view = list; state.page = 1;
+      renderTable(); renderKPI();
+    }
+
+    function renderTable(){
+      const tbody = $('#fbTbody'); tbody.innerHTML='';
+      const {page,pageSize} = state;
+      const slice = state.view.slice((page-1)*pageSize, page*pageSize);
+      slice.forEach(r=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="text-mono">${escapeHtml(r.id)}</td>
+          <td>${escapeHtml(r.type)}</td>
+          <td><div class="truncate" title="${escapeHtml(r.content)}">${escapeHtml(r.content)}</div></td>
+          <td>
+            <div class="truncate" title="${escapeHtml(r.user)}">${escapeHtml(r.user)}</div>
+          </td>
+          <td>${escapeHtml(r.team)}</td>
+          <td>${r.role==='publisher'?'发布用户':'接单用户'}</td>
+          <td>${escapeHtml(r.priority)}</td>
+          <td>${fmtStatusBadge(r.status)}</td>
+          <td>${escapeHtml(r.createdAt)}</td>
+          <td>
+            <button class="btn btn-sm ${['resolved','reject'].includes(r.status)?'btn-outline-secondary':'btn-outline-primary'} btnOpen" data-id="${escapeHtml(r.id)}">
+              <i class="bi ${['resolved','reject'].includes(r.status)?'bi-eye':'bi-wrench'} me-1"></i>${['resolved','reject'].includes(r.status)?'查看':'处理'}
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      // 操作按钮事件
+      $$('.btnOpen').forEach(btn=>btn.addEventListener('click',()=>openDrawer(btn.dataset.id, ['resolved','reject'].includes(findItem(btn.dataset.id).status) )));
+      // 分页
+      const total = state.view.length, pages = Math.max(1, Math.ceil(total / state.pageSize));
+      const pager = $('#pager'); pager.innerHTML='';
+      for(let i=1;i<=pages;i++){
+        const li = document.createElement('li');
+        li.className = 'page-item'+(i===state.page?' active':'');
+        li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+        li.addEventListener('click', (e)=>{e.preventDefault(); state.page=i; renderTable();});
+        pager.appendChild(li);
+      }
+      $('#pageHint').textContent = `第 ${state.page} / ${pages} 页，共 ${total} 条`;
+    }
+
+    function findItem(id){ return state.data.find(x=>x.id===id); }
+
+    // ============== 抽屉逻辑 ==============
+    function openDrawer(id, readOnly=false){
+      const item = findItem(id); if(!item) return;
+      state.current = item;
+      // 顶部徽章
+      $('#dId').textContent = '#'+item.id;
+      const badge = $('#dStatusBadge'); badge.outerHTML = fmtStatusBadge(item.status).replace('<span','<span id="dStatusBadge"');
+      // 阶段选择框回显
+      $('#stageSelect').value = item.status;
+      // 基础信息（含用户ID）
+      $('#dBaseId').textContent = item.id;
+      $('#dBaseType').textContent = item.type;
+      $('#dBaseContent').textContent = item.content || '-';
+      $('#dBaseTime').textContent = item.createdAt;
+      $('#dBaseUserId').textContent = item.userId || '-';
+      // 关联信息回显
+      $('#assocType').value = item.assoc?.type || '';
+      $('#assocId').value = item.assoc?.id || '';
+      $('#assocContact').value = item.assoc?.contact || '';
+      $('#assocNote').value = item.assoc?.note || '';
+      $('#assocFile').value = ''; // 文件不可回显
+      // 时间线
+      renderTimeline();
+      // 只读模式时禁用“阶段选择/关联/新增记录”
+      ['stageSelect','btnSaveStage','assocType','assocId','assocContact','assocNote','assocFile','btnSaveAssoc',
+       'logContentUser','logFileUser','btnAddLogUser','logContentInternal','logFileInternal','btnAddLogInternal']
+        .forEach(id=>{$('#'+id).disabled = !!readOnly;});
+      $('#drawer').classList.add('open');
+    }
+
+    function renderTimeline(){
+      const box = $('#dTimeline'); box.innerHTML='';
+      const item = state.current; if(!item) return;
+      (item.timeline||[]).forEach(e=>{
+        const div = document.createElement('div');
+        div.className='item';
+        const vis = e.visibility==='internal' ? '<span class="tl-visibility">仅内部</span>' : '<span class="tl-visibility">对用户</span>';
+        const stage = e.stageAt || e.stage || item.status;
+        div.innerHTML = `
+          <div class="fw-semibold">${escapeHtml(e.user)} <span class="tl-meta">· ${escapeHtml(e.time)} · ${escapeHtml(stageText(stage))}</span> ${vis}</div>
+          <div>${escapeHtml(e.text)}</div>
+          ${e.file?`<div class="text-muted small"><i class="bi bi-paperclip"></i> ${escapeHtml(e.file)}</div>`:''}
+        `;
+        box.appendChild(div);
+      });
+    }
+
+    // 保存阶段（仅通过此处变更）
+    $('#btnSaveStage').addEventListener('click', ()=>{
+      if(!state.current) return;
+      const next = $('#stageSelect').value;
+      const prev = state.current.status;
+      if(next===prev){ alert('阶段未变化'); return; }
+      state.current.status = next;
+      // 记录一条内部日志，便于审计追溯
+      state.current.timeline.push({time:nowStr(), user:'系统', stageAt:next, visibility:'internal', text:`处理阶段由「${stageText(prev)}」变更为「${stageText(next)}」`});
+      // 刷新徽章与列表统计
+      const badge = $('#dStatusBadge'); badge.outerHTML = fmtStatusBadge(state.current.status).replace('<span','<span id="dStatusBadge"');
+      applyFilters();
+      renderTimeline();
+      // 若变更到终态，自动进入只读
+      if(['resolved','reject'].includes(state.current.status)){
+        ['stageSelect','btnSaveStage','assocType','assocId','assocContact','assocNote','assocFile','btnSaveAssoc',
+         'logContentUser','logFileUser','btnAddLogUser','logContentInternal','logFileInternal','btnAddLogInternal']
+          .forEach(id=>{$('#'+id).disabled = true;});
+      }
+      alert('处理阶段已保存');
+    });
+
+    // 保存关联信息（仅内部记录一条追溯）
+    $('#btnSaveAssoc').addEventListener('click', ()=>{
+      if(!state.current) return;
+      const t = $('#assocType').value;
+      const id = $('#assocId').value.trim();
+      const contact = $('#assocContact').value.trim();
+      const note = $('#assocNote').value.trim();
+      const file = $('#assocFile').files && $('#assocFile').files[0] ? $('#assocFile').files[0].name : '';
+      state.current.assoc = { type:t, id, contact, note, file };
+      state.current.timeline.push({time:nowStr(), user:'系统', stageAt:state.current.status, visibility:'internal', text:`更新关联信息：类型=${t||'-'}；编号=${id||'-'}`});
+      renderTimeline();
+      alert('关联信息已保存');
+    });
+
+    // 新增记录（用户可见）——不改变阶段
+    $('#btnAddLogUser').addEventListener('click', ()=>{
+      if(!state.current) return;
+      const txt = $('#logContentUser').value.trim();
+      if(txt.length < 10){ alert('处理说明至少10个字'); return; }
+      const fileInput = $('#logFileUser');
+      const fileName = fileInput.files && fileInput.files[0] ? fileInput.files[0].name : '';
+      state.current.timeline.push({time:nowStr(), user:'管理员', stageAt:state.current.status, visibility:'both', text:txt, file:fileName});
+      renderTimeline();
+      // 清空
+      $('#logContentUser').value=''; fileInput.value='';
+    });
+
+    // 新增记录（仅内部）——不改变阶段
+    $('#btnAddLogInternal').addEventListener('click', ()=>{
+      if(!state.current) return;
+      const txt = $('#logContentInternal').value.trim();
+      if(txt.length < 10){ alert('处理说明至少10个字'); return; }
+      const fileInput = $('#logFileInternal');
+      const fileName = fileInput.files && fileInput.files[0] ? fileInput.files[0].name : '';
+      state.current.timeline.push({time:nowStr(), user:'管理员', stageAt:state.current.status, visibility:'internal', text:txt, file:fileName});
+      renderTimeline();
+      // 清空
+      $('#logContentInternal').value=''; fileInput.value='';
+    });
+
+    // 事件：筛选与分页
+    $$('#filterForm .btn-round').forEach(btn=>btn.addEventListener('click',()=>{
+      $$('#filterForm .btn-round').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active'); state.status = btn.dataset.status; applyFilters();
+    }));
+    $('#btnSearch').addEventListener('click',()=>{
+      state.type=$('#fType').value; state.role=$('#fRole').value; state.start=$('#fStart').value; state.end=$('#fEnd').value; state.keyword=$('#fKeyword').value; applyFilters();
+    });
+    $('#btnReset').addEventListener('click',()=>{
+      $('#filterForm').reset(); $$('#filterForm .btn-round').forEach(b=>b.classList.remove('active')); $$('#filterForm .btn-round')[0].classList.add('active');
+      state={...state,status:'all',type:'',role:'',start:'',end:'',keyword:'',page:1}; applyFilters();
+    });
+    $('#pageSize').addEventListener('change',()=>{ state.pageSize= +$('#pageSize').value; state.page=1; renderTable(); });
+
+    // 展开/收起侧边栏 & 退出
+    $('#sidebarToggle').addEventListener('click',()=>$('#sidebar').classList.toggle('show'));
+    $('#btnLogout').addEventListener('click',(e)=>{e.preventDefault(); alert('已退出登录（模拟）');});
+
+    // 导出 CSV（当前筛选结果）
+    $('#btnExport').addEventListener('click', ()=>{
+      const csv = toCSV(state.view);
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'users-feedback.csv'; a.click(); URL.revokeObjectURL(url);
+    });
+
+    // 初始化
+    (function init(){
+      state.view = [...state.data];
+      renderTable(); renderKPI();
+    })();
+
+    // 关闭抽屉
+    $('#btnCloseDrawer').addEventListener('click', ()=>$('#drawer').classList.remove('open'));
+  </script>
+
+<script>
+// 侧边栏统一：插入“系统设置”（接口管理与监控下方），隐藏“数据概览/团队投诉反馈”
+(function(){
+  try{
+    const aside = document.querySelector('aside.sidebar');
+    if(aside){
+      const links = aside.querySelectorAll('a');
+      let apiLink = null, settingsLinkExists = false;
+      links.forEach(a=>{
+        if(a.textContent && a.textContent.includes('接口管理与监控')) apiLink = a;
+        if(a.textContent && a.textContent.trim() === '系统设置') settingsLinkExists = true;
+      });
+      if(apiLink && !settingsLinkExists){
+        const li = document.createElement('li'); li.className = 'nav-item';
+        const a = document.createElement('a'); a.className='nav-link'; a.textContent='系统设置';
+        a.href = 'hq-admin-settings-system_v1.2.1d_tabs.html';
+        li.appendChild(a);
+        const parentUl = apiLink.closest('ul') || aside.querySelector('ul');
+        parentUl.insertBefore(li, apiLink.parentElement.nextSibling);
+      }
+      // 隐藏“数据概览”“团队投诉反馈”
+      links.forEach(a=>{
+        const t = (a.textContent||'').trim();
+        if(t.includes('数据概览') || t.includes('团队投诉反馈')){
+          const li = a.closest('li'); if(li) li.style.display='none';
+        }
+      });
+    }
+  }catch(e){ console.warn('侧边栏统一失败', e); }
+})();
+</script>
+
+
+<script>
+// 将表格中的编号（TSK/TPA/TFA/RCG/WDU/WDT/TF/UF/GF/FBK...）自动变为可点击链接
+(function(){
+  const map = {
+    TSK: 'hq-admin-task-detail.html',
+    TPA: 'hq-admin-audit-task-publish.html',
+    TFA: 'hq-admin-audit-task-completion.html',
+    RCG: 'hq-admin-finance-recharge-review.html',
+    WDU: 'hq-admin-finance-withdrawal-review.html',
+    WDT: 'hq-admin-finance-team-withdrawal-review.html',
+    TF:  'hq-admin-finance-platform-fund-flow.html',
+    UF:  'hq-admin-finance-user-fund-flow.html',
+    GF:  'hq-admin-finance-team-fund-flow.html',
+    FBK: 'hq-admin-users-feedback.html',
+    CAT: 'hq-admin-settings-categories.html',
+    FRM: 'hq-admin-form-design.html',
+    APP: 'hq-admin-system-api-management-monitoring.html',
+    MSG: 'hq-admin-users-feedback.html',
+    LOG: 'hq-admin-audit-task-completion.html',
+    U:   'hq-admin-users-list.html',
+    G:   'hq-admin-team-list.html'
+  };
+  const re = /\b(TSK|TPA|TFA|RCG|WDU|WDT|TF|UF|GF|FBK|CAT|FRM|APP|MSG|LOG|U|G)\d{4,}(?:\s*\d{3,})?\b/g;
+  function linkifyNode(node){
+    if(node.children && node.children.length) return;
+    const text = node.textContent;
+    if(!text || !re.test(text)) return;
+    const html = text.replace(re, (m)=>{
+      const pref = m.match(/^[A-Z]+/)[0];
+      const href = map[pref] || '#';
+      const q = encodeURIComponent(m.replace(/\s+/g,''));
+      return `<a href="${href}?id=${q}" class="text-decoration-underline">${m}</a>`;
+    });
+    const span = document.createElement('span'); span.innerHTML = html;
+    node.replaceWith(span);
+  }
+  const targets = Array.from(document.querySelectorAll('td, span, div, p, li'));
+  targets.forEach(linkifyNode);
+})();
+</script>
+
+
+<style>
+/* 统一状态样式 */
+.unified-empty { text-align:center; padding:28px 12px; color:#6c757d; }
+.unified-empty .icon { display:inline-block; width:36px; height:36px; border-radius:50%; border:2px dashed #ced4da; margin-bottom:6px; }
+.unified-loading { position:relative; min-height:80px; }
+.unified-loading:after {
+  content:""; position:absolute; inset:0; background:
+    linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.04) 50%, rgba(0,0,0,0) 100%);
+  animation: shimmer 1.2s infinite;
+}
+@keyframes shimmer { 0%{background-position:-200% 0;} 100%{background-position:200% 0;} }
+.unified-error { color:#dc3545; padding:8px 0; }
+
+/* 统一筛选浮层 */
+#unifiedFilterPanel {
+  position: fixed; right: 16px; top: 84px; width: 360px; z-index: 1080;
+  background: #fff; border: 1px solid #dee2e6; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.12);
+  display:none;
+}
+#unifiedFilterPanel .hdr { padding: 10px 12px; border-bottom:1px solid #eee; display:flex; align-items:center; justify-content:space-between; }
+#unifiedFilterPanel .bd { padding: 12px; }
+#btnUnifiedFilter { margin-left: 8px; }
+
+/* 按钮意图颜色统一（基于文本） */
+button, .btn { transition: filter .2s ease; }
+.btn-intent-approve { background:#198754; color:#fff; border-color:#198754; }
+.btn-intent-reject { background:#dc3545; color:#fff; border-color:#dc3545; }
+.btn-intent-return { background:#ffc107; color:#212529; border-color:#ffc107; }
+.btn-intent-pay { background:#0d6efd; color:#fff; border-color:#0d6efd; }
+
+/* 可点击编号统一下划线（若页面未设置） */
+a.id-link { text-decoration: underline; }
+</style>
+
+<script>
+(function(){
+  // ===== 读取系统设置（货币/精度/时区） =====
+  const PUB_KEY = 'hq_sys_settings_v1_2_1d_published';
+  let locale = { lang:'zh-CN', tz:'Asia/Shanghai', currency:'CNY', precision:2 };
+  try{
+    const cfg = JSON.parse(localStorage.getItem(PUB_KEY)||'{}');
+    if(cfg.locale){
+      locale.lang = cfg.locale.lang || locale.lang;
+      locale.tz = cfg.locale.tz || locale.tz;
+      locale.currency = cfg.locale.currency || locale.currency;
+      locale.precision = parseInt(cfg.locale.precision||locale.precision,10);
+    }
+  }catch(e){}
+
+  // ===== 统一筛选：在首个 .card-header 右侧添加“筛选”按钮 + 浮层 =====
+  function ensureFilterUI(){
+    if(document.getElementById('unifiedFilterPanel')) return;
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-outline-secondary btn-sm';
+    btn.id = 'btnUnifiedFilter';
+    btn.innerHTML = '<i class="bi bi-funnel me-1"></i>筛选';
+    // 尝试挂到第一个 card-header 右侧
+    const hdr = document.querySelector('.card .card-header') || document.querySelector('.d-flex.align-items-center.justify-content-between');
+    if(hdr){ hdr.appendChild(btn); }
+    else {
+      // 顶部右上角浮动按钮（兜底）
+      const fbtn = btn.cloneNode(true);
+      fbtn.style.position='fixed'; fbtn.style.right='16px'; fbtn.style.top='20px'; fbtn.style.zIndex='1080';
+      document.body.appendChild(fbtn);
+    }
+
+    const panel = document.createElement('div');
+    panel.id = 'unifiedFilterPanel';
+    panel.innerHTML = `
+      <div class="hdr">
+        <strong>通用筛选</strong>
+        <button type="button" class="btn-close" id="btnUFclose"></button>
+      </div>
+      <div class="bd">
+        <div class="mb-2">
+          <label class="form-label">关键字</label>
+          <input class="form-control" id="uf-key" placeholder="编号/手机号/名称">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">状态</label>
+          <select class="form-select" id="uf-status">
+            <option value="">全部</option>
+            <option>待处理</option>
+            <option>处理中</option>
+            <option>已通过</option>
+            <option>已驳回</option>
+            <option>已完成</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">时间范围</label>
+          <div class="d-flex gap-2">
+            <input type="date" class="form-control" id="uf-from">
+            <input type="date" class="form-control" id="uf-to">
+          </div>
+        </div>
+        <div class="d-flex justify-content-end gap-2">
+          <button class="btn btn-outline-secondary btn-sm" id="uf-reset">重置</button>
+          <button class="btn btn-primary btn-sm" id="uf-apply">应用</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(panel);
+
+    document.body.addEventListener('click', function(e){
+      if(e.target && (e.target.id==='btnUnifiedFilter')){
+        const p = document.getElementById('unifiedFilterPanel');
+        p.style.display = (p.style.display==='none' || !p.style.display) ? 'block' : 'none';
+      }
+      if(e.target && (e.target.id==='btnUFclose')){
+        document.getElementById('unifiedFilterPanel').style.display = 'none';
+      }
+      if(e.target && (e.target.id==='uf-reset')){
+        document.getElementById('uf-key').value='';
+        document.getElementById('uf-status').value='';
+        document.getElementById('uf-from').value='';
+        document.getElementById('uf-to').value='';
+        // 客户端演示：移除高亮
+        document.querySelectorAll('.uf-hl').forEach(n=>n.classList.remove('uf-hl'));
+      }
+      if(e.target && (e.target.id==='uf-apply')){
+        // Demo：仅做关键字高亮；实际项目应触发具体表格筛选逻辑
+        const key = (document.getElementById('uf-key').value||'').trim();
+        document.querySelectorAll('.uf-hl').forEach(n=>n.classList.remove('uf-hl'));
+        if(key){
+          const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+          const re = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+          let node; while(node = walker.nextNode()){
+            if(re.test(node.nodeValue) && node.parentElement && node.parentElement.closest('table')){
+              node.parentElement.classList.add('uf-hl');
+            }
+          }
+        }
+        document.getElementById('unifiedFilterPanel').style.display = 'none';
+      }
+    });
+
+    const style = document.createElement('style');
+    style.textContent = `.uf-hl{ background: rgba(255, 230, 0, .45); outline: 1px dashed #ffbf00; }`;
+    document.head.appendChild(style);
+  }
+
+  // ===== 统一金额格式（根据表头关键字判列） =====
+  function unifyAmountFormat(){
+    const tables = Array.from(document.querySelectorAll('table'));
+    const nf = new Intl.NumberFormat(locale.lang, { style:'currency', currency: locale.currency, minimumFractionDigits: locale.precision, maximumFractionDigits: locale.precision });
+    tables.forEach(tb=>{
+      const ths = Array.from(tb.querySelectorAll('thead th, thead td')).map(th => (th.textContent||'').trim());
+      if(!ths.length) return;
+      ths.forEach((txt, idx)=>{
+        if(/金额|价|费|收款|打款|入账|出账/.test(txt)){
+          Array.from(tb.querySelectorAll(`tbody tr`)).forEach(tr=>{
+            const td = tr.children[idx]; if(!td) return;
+            const raw = (td.textContent||'').replace(/[,￥$]/g,'').trim();
+            const num = parseFloat(raw);
+            if(!isNaN(num)){
+              td.setAttribute('data-raw-amount', num);
+              td.textContent = nf.format(num);
+              td.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace';
+              td.style.textAlign = 'right';
+            }
+          });
+        }
+      });
+    });
+  }
+
+  // ===== 统一时间格式 =====
+  function unifyTimeFormat(){
+    const tables = Array.from(document.querySelectorAll('table'));
+    const fmt = new Intl.DateTimeFormat(locale.lang, { timeZone: locale.tz, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    tables.forEach(tb=>{
+      const ths = Array.from(tb.querySelectorAll('thead th, thead td')).map(th => (th.textContent||'').trim());
+      if(!ths.length) return;
+      ths.forEach((txt, idx)=>{
+        if(/时间|日期|创建|更新/.test(txt)){
+          Array.from(tb.querySelectorAll(`tbody tr`)).forEach(tr=>{
+            const td = tr.children[idx]; if(!td) return;
+            const s = (td.textContent||'').trim();
+            // 常见格式 "YYYY-MM-DD HH:mm[:ss]"
+            const iso = s.replace(/(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(:\d{2})?)/, '$1T$2');
+            const d = new Date(iso);
+            if(!isNaN(+d)){
+              td.title = d.toISOString();
+              td.textContent = fmt.format(d);
+              td.style.whiteSpace = 'nowrap';
+            }
+          });
+        }
+      });
+    });
+  }
+
+  // ===== 空态填充（无数据时） =====
+  function fillEmptyStates(){
+    Array.from(document.querySelectorAll('table')).forEach(tb=>{
+      const body = tb.querySelector('tbody'); if(!body) return;
+      const hasRow = body.querySelector('tr');
+      if(!hasRow){
+        const colSpan = (tb.querySelectorAll('thead th').length || 1);
+        const tr = document.createElement('tr');
+        const td = document.createElement('td'); td.colSpan = colSpan; td.className='unified-empty';
+        td.innerHTML = '<div class="icon"></div><div>暂无数据</div>';
+        tr.appendChild(td); body.appendChild(tr);
+      }
+    });
+  }
+
+  // ===== 动作按钮意图着色（基于文本内容） =====
+  function colorizeActionButtons(){
+    const btns = Array.from(document.querySelectorAll('button, a.btn'));
+    btns.forEach(b=>{
+      const t = (b.textContent||'').trim();
+      if(/通过|同意|Approve/i.test(t)) b.classList.add('btn-intent-approve');
+      if(/驳回|拒绝|Reject/i.test(t)) b.classList.add('btn-intent-reject');
+      if(/打回|退回|Return/i.test(t)) b.classList.add('btn-intent-return');
+      if(/打款|已转账|Pay/i.test(t)) b.classList.add('btn-intent-pay');
+    });
+  }
+
+  // ===== 启动顺序 =====
+  document.addEventListener('DOMContentLoaded', function(){
+    ensureFilterUI();
+    unifyAmountFormat();
+    unifyTimeFormat();
+    fillEmptyStates();
+    colorizeActionButtons();
+  });
+})();
+</script>
+
+</body>
+</html>

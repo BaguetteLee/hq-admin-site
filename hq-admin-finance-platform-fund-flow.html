@@ -1,0 +1,763 @@
+<!DOCTYPE html><html lang='zh-CN'><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Bootstrap JS for modal/offcanvas -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<style>
+    :root{
+        --primary:#3b7ddd; --primary-light:#e8f0fe; --white:#fff; --light:#f5f6f8; --border:#e2e8f0; --text:#2d3748;
+        --dot-platform:#3b7ddd; --dot-user:#2fb67b; --dot-team:#f6a035; --dot-system:#7a5af8;
+    }
+    body{background-color:var(--light);font-family:'Segoe UI',Tahoma,Arial,sans-serif;color:var(--text);}
+    .sidebar{background:var(--white);height:100vh;position:fixed;left:0;top:0;width:260px;padding-top:60px;border-right:1px solid var(--border);box-shadow:2px 0 10px rgba(0,0,0,.05);z-index:1000;overflow-y:auto;}
+    .sidebar .nav-link{color:#4a5568;padding:.8rem 1rem;margin:.1rem .5rem;border-radius:6px;display:flex;gap:.55rem;align-items:center}
+    .sidebar .nav-link:hover,.sidebar .nav-link.active{color:var(--primary);background:var(--primary-light)}
+    .sidebar .menu-section{padding:.75rem 1rem .25rem;color:#94a3b8;font-weight:700;font-size:.75rem;letter-spacing:.06em;text-transform:uppercase}
+    .cat-dot{display:inline-block;width:.6rem;height:.6rem;border-radius:2px}
+    .dot-platform{background:var(--dot-platform)} .dot-user{background:var(--dot-user)} .dot-team{background:var(--dot-team)} .dot-system{background:var(--dot-system)}
+    .main-content{margin-left:260px;padding:20px 20px 40px 20px;padding-top:80px}
+    .navbar{background:var(--white);border-bottom:1px solid var(--border);box-shadow:0 2px 10px rgba(0,0,0,.05);position:fixed;top:0;left:0;right:0;z-index:1030;padding-left:260px}
+    .dashboard-card{background:var(--white);border-radius:10px;box-shadow:0 4px 6px rgba(0,0,0,.04);margin-bottom:36px;border:none}
+    .card-header{background:var(--white);border-bottom:1px solid var(--border);font-weight:600}
+    .metric-value{font-size:1.8rem;font-weight:700} .metric-sub{font-size:.875rem;color:#6c757d}
+    .mini-tabs .btn{padding:.25rem .5rem;font-size:.75rem}
+    .table-sm td,.table-sm th{padding:.4rem .5rem}
+    .fixed-rows tbody tr.placeholder td{color:#cbd5e1}
+    .badge-type{border-radius:6px}
+    .badge-in{background:#e8f5e9;color:#2e7d32}
+    .badge-out{background:#fde8ea;color:#c62828}
+    .badge-freeze{background:#e3f2fd;color:#1565c0}
+    .badge-unfreeze{background:#f1f8e9;color:#33691e}
+    .badge-pi{background:#efe7ff;color:#5e35b1}
+    .text-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+    @media (max-width: 992px){
+        .sidebar{width:84px;padding-top:70px}
+        .sidebar .nav-link span.text,.sidebar .menu-section{display:none}
+        .main-content{margin-left:84px}
+        .navbar{padding-left:84px}
+    }
+    @media (max-width: 768px){
+        .sidebar{transform:translateX(-100%);width:260px}
+        .sidebar.show{transform:translateX(0)}
+        .main-content{margin-left:0}
+    }
+</style>
+<style>
+.dashboard-card{border:none;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.08);}
+.card-header{background:linear-gradient(90deg, rgba(59,125,221,0.06), rgba(16,185,129,0.05));font-weight:600}
+.table-wrap{overflow:auto}
+.table-wrap table{min-width:800px}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#eef2ff;color:#3730a3;font-size:12px;margin-left:.5rem}
+.kpi .metric-sub{font-size:.85rem;color:#6c757d}
+.kpi .metric-value{font-size:1.6rem;font-weight:800}
+.badge-freeze{background:#e3f2fd;color:#1565c0}
+.badge-unfreeze{background:#dcfce7;color:#166534}
+.badge-move{background:#f3e8ff;color:#6b21a8}
+.pager-bar{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.pager-info{color:#6b7280;font-size:.85rem;margin-right:.5rem}
+.text-mono{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace}
+.offcanvas-end{width:480px}
+.modal .table-sm th, .modal .table-sm td{padding:.3rem .5rem}
+</style>
+
+<style>
+/* ===== UI 覆盖：KPI 方块对齐与统一视觉 ===== */
+.kpi .dashboard-card .card-body{
+  /* 垂直居中，拉齐四块高度；保持现有 d-flex 行为不变 */
+  display:flex; align-items:center; min-height:120px;
+  padding:1.25rem 1.25rem;
+}
+.kpi .metric-sub{ margin-bottom:.25rem; }
+
+/* KPI 图标方块背景，解决“图标与内容不匹配、整体偏上”的观感 */
+.kpi .card-body i.fs-2{
+  width:48px; height:48px; border-radius:12px;
+  display:flex; align-items:center; justify-content:center;
+  background: rgba(59,125,221,0.08);  /* 参考 publish 的清浅色系 */
+  /* 若原本带有 color（如 style="color:#f59e0b"），依然保留文字/图标色 */
+}
+
+/* ===== UI 覆盖：列表按钮统一前置小方块（无需改 JS）===== */
+.table .btn-outline-secondary::before,
+.table .btn-outline-primary::before {
+  content:''; display:inline-block; vertical-align:middle;
+  width:0.65rem; height:0.65rem; margin-right:.4rem;
+  border:1px solid var(--border); border-radius:2px; background:#fff;
+}
+
+/* ===== UI 覆盖：去色化徽标（badge），改为中性灰底/灰字 ===== */
+.badge, .badge-in, .badge-out, .badge-freeze, .badge-unfreeze, .badge-pi{
+  background:#f1f5f9 !important; color:#334155 !important; border:1px solid #e2e8f0;
+}
+.table .badge{ font-weight:500; }
+
+/* 若表头/页脚存在过强色块，统一柔和边界 */
+.table thead.table-light, .table tfoot.table-light{
+  background:#f8fafc;
+}
+
+/* ===== 轻微版式微调，贴近 publish ===== */
+.card-header{ padding:1rem 1.25rem; }  /* 与 publish 接近的内边距 */
+.table-wrap{ overflow:auto; }          /* 保持可横向滚动的表格容器 */
+</style>
+
+</head><body><nav class="navbar navbar-expand-lg navbar-light">
+  <div class="container-fluid">
+    <button class="navbar-toggler" type="button" id="sidebarToggle"><span class="navbar-toggler-icon"></span></button>
+    <a class="navbar-brand" href="#"><strong><i class="bi bi-building me-2"></i>总部管理系统</strong></a>
+    <div class="collapse navbar-collapse">
+      <ul class="navbar-nav ms-auto me-5">
+        <li class="nav-item dropdown ms-2">
+          <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" data-bs-toggle="dropdown">
+            <i class="bi bi-person-circle me-2"></i> 管理员
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="#" id="btnLogout"><i class="bi bi-box-arrow-right me-2"></i>退出</a></li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav><aside class="sidebar">
+  <ul class="nav flex-column">
+    <li class="menu-section">平台</li>
+    <li class="nav-item"><a class="nav-link" href="hq-admin-dashboard.html"><span class="cat-dot dot-platform"></span><i class="bi bi-speedometer2"></i><span class="text">平台总仪表盘</span></a></li>
+    <li class="nav-item"><a class="nav-link active" href="hq-admin-finance-platform-fund-flow.html"><span class="cat-dot dot-platform"></span><i class="bi bi-currency-exchange"></i><span class="text">平台资金流水</span></a></li>
+    <li class="nav-item"><a class="nav-link" href="hq-admin-tasks-global-management.html"><span class="cat-dot dot-platform"></span><i class="bi bi-list-task"></i><span class="text">任务全局管理</span></a></li>
+
+    <li class="menu-section">用户</li>
+    <li class="nav-item"><a class="nav-link" href="hq-admin-users-list.html"><span class="cat-dot dot-user"></span><i class="bi bi-people"></i><span class="text">平台用户列表</span></a></li>
+    <li class="nav-item"><a class="nav-link" href="hq-admin-finance-recharge-review.html"><span class="cat-dot dot-user"></span><i class="bi bi-wallet2"></i><span class="text">用户充值审核</span></a></li>
+    <li class="nav-item"><a class="nav-link" href="hq-admin-finance-withdrawal-payout.html"><span class="cat-dot dot-user"></span><i class="bi bi-cash-coin"></i><span class="text">用户提现审核</span></a></li>
+    <li class="nav-item"><a class="nav-link" href="hq-admin-finance-user-fund-flow.html"><span class="cat-dot dot-user"></span><i class="bi bi-currency-exchange"></i><span class="text">用户资金流水</span></a></li>
+    <li class="nav-item"><a class="nav-link" href="hq-admin-users-feedback.html"><span class="cat-dot dot-user"></span><i class="bi bi-chat-left-text"></i><span class="text">用户投诉反馈</span></a></li>
+    <li class="nav-item"><a class="nav-link" href="hq-admin-audit-task-publish.html"><span class="cat-dot dot-user"></span><i class="bi bi-send-check"></i><span class="text">用户发布审核</span></a></li>
+    <li class="nav-item"><a class="nav-link" href="hq-admin-audit-task-completion.html"><span class="cat-dot dot-user"></span><i class="bi bi-check2-circle"></i><span class="text">任务完成审核</span></a></li>
+
+    <li class="menu-section">团队</li>
+    <li class="nav-item"><a class="nav-link" href="hq-admin-team-dashboard.html"><span class="cat-dot dot-team"></span><i class="bi bi-graph-up"></i><span class="text">团队数据概览</span></a></li>
+    <li class="nav-item"><a class="nav-link" href="hq-admin-team-list.html"><span class="cat-dot dot-team"></span><i class="bi bi-building"></i><span class="text">平台团队列表</span></a></li>
+    <li class="nav-item"><a class="nav-link" href="hq-admin-finance-team-withdrawal-review.html"><span class="cat-dot dot-team"></span><i class="bi bi-bank"></i><span class="text">团队提现审核</span></a></li>
+    <li class="nav-item"><a class="nav-link" href="hq-admin-finance-team-fund-flow.html"><span class="cat-dot dot-team"></span><i class="bi bi-currency-exchange"></i><span class="text">团队资金流水</span></a></li>
+    <li class="nav-item"><a class="nav-link" href="hq-admin-team-feedback.html"><span class="cat-dot dot-team"></span><i class="bi bi-chat-left-text"></i><span class="text">团队投诉反馈</span></a></li>
+
+    <li class="menu-section">系统</li>
+    <li class="nav-item"><a class="nav-link" href="hq-admin-settings-categories.html"><span class="cat-dot dot-system"></span><i class="bi bi-tags"></i><span class="text">业务分类管理</span></a></li>
+    <li class="nav-item"><a class="nav-link" href="hq-admin-system-api-management-monitoring.html"><span class="cat-dot dot-system"></span><i class="bi bi-hdd-network"></i><span class="text">接口管理监控</span></a></li>
+    <li class="nav-item"><a class="nav-link" href="hq-admin-settings-system.html"><span class="cat-dot dot-system"></span><i class="bi bi-gear-fill"></i><span class="text">系统设置</span></a></li>
+  </ul>
+</aside>
+<main class="main-content">
+  <div class="row align-items-center mb-3">
+    <div class="col">
+      <h4 class="mb-0">平台资金流水（HQ统一清结算）
+  </div>
+
+  <!-- KPI -->
+  <div class="row g-3 mb-2 kpi">
+    <div class="col-xxl-3 col-md-6">
+      <div class="card dashboard-card h-100">
+        <div class="card-body d-flex justify-content-between">
+          <div>
+            <div class="metric-sub">HQ 托管可用（总账）</div>
+            <div id="kpi_cust_avail" class="metric-value">¥ —</div>
+            <div class="metric-sub small">期间变动：<span id="kpi_cust_avail_delta">¥ —</span></div>
+          </div>
+          <i class="bi bi-piggy-bank-fill fs-2 text-primary"></i>
+        </div>
+      </div>
+    </div>
+    <div class="col-xxl-3 col-md-6">
+      <div class="card dashboard-card h-100">
+        <div class="card-body d-flex justify-content-between">
+          <div>
+            <div class="metric-sub">HQ 托管冻结（总账）</div>
+            <div id="kpi_cust_frozen" class="metric-value">¥ —</div>
+            <div class="metric-sub small">期间变动：<span id="kpi_cust_frozen_delta">¥ —</span></div>
+          </div>
+          <i class="bi bi-lock-fill fs-2" style="color:#f59e0b"></i>
+        </div>
+      </div>
+    </div>
+    <div class="col-xxl-3 col-md-6">
+      <div class="card dashboard-card h-100">
+        <div class="card-body d-flex justify-content-between">
+          <div>
+            <div class="metric-sub">HQ 经营现金（分成已收）</div>
+            <div id="kpi_op_cash" class="metric-value">¥ —</div>
+            <div class="metric-sub small">期间净变动：<span id="kpi_op_cash_delta">¥ —</span></div>
+          </div>
+          <i class="bi bi-safe2-fill fs-2" style="color:#8b5cf6"></i>
+        </div>
+      </div>
+    </div>
+    <div class="col-xxl-3 col-md-6">
+      <div class="card dashboard-card h-100">
+        <div class="card-body d-flex justify-content-between">
+          <div>
+            <div class="metric-sub">HQ 应付平台（代管经营款）</div>
+            <div id="kpi_payable" class="metric-value">¥ —</div>
+            <div class="metric-sub small">口径：平台份额累积余额（HQ 对平台的负债）</div>
+          </div>
+          <i class="bi bi-clipboard2-data-fill fs-2" style="color:#10b981"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 子账（托管） -->
+  <div class="card dashboard-card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <div>平台子账概览（托管）</div>
+      <div class="small text-muted">Σ 子账 = HQ 托管总账；冻结迁移是子账重分类；“在途”仅用于对外清算（提现）</div>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-wrap">
+        <table class="table table-sm mb-0">
+          <thead class="table-light">
+            <tr><th>平台（长名/UID）</th><th class="text-end">托管可用</th><th class="text-end">托管冻结</th><th class="text-end">在途结算</th></tr>
+          </thead>
+          <tbody id="tbody_subledger"></tbody>
+          <tfoot class="table-light">
+            <tr class="fw-bold"><td>合计（应=HQ总账）</td><td class="text-end" id="sub_total_avail">—</td><td class="text-end" id="sub_total_frozen">—</td><td class="text-end" id="sub_total_transit">—</td></tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    <div class="card-footer"><div class="pager-bar"><span class="pager-info" id="sub_info"></span>
+      <div class="btn-group btn-group-sm"><button class="btn btn-outline-secondary" id="sub_prev">上一页</button><button class="btn btn-outline-secondary" id="sub_next">下一页</button></div></div></div>
+  </div>
+
+  <!-- 平台经营款（应付平台） -->
+  <div class="card dashboard-card mb-3">
+    <div class="card-header">平台经营款—HQ 代管（应付平台）</div>
+    <div class="card-body p-0">
+      <div class="table-wrap">
+        <table class="table table-sm mb-0">
+          <thead class="table-light">
+            <tr><th>平台（长名/UID）</th><th class="text-end">期初</th><th class="text-end">本期增加</th><th class="text-end">本期减少</th><th class="text-end">期末应付</th><th>备注</th></tr>
+          </thead>
+          <tbody id="tbody_payable"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card-footer"><div class="pager-bar"><span class="pager-info" id="pay_info"></span>
+      <div class="btn-group btn-group-sm"><button class="btn btn-outline-secondary" id="pay_prev">上一页</button><button class="btn btn-outline-secondary" id="pay_next">下一页</button></div></div></div>
+  </div>
+
+  <!-- 充值（托管） -->
+  <div class="card dashboard-card mb-3">
+    <div class="card-header">充值流水（托管）</div>
+    <div class="card-body p-0">
+      <div class="table-wrap">
+        <table class="table table-sm mb-0">
+          <thead class="table-light"><tr><th>时间</th><th>发布用户</th><th>发布平台</th><th>渠道</th><th class="text-end">金额</th><th>备注</th></tr></thead>
+          <tbody id="tbody_recharge"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card-footer"><div class="pager-bar"><span class="pager-info" id="rcg_info"></span>
+      <div class="btn-group btn-group-sm"><button class="btn btn-outline-secondary" id="rcg_prev">上一页</button><button class="btn btn-outline-secondary" id="rcg_next">下一页</button></div></div></div>
+  </div>
+
+  <!-- HQ 分成收入（经营） -->
+  <div class="card dashboard-card mb-3">
+    <div class="card-header">HQ 分成收入（经营）</div>
+    <div class="card-body p-0">
+      <div class="table-wrap">
+        <table class="table table-sm mb-0">
+          <thead class="table-light"><tr><th>时间</th><th>来源</th><th>任务ID</th><th class="text-end">HQ 份额</th><th>详情</th></tr></thead>
+          <tbody id="tbody_hq_income"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card-footer"><div class="pager-bar"><span class="pager-info" id="inc_info"></span>
+      <div class="btn-group btn-group-sm"><button class="btn btn-outline-secondary" id="inc_prev">上一页</button><button class="btn btn-outline-secondary" id="inc_next">下一页</button></div></div></div>
+  </div>
+
+  <!-- 冻结/解冻/迁移（托管） -->
+  <div class="card dashboard-card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span>冻结 / 解冻 / 迁移（托管）</span>
+      <span class="small text-muted">迁移是子账归属挪动；不涉及在途</span>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-wrap">
+        <table class="table table-sm mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>时间</th><th>类型</th><th>任务ID</th><th>来源平台</th><th>去向平台</th>
+              <th class="text-end">金额</th><th>说明</th>
+            </tr>
+          </thead>
+          <tbody id="tbody_freeze"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card-footer"><div class="pager-bar"><span class="pager-info" id="frz_info"></span>
+      <div class="btn-group btn-group-sm"><button class="btn btn-outline-secondary" id="frz_prev">上一页</button><button class="btn btn-outline-secondary" id="frz_next">下一页</button></div></div></div>
+  </div>
+
+  <!-- 任务维度 -->
+  <div class="card dashboard-card mb-3">
+    <div class="card-header">任务维度明细（发布平台一 → 多接单平台拆分结算）</div>
+    <div class="card-body p-0">
+      <div class="table-wrap">
+        <table class="table table-sm mb-0">
+          <thead class="table-light">
+            <tr><th>任务ID</th><th>发布平台</th><th class="text-end">发布信息费</th><th class="text-end">总赏金</th><th>接单分配</th><th class="text-end">完成额</th><th class="text-end">退款额</th></tr>
+          </thead>
+          <tbody id="tbody_tasks"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card-footer"><div class="pager-bar"><span class="pager-info" id="tsk_info"></span>
+      <div class="btn-group btn-group-sm"><button class="btn btn-outline-secondary" id="tsk_prev">上一页</button><button class="btn btn-outline-secondary" id="tsk_next">下一页</button></div></div></div>
+  </div>
+
+  <!-- 提现 -->
+  <div class="card dashboard-card mb-3">
+    <div class="card-header">提现支出（托管）</div>
+    <div class="card-body p-0">
+      <div class="table-wrap">
+        <table class="table table-sm mb-0">
+          <thead class="table-light"><tr><th>时间</th><th>账户类型</th><th>账户名</th><th class="text-end">金额</th><th>状态</th><th>详情</th></tr></thead>
+          <tbody id="tbody_withdraw"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card-footer"><div class="pager-bar"><span class="pager-info" id="wd_info"></span>
+      <div class="btn-group btn-group-sm"><button class="btn btn-outline-secondary" id="wd_prev">上一页</button><button class="btn btn-outline-secondary" id="wd_next">下一页</button></div></div></div>
+  </div>
+
+  <!-- 恒等式校验 -->
+  <div class="card dashboard-card">
+    <div class="card-header">恒等式校验</div>
+    <div class="card-body">
+      <div id="eq_checks" class="small"></div>
+    </div>
+  </div>
+
+  <!-- HQ 分成收入详情 Modal -->
+  <div class="modal fade" id="incomeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header"><h6 class="modal-title">分成收入 · 详情</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <table class="table table-sm">
+            <thead class="table-light"><tr><th class="text-end">金额（HQ份额）</th><th class="text-end">信息费/佣金</th><th class="text-end">HQ</th><th class="text-end">平台</th></tr></thead>
+            <tbody id="income_modal_tbody"></tbody>
+          </table>
+          <div class="small text-muted" id="income_modal_note"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 接单分配 Offcanvas -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="allocDrawer" aria-labelledby="allocDrawerLabel">
+    <div class="offcanvas-header">
+      <h6 id="allocDrawerLabel">接单分配 · 详情</h6>
+      <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <table class="table table-sm">
+        <thead class="table-light"><tr><th>接单平台</th><th class="text-end">锁定金额</th></tr></thead>
+        <tbody id="alloc_tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 提现详情 Modal -->
+  <div class="modal fade" id="withdrawModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header"><h6 class="modal-title">提现 · 详情</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <table class="table table-sm">
+            <thead class="table-light"><tr><th>字段</th><th>值</th></tr></thead>
+            <tbody id="withdraw_modal_tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="text-muted small my-3">注：现金全在 HQ；平台分成=内部结转；冻结迁移不产生在途。详情统一使用模态/抽屉以表格呈现。</div>
+</main>
+
+<script>
+/* ===== Data generation (v2) ===== */
+const PUB_PLATFORMS = [
+  { code:"PLAT-HAIZHOU-1102", name:"海舟互联-任务广场" },
+  { code:"PLAT-BEICHEN-8813", name:"北辰数科-旗舰发布平台" },
+  { code:"PLAT-LINGXI-7733", name:"灵犀智服-众包平台" },
+  { code:"PLAT-TIANXING-6621", name:"天行数智-聚合发布" },
+  { code:"PLAT-HONGTU-5099", name:"鸿图云科-企业发布中心" },
+  { code:"PLAT-JIANGYU-4301", name:"江域数联-生态发布" },
+  { code:"PLAT-CHENXING-3290", name:"晨星网络-精准投放" }
+];
+const DOER_PLATFORMS = [
+  { code:"TAKE-AURORA-9021", name:"极光众工-移动端" },
+  { code:"TAKE-ZHENGBANG-7402", name:"正邦云服-接单平台" },
+  { code:"TAKE-RUIXING-6388", name:"瑞星数工-快接单" },
+  { code:"TAKE-YUANBO-5225", name:"远博众服-任务集市" },
+  { code:"TAKE-TIANHE-4881", name:"天合智链-接单端" },
+  { code:"TAKE-GUANGYI-4310", name:"广益云作-众包端" },
+  { code:"TAKE-HAOKE-4029", name:"浩科云工-专业接单" }
+];
+
+const PUB_USERS = ["宏远科技-市场部","星瀚网络-投放组","沧溟数据-商务线","瑞泽传媒-内容组","瀚卓互动-品牌组","九州数科-投放中心","研擎科技-渠道组","浩源传媒-采买组"];
+const DOER_USERS = ["宁川-优选工人","蓝海-资深接单者","越城-金牌接单","三合-质检合伙","科明-效率工人","青禾-星级达人","广润-合同工","灵鲲-可信工人"];
+
+const rnd = (min,max)=>Math.floor(Math.random()*(max-min+1))+min;
+const pick = arr => arr[rnd(0,arr.length-1)];
+const now = new Date();
+const randDate = (daysBack=30, hourMin=8, hourMax=22)=>{
+  const d = new Date(now);
+  d.setDate(now.getDate()-rnd(0,daysBack));
+  d.setHours(rnd(hourMin,hourMax), rnd(0,59), rnd(0,59), 0);
+  return d.toISOString().slice(0,19).replace('T',' ');
+};
+
+const COMMISSION_RATE = 0.20;       // 接单平台抽佣率
+const HQ_SPLIT_PUB = 0.20;          // 发布信息费 HQ 份额
+const HQ_SPLIT_DOER = 0.30;         // 接单佣金 HQ 份额
+
+let TASKS=[], RECHARGE=[], FREEZE=[], HQ_INCOME=[], WITHDRAW=[];
+let SUBLEDGER_MAP = new Map();      // 托管子账
+let PAYABLE_MAP = new Map();        // HQ 对平台应付（经营款）
+
+[...PUB_PLATFORMS, ...DOER_PLATFORMS].forEach(p=>{
+  SUBLEDGER_MAP.set(p.code, {name:p.name, avail:0, frozen:0, transit:0});
+  PAYABLE_MAP.set(p.code, {name:p.name, begin:0, inc:0, dec:0}); // dec 演示为 0
+});
+
+let HQ_CUST_AVAIL=0, HQ_CUST_FROZEN=0, HQ_OP_CASH=0;
+let delta_avail=0, delta_frozen=0, delta_cash=0;
+
+// 任务量
+const TASK_COUNT = 46;
+
+for(let i=0;i<TASK_COUNT;i++){
+  const pub = pick(PUB_PLATFORMS);
+  const amt = rnd(2000,12000);
+  const tId = `T-${now.getFullYear()}${String(i+1).padStart(4,'0')}`;
+  const S = rnd(300,3000);
+  const F = rnd(30,300);
+
+  // 充值
+  RECHARGE.push({time:randDate(30), user:pick(PUB_USERS), platform:pub, channel:(rnd(0,1)?'支付宝':'微信'), amount:amt, note:`入 HQ 托管可用`});
+  HQ_CUST_AVAIL += amt; delta_avail += amt; SUBLEDGER_MAP.get(pub.code).avail += amt;
+
+  // 发布冻结 S+F
+  FREEZE.push({time:randDate(28), type:'发布冻结', task:tId, from:pub, to:null, amount:+(S+F), note:`锁定 赏金${S} + 信息费${F}`});
+  HQ_CUST_AVAIL -= (S+F); HQ_CUST_FROZEN += (S+F); delta_avail -= (S+F); delta_frozen += (S+F);
+  SUBLEDGER_MAP.get(pub.code).avail -= (S+F); SUBLEDGER_MAP.get(pub.code).frozen += (S+F);
+
+  // 信息费释放 -> HQ 份额 + 平台份额（内部结转）
+  FREEZE.push({time:randDate(27), type:'信息费释放', task:tId, from:pub, to:null, amount:-F, note:`客户侧释放信息费 ${F}`});
+  HQ_CUST_FROZEN -= F; delta_frozen -= F; SUBLEDGER_MAP.get(pub.code).frozen -= F;
+
+  const pub_hq_amt = +(F * HQ_SPLIT_PUB);
+  const pub_plat_amt = +(F * (1-HQ_SPLIT_PUB));
+  HQ_INCOME.push({time:randDate(26), source:pub, task:tId, amount:pub_hq_amt, kind:'pub', gross:F, hq:pub_hq_amt, plat:pub_plat_amt});
+  HQ_OP_CASH += pub_hq_amt; delta_cash += pub_hq_amt;
+  PAYABLE_MAP.get(pub.code).inc += pub_plat_amt;
+
+  // 接单迁移（1~4）
+  let remaining = S;
+  const takerCount = rnd(1,4);
+  let takers = [];
+  for(let k=0;k<takerCount;k++){
+    const doer = pick(DOER_PLATFORMS);
+    const seg = (k===takerCount-1)? remaining : Math.max(50, Math.min(remaining-50, rnd(50, Math.floor(remaining*0.6))));
+    remaining -= seg;
+    takers.push({platform:doer, locked:seg});
+    FREEZE.push({time:randDate(26), type:'冻结迁移', task:tId, from:pub, to:doer, amount:+seg, note:`发布→接单`});
+    SUBLEDGER_MAP.get(pub.code).frozen -= seg; SUBLEDGER_MAP.get(doer.code).frozen += seg;
+  }
+
+  // 完成与退款
+  let done=0, refund=0;
+  takers.forEach(tk=>{
+    const complete = rnd(Math.floor(tk.locked*0.4), tk.locked);
+    const ref = tk.locked - complete;
+
+    FREEZE.push({time:randDate(18), type:'结算释放', task:tId, from:tk.platform, to:null, amount:-complete, note:`接单完成 ${complete}`});
+    HQ_CUST_FROZEN -= complete; delta_frozen -= complete; SUBLEDGER_MAP.get(tk.platform.code).frozen -= complete;
+
+    const fee = +(complete * COMMISSION_RATE);
+    const doer_hq_amt = +(fee * HQ_SPLIT_DOER);
+    const doer_plat_amt = +(fee * (1-HQ_SPLIT_DOER));
+    HQ_INCOME.push({time:randDate(16), source: tk.platform, task:tId, amount:doer_hq_amt, kind:'doer', gross:fee, hq:doer_hq_amt, plat:doer_plat_amt});
+    HQ_OP_CASH += doer_hq_amt; delta_cash += doer_hq_amt;
+    PAYABLE_MAP.get(tk.platform.code).inc += doer_plat_amt;
+
+    if(ref>0){
+      FREEZE.push({time:randDate(14), type:'退款释放', task:tId, from:tk.platform, to:null, amount:-ref, note:`未完成 ${ref} 退回发布侧`});
+      HQ_CUST_FROZEN -= ref; delta_frozen -= ref; SUBLEDGER_MAP.get(tk.platform.code).frozen -= ref;
+      SUBLEDGER_MAP.get(pub.code).avail += ref; HQ_CUST_AVAIL += ref; delta_avail += ref;
+    }
+    done += complete; refund += ref;
+  });
+
+  TASKS.push({
+    taskId:tId, pub, infoFee:F, bounty:S,
+    takers: takers.map(tk=>({name: tk.platform.name, amount: tk.locked})),
+    done, refund
+  });
+}
+
+// 提现：补充有“详情”的模拟数据
+for(let i=0;i<24;i++){
+  const accType = (rnd(0,1)?'发布用户':'接单用户');
+  const accName = accType==='发布用户'? pick(PUB_USERS) : pick(DOER_USERS);
+  const amount = rnd(80, 5000);
+  const status = pick(['已完成','已打款待确认','已通过待打款']);
+  WITHDRAW.push({
+    id: 'WD'+String(i+1).padStart(4,'0'),
+    time: randDate(10), acctype:accType, accname:accName, amount, status,
+    channel: pick(['支付宝代付','银行对公','微信企业付款']),
+    fee: +(amount * 0.001).toFixed(2)*1,
+    bank_trace: 'TR'+rnd(100000,999999)
+  });
+}
+
+// KPI
+const KPI = {
+  custodial_available: +(Array.from(SUBLEDGER_MAP.values()).reduce((s,v)=>s+v.avail,0)).toFixed(2)*1,
+  custodial_frozen:    +(Array.from(SUBLEDGER_MAP.values()).reduce((s,v)=>s+v.frozen,0)).toFixed(2)*1,
+  operating_cash:      +HQ_OP_CASH.toFixed(2),
+  payable_platforms:   +(Array.from(PAYABLE_MAP.values()).reduce((s,v)=>s+v.inc-v.dec,0)).toFixed(2)*1,
+  delta: {
+    custodial_available: +delta_avail.toFixed(2),
+    custodial_frozen: +delta_frozen.toFixed(2),
+    operating_cash: +delta_cash.toFixed(2)
+  }
+};
+
+const SUBLEDGER = Array.from(SUBLEDGER_MAP.entries()).map(([code,v])=>({
+  code, platform: `${v.name}（${code}）`,
+  avail:+v.avail.toFixed(2), frozen:+v.frozen.toFixed(2), transit:+v.transit.toFixed(2)
+}));
+const PAYABLE = Array.from(PAYABLE_MAP.entries()).map(([code,v])=>({
+  code, platform: `${v.name}（${code}）`,
+  begin:+v.begin.toFixed(2), inc:+v.inc.toFixed(2), dec:+v.dec.toFixed(2), end:+(v.begin+v.inc-v.dec).toFixed(2),
+  note: '平台份额由信息费/抽佣内部结转形成'
+}));
+
+/* ===== 分页设置（每页固定 10 条） ===== */
+function makePager(data, infoId, prevId, nextId, renderChunk){
+  const size = 10;  // 每页 10 条
+  let page = 0;
+  const infoEl = document.getElementById(infoId);
+  const prevEl = document.getElementById(prevId);
+  const nextEl = document.getElementById(nextId);
+
+  function update(){
+    const total = data.length;
+    const pages = Math.max(1, Math.ceil(total/size));
+    page = Math.min(page, pages-1);
+    const from = page*size, to = Math.min(total, from+size);
+    renderChunk(data.slice(from,to));
+    infoEl.textContent = `第 ${page+1}/${pages} 页 · 共 ${total} 条`;
+    prevEl.disabled = (page<=0);
+    nextEl.disabled = (page>=pages-1);
+  }
+
+  prevEl.addEventListener('click', ()=>{ if(page>0){ page--; update(); }});
+  nextEl.addEventListener('click', ()=>{ const totalPages = Math.ceil(data.length/size); if(page<totalPages-1){ page++; update(); }});
+  update();
+  return { setData:(d)=>{ data=d; page=0; update(); } };
+}
+
+const fmt = n => '¥ ' + Number(n).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2});
+const el = id => document.getElementById(id);
+
+function renderKPI(){
+  el('kpi_cust_avail').textContent = fmt(KPI.custodial_available);
+  el('kpi_cust_frozen').textContent = fmt(KPI.custodial_frozen);
+  el('kpi_op_cash').textContent = fmt(KPI.operating_cash);
+  el('kpi_payable').textContent = fmt(KPI.payable_platforms);
+
+  el('kpi_cust_avail_delta').textContent = fmt(KPI.delta.custodial_available);
+  el('kpi_cust_frozen_delta').textContent = fmt(KPI.delta.custodial_frozen);
+  el('kpi_op_cash_delta').textContent = fmt(KPI.delta.operating_cash);
+}
+// 子账渲染：分页只渲染当前页，但“合计”仍统计全部子账
+function renderSubledgerPaged(rows){
+  const tb = el('tbody_subledger'); tb.innerHTML='';
+  rows.forEach(r=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${r.platform}</td>
+      <td class="text-end">¥ ${Number(r.avail).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+      <td class="text-end">¥ ${Number(r.frozen).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+      <td class="text-end">¥ ${Number(r.transit).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</td>`;
+    tb.appendChild(tr);
+  });
+  // 合计保持计算全部数据
+  let ta=0, tf=0, tt=0;
+  SUBLEDGER.forEach(r=>{ ta+=r.avail; tf+=r.frozen; tt+=r.transit; });
+  el('sub_total_avail').textContent = '¥ ' + Number(ta).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2});
+  el('sub_total_frozen').textContent = '¥ ' + Number(tf).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2});
+  el('sub_total_transit').textContent = '¥ ' + Number(tt).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+function init(){
+  renderKPI();
+
+  // 子账分页（每页 10 条）
+  makePager(SUBLEDGER, 'sub_info','sub_prev','sub_next', rows=>{
+    renderSubledgerPaged(rows);
+  });
+
+  // 排序
+  RECHARGE.sort((a,b)=>a.time.localeCompare(b.time));
+  HQ_INCOME.sort((a,b)=>a.time.localeCompare(b.time));
+  FREEZE.sort((a,b)=>a.time.localeCompare(b.time));
+  TASKS.sort((a,b)=>a.taskId.localeCompare(b.taskId));
+  WITHDRAW.sort((a,b)=>a.time.localeCompare(b.time));
+
+  // 平台应付
+  makePager(PAYABLE, 'pay_info','pay_prev','pay_next', rows=>{
+    const tb = el('tbody_payable'); tb.innerHTML='';
+    rows.forEach(p=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${p.platform}</td>
+        <td class="text-end">${fmt(p.begin)}</td>
+        <td class="text-end">${fmt(p.inc)}</td>
+        <td class="text-end">${fmt(p.dec)}</td>
+        <td class="text-end fw-bold">${fmt(p.end)}</td>
+        <td>${p.note}</td>`;
+      tb.appendChild(tr);
+    });
+  });
+
+  // 充值
+  makePager(RECHARGE, 'rcg_info','rcg_prev','rcg_next', rows=>{
+    const tb = el('tbody_recharge'); tb.innerHTML='';
+    rows.forEach(r=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.time}</td><td>${r.user}</td><td>${r.platform.name}</td><td>${r.channel}</td>
+        <td class="text-end">${fmt(r.amount)}</td><td>${r.note||''}</td>`;
+      tb.appendChild(tr);
+    });
+  });
+
+  // HQ 分成（HQ份额） + 模态详情
+  makePager(HQ_INCOME, 'inc_info','inc_prev','inc_next', rows=>{
+    const tb = el('tbody_hq_income'); tb.innerHTML='';
+    rows.forEach((r,idx)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.time}</td><td>${r.source.name}</td><td class="text-mono">${r.task}</td>
+        <td class="text-end">${fmt(r.amount)}</td>
+        <td><button class="btn btn-link btn-sm" data-idx="${idx}" data-bs-toggle="modal" data-bs-target="#incomeModal">查看</button></td>`;
+      // attach row data index by dataset global index: need to map pager slice index to original index
+      tr.querySelector('button').addEventListener('click', ()=>{
+        const tbody = el('income_modal_tbody'); tbody.innerHTML='';
+        const row = r;
+        const trd = document.createElement('tr');
+        trd.innerHTML = `<td class="text-end">${fmt(row.amount)}</td>
+          <td class="text-end">${fmt(row.gross)}</td>
+          <td class="text-end">${fmt(row.hq)}</td>
+          <td class="text-end">${fmt(row.plat)}</td>`;
+        tbody.appendChild(trd);
+        el('income_modal_note').textContent = row.kind==='pub' ? '口径：发布信息费分配（HQ 份额 + 平台份额，内部结转）' : '口径：接单佣金分配（HQ 份额 + 平台份额，内部结转）';
+      });
+      tb.appendChild(tr);
+    });
+  });
+
+  // 冻结/解冻/迁移（平台名不带编码）
+  makePager(FREEZE, 'frz_info','frz_prev','frz_next', rows=>{
+    const tb = el('tbody_freeze'); tb.innerHTML='';
+    const badge = (t)=>{
+      if(t==='发布冻结') return '<span class="badge badge-freeze">发布冻结</span>';
+      if(t==='信息费释放') return '<span class="badge badge-unfreeze">信息费释放</span>';
+      if(t==='结算释放') return '<span class="badge badge-unfreeze">结算释放</span>';
+      if(t==='退款释放') return '<span class="badge badge-unfreeze">退款释放</span>';
+      return '<span class="badge badge-move">冻结迁移</span>';
+    };
+    rows.forEach(r=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.time}</td><td>${badge(r.type)}</td><td class="text-mono">${r.task}</td>
+        <td>${r.from? r.from.name : '—'}</td>
+        <td>${r.to? r.to.name : '—'}</td>
+        <td class="text-end">${fmt(r.amount)}</td><td>${r.note||''}</td>`;
+      tb.appendChild(tr);
+    });
+  });
+
+  // 任务维度（接单分配移至右侧抽屉）
+  makePager(TASKS, 'tsk_info','tsk_prev','tsk_next', rows=>{
+    const tb = el('tbody_tasks'); tb.innerHTML='';
+    rows.forEach((t)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td class="text-mono">${t.taskId}</td>
+        <td>${t.pub.name}</td>
+        <td class="text-end">${fmt(t.infoFee)}</td>
+        <td class="text-end">${fmt(t.bounty)}</td>
+        <td><button class="btn btn-link btn-sm">查看</button></td>
+        <td class="text-end">${fmt(t.done)}</td>
+        <td class="text-end">${fmt(t.refund)}</td>`;
+      tr.querySelector('button').addEventListener('click', ()=>{
+        const tb2 = el('alloc_tbody'); tb2.innerHTML = '';
+        t.takers.forEach(item=>{
+          const tr2 = document.createElement('tr');
+          tr2.innerHTML = `<td>${item.name}</td><td class="text-end">${fmt(item.amount)}</td>`;
+          tb2.appendChild(tr2);
+        });
+        const oc = new bootstrap.Offcanvas(document.getElementById('allocDrawer'));
+        oc.show();
+      });
+      tb.appendChild(tr);
+    });
+  });
+
+  // 提现（带模态详情）
+  makePager(WITHDRAW, 'wd_info','wd_prev','wd_next', rows=>{
+    const tb = el('tbody_withdraw'); tb.innerHTML='';
+    rows.forEach(w=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${w.time}</td><td>${w.acctype}</td><td>${w.accname}</td>
+        <td class="text-end">${fmt(w.amount)}</td><td>${w.status}</td>
+        <td><button class="btn btn-link btn-sm">查看</button></td>`;
+      tr.querySelector('button').addEventListener('click', ()=>{
+        const tbm = el('withdraw_modal_tbody'); tbm.innerHTML='';
+        const rows = [
+          ['提现单号', w.id],
+          ['账户类型', w.acctype],
+          ['账户名', w.accname],
+          ['金额', fmt(w.amount)],
+          ['状态', w.status],
+          ['渠道', w.channel],
+          ['手续费', fmt(w.fee)],
+          ['银行流水', w.bank_trace]
+        ];
+        rows.forEach(kv=>{
+          const trm = document.createElement('tr');
+          trm.innerHTML = `<td>${kv[0]}</td><td>${kv[1]}</td>`;
+          tbm.appendChild(trm);
+        });
+        const md = new bootstrap.Modal(document.getElementById('withdrawModal'));
+        md.show();
+      });
+      tb.appendChild(tr);
+    });
+  });
+
+  // 恒等式校验
+  let ta=0, tf=0; SUBLEDGER.forEach(r=>{ ta+=r.avail; tf+=r.frozen; });
+  const ok = (Math.abs(ta-KPI.custodial_available)<1e-6) && (Math.abs(tf-KPI.custodial_frozen)<1e-6);
+  document.getElementById('eq_checks').innerHTML = `
+    <div>• HQ托管汇总一致（Σ子账 = HQ总账）：<strong class="${ok?'text-success':'text-danger'}">${ok?'通过':'不通过'}</strong></div>
+    <div class="text-muted">• 分成=内部结转：HQ 收入（HQ份额） + HQ 对平台应付（平台份额），现金始终在 HQ。</div>
+    <div class="text-muted">• 在途仅用于对外清算（提现等），冻结迁移不产生在途。</div>
+  `;
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body></html>

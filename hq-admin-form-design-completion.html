@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>总部管理系统 - 完成凭证表单设计</title>
+  <!-- 依赖：Bootstrap、Bootstrap Icons（与全站一致） -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+  <style>
+    /* ============== 主题变量（与 dashboard 一致） ============== */
+    :root{
+      --primary:#3b7ddd;
+      --primary-light:#e8f0fe;
+      --red:#dc3545;
+      --white:#ffffff;
+      --light:#f5f6f8;
+      --border:#e2e8f0;
+      --text:#2d3748;
+      --dot-platform:#3b7ddd;
+      --dot-user:#2fb67b;
+      --dot-team:#f6a035;
+      --dot-system:#7a5af8;
+    }
+    body{background-color:var(--light);font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:var(--text);}
+    /* 侧边栏/顶部栏（与 dashboard 对齐） */
+    .sidebar{background-color:var(--white);color:#4a5568;height:100vh;position:fixed;left:0;top:0;width:260px;padding-top:60px;box-shadow:2px 0 10px rgba(0,0,0,0.05);border-right:1px solid var(--border);z-index:1000;overflow-y:auto;}
+    .sidebar .nav-link{color:#4a5568;padding:.8rem 1rem;margin:.1rem .5rem;border-radius:6px;transition:all .2s;display:flex;align-items:center;gap:.55rem;}
+    .sidebar .nav-link i{color:#718096;}
+    .sidebar .nav-link:hover,.sidebar .nav-link.active{color:var(--primary);background-color:var(--primary-light);}
+    .sidebar .nav-link.active i,.sidebar .nav-link:hover i{color:var(--primary);}
+    .sidebar .menu-section{padding:.75rem 1rem .25rem;color:#94a3b8;font-weight:700;text-transform:uppercase;font-size:.75rem;letter-spacing:.06em;}
+    .cat-dot{display:inline-block;width:.6rem;height:.6rem;border-radius:2px;flex:0 0 auto;}
+    .dot-platform{background-color:var(--dot-platform);} .dot-user{background-color:var(--dot-user);} .dot-team{background-color:var(--dot-team);} .dot-system{background-color:var(--dot-system);}
+    .main-content{margin-left:260px;padding:20px;padding-top:80px;transition:margin-left .3s;}
+    .navbar{background-color:var(--white);box-shadow:0 2px 10px rgba(0,0,0,.05);border-bottom:1px solid var(--border);position:fixed;top:0;left:0;right:0;z-index:1030;padding-left:260px;transition:padding-left .3s;}
+    .navbar-toggler{display:none;border:none;font-size:1.25rem;}
+    .navbar-toggler:focus{box-shadow:none;}
+    @media (max-width: 992px){
+      .sidebar{width:84px;padding-top:70px;}
+      .sidebar .nav-link span.text{display:none;}
+      .sidebar .menu-section{display:none;}
+      .main-content{margin-left:84px;}
+      .navbar{padding-left:84px;}
+    }
+    @media (max-width: 768px){
+      .sidebar{transform:translateX(-100%);width:260px;}
+      .sidebar.show{transform:translateX(0);}
+      .main-content{margin-left:0;}
+      .navbar{padding-left:15px;}
+      .navbar-toggler{display:block;}
+    }
+
+    /* ============== 左编辑 / 右预览 基础样式 ============== */
+    .section-title{font-weight:700;color:#4a5568;margin-bottom:.5rem;}
+    .subtle{color:#6c757d;font-size:.9rem;}
+    .editor-card{border:none;border-radius:10px;box-shadow:0 4px 10px rgba(0,0,0,.04);}
+    .preview-card{border:none;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.06);overflow:hidden;}
+    .preview-pane{position:sticky;top:88px;}
+    .phone-frame{background:#111;color:#fff;border-radius:24px;padding:12px;border:10px solid #000;box-shadow:0 10px 30px rgba(0,0,0,.2);}
+    .phone-header{background:linear-gradient(135deg,#ff7e00,#ff5f00);padding:.6rem;color:#fff;border-radius:.6rem;margin-bottom:.6rem;display:flex;align-items:center;justify-content:space-between;}
+    .pill{display:inline-flex;align-items:center;gap:.25rem;border:1px solid #ffd8b8;background:#fff9f2;color:#ff7e00;border-radius:999px;padding:.1rem .5rem;font-size:.8rem;}
+    .pub-card,.task-card,.info-block,.submit-block{background:#fff;border-radius:.6rem;padding:.8rem;margin-bottom:.6rem;border:1px solid #eee;color:#333;}
+    .pub-row{display:flex;gap:.5rem;margin-bottom:.4rem;}
+    .pub-label{width:5.5rem;color:#666;flex-shrink:0;}
+    .pub-value{flex:1;color:#333;}
+    .pub-total{font-weight:700;color:#e33333;}
+    .step-list{list-style:none;padding-left:0;counter-reset:step;}
+    .step-list li{counter-increment:step;position:relative;padding-left:2rem;margin:.4rem 0;}
+    .step-list li::before{content:counter(step);position:absolute;left:0;top:0;width:1.4rem;height:1.4rem;background:#ff7e00;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;}
+    .file-drop{border:1px dashed #e0e0e0;border-radius:.4rem;padding:1rem;text-align:center;color:#666;background:#fff;}
+    .palette .btn{width:100%;margin-bottom:.5rem;text-align:left;}
+    .canvas{border:1px dashed var(--border);border-radius:8px;min-height:200px;background:#fff;padding:12px;}
+    .field-item{border:1px solid var(--border);border-radius:6px;padding:.6rem .75rem;margin-bottom:.6rem;background:#fff;}
+    .field-item .actions .btn{padding:.15rem .4rem;font-size:.8rem;}
+  </style>
+</head>
+<body>
+  <!-- 顶部导航栏（与dashboard一致） -->
+  <nav class="navbar navbar-expand-lg navbar-light">
+        <div class="container-fluid">
+            <button class="navbar-toggler" type="button" id="sidebarToggle">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <a class="navbar-brand" href="#"><strong><i class="bi bi-building me-2"></i>总部管理系统</strong></a>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto me-5">
+                    <li class="nav-item dropdown ms-2">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle me-2"></i> 管理员
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="#" id="btnLogout"><i class="bi bi-box-arrow-right me-2"></i>退出</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+  </nav>
+
+  <!-- 侧边栏（与dashboard一致） -->
+  <aside class="sidebar">
+        <div class="position-sticky">
+            <ul class="nav flex-column">
+                <!-- 平台层面 -->
+                <li class="menu-section">平台</li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-dashboard.html">
+                        <span class="cat-dot dot-platform"></span><i class="bi bi-speedometer2"></i><span class="text">平台总仪表盘</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-finance-platform-fund-flow.html">
+                        <span class="cat-dot dot-platform"></span><i class="bi bi-currency-exchange"></i><span class="text">平台资金流水</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-tasks-global-management.html">
+                        <span class="cat-dot dot-platform"></span><i class="bi bi-list-task"></i><span class="text">任务全局管理</span>
+                    </a>
+                </li>
+
+                <!-- 用户层面 -->
+                <li class="menu-section">用户</li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-users-list.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-people"></i><span class="text">平台用户列表</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-finance-recharge-review.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-wallet2"></i><span class="text">用户充值审核</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-finance-withdrawal-review.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-cash-coin"></i><span class="text">用户提现审核</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-finance-user-fund-flow.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-currency-exchange"></i><span class="text">用户资金流水</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-users-feedback.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-chat-left-text"></i><span class="text">用户投诉反馈</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-audit-task-publish.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-send-check"></i><span class="text">用户发布审核</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-audit-task-completion.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-check2-circle"></i><span class="text">任务完成审核</span>
+                    </a>
+                </li>
+
+                <!-- 团队层面 -->
+                <li class="menu-section">团队</li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-team-dashboard.html">
+                        <span class="cat-dot dot-team"></span><i class="bi bi-graph-up"></i><span class="text">团队数据概览</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-team-list.html">
+                        <span class="cat-dot dot-team"></span><i class="bi bi-building"></i><span class="text">平台团队列表</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-finance-team-withdrawal-review.html">
+                        <span class="cat-dot dot-team"></span><i class="bi bi-bank"></i><span class="text">团队提现审核</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-finance-team-fund-flow.html">
+                        <span class="cat-dot dot-team"></span><i class="bi bi-currency-exchange"></i><span class="text">团队资金流水</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-team-feedback.html">
+                        <span class="cat-dot dot-team"></span><i class="bi bi-chat-left-text"></i><span class="text">团队投诉反馈</span>
+                    </a>
+                </li>
+
+                <!-- 系统设置层面 -->
+                <li class="menu-section">系统</li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="hq-admin-settings-categories.html">
+                        <span class="cat-dot dot-system"></span><i class="bi bi-tags"></i><span class="text">业务分类管理</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-system-api-management-monitoring.html">
+                        <span class="cat-dot dot-system"></span><i class="bi bi-hdd-network"></i><span class="text">接口管理监控</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-settings-system.html">
+                        <span class="cat-dot dot-system"></span><i class="bi bi-gear-fill"></i><span class="text">系统设置</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+  </aside>
+
+  <!-- 主内容 -->
+  <main class="main-content">
+    <!-- 页面抬头 -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div>
+        <h4 class="mb-0">完成凭证表单设计 <small id="categoryName" class="text-muted"></small></h4>
+        <div class="subtle">专注于接单端提交任务时的凭证表单设计。</div>
+      </div>
+      <div class="d-flex gap-2">
+        <button id="btnBack" class="btn btn-outline-secondary" type="button"><i class="bi bi-arrow-left"></i> 返回</button>
+        <button id="btnSave" class="btn btn-primary" type="button"><i class="bi bi-save"></i> 保存</button>
+      </div>
+    </div>
+
+    <!-- ====== 完成凭证表单（左编辑 / 右预览） ====== -->
+    <div class="row g-3 mb-3">
+      <!-- 左：字段编辑 -->
+      <div class="col-12 col-lg-7">
+        <div class="card editor-card">
+          <div class="card-header bg-white">
+            <strong>完成凭证表单设计</strong>
+            <span class="text-muted ms-2">点击左侧"字段库"添加到"表单画布"，可上移/下移/删除；点击"齿轮"编辑字段属性。</span>
+          </div>
+          <div class="card-body">
+            
+            <!-- ===== 新增设置项：自动完成时间（单位：小时）——仅保存配置，不在右侧预览显示 ===== -->
+            <div class="mb-3">
+              <label for="autoCompleteHours" class="form-label">自动完成时间（小时）</label>
+              <div class="input-group input-group-sm" style="max-width:220px">
+                <input type="number" min="1" step="1" class="form-control" id="autoCompleteHours" placeholder="例如 48">
+                <span class="input-group-text">小时</span>
+              </div>
+              <div class="form-text">用于任务完成凭证提交后的自动确认时间；仅作为业务配置项，不在右侧预览中展示。</div>
+            </div>
+<div class="row g-3">
+              <!-- 字段库 -->
+              <div class="col-lg-5">
+                <div class="section-title mb-2">字段库</div>
+                <!-- 说明：按钮 data-type 定义字段类型，data-canvas 指向目标画布 -->
+                <div id="palette-proof" class="palette" data-canvas="#canvas-proof">
+                  <button class="btn btn-outline-primary" type="button" data-type="screenshot"><i class="bi bi-camera me-1"></i> 截图上传</button>
+                  <button class="btn btn-outline-primary" type="button" data-type="text"><i class="bi bi-input-cursor-text me-1"></i> 文本说明</button>
+                  <button class="btn btn-outline-primary" type="button" data-type="file"><i class="bi bi-upload me-1"></i> 文件上传</button>
+                  <button class="btn btn-outline-primary" type="button" data-type="url"><i class="bi bi-link-45deg me-1"></i> 外部链接</button>
+                </div>
+              </div>
+              <!-- 表单画布 -->
+              <div class="col-lg-7">
+                <div class="section-title mb-2">表单画布</div>
+                <div id="canvas-proof" class="canvas">
+                  <!-- 初始示例字段 -->
+                  <div class="field-item" data-type="screenshot" data-key="screenshot">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <div><strong>任务完成截图</strong></div>
+                      <div class="actions">
+                        <button class="btn btn-sm btn-outline-secondary me-1" type="button" data-action="up">上移</button>
+                        <button class="btn btn-sm btn-outline-secondary me-1" type="button" data-action="down">下移</button>
+                        <button class="btn btn-sm btn-outline-secondary me-1" type="button" data-action="edit"><i class="bi bi-gear"></i></button>
+                        <button class="btn btn-sm btn-outline-danger" type="button" data-action="del">删除</button>
+                      </div>
+                    </div>
+                    <div class="text-muted small mt-1">上传任务完成证明截图</div>
+                  </div>
+                  <div class="field-item" data-type="text" data-key="note">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <div><strong>备注说明</strong></div>
+                      <div class="actions">
+                        <button class="btn btn-sm btn-outline-secondary me-1" type="button" data-action="up">上移</button>
+                        <button class="btn btn-sm btn-outline-secondary me-1" type="button" data-action="down">下移</button>
+                        <button class="btn btn-sm btn-outline-secondary me-1" type="button" data-action="edit"><i class="bi bi-gear"></i></button>
+                        <button class="btn btn-sm btn-outline-danger" type="button" data-action="del">删除</button>
+                      </div>
+                    </div>
+                    <div class="text-muted small mt-1">填写任务完成的额外说明</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右：接单端预览 -->
+      <div class="col-12 col-lg-5">
+        <div class="preview-pane">
+          <div class="card preview-card">
+            <div class="card-header d-flex align-items-center justify-content-between">
+              <div>接单端预览</div>
+              <span class="pill"><i class="bi bi-lightning-charge"></i> 实时</span>
+            </div>
+            <div class="card-body">
+              <div class="phone-frame">
+                <div class="phone-header">
+                  <div class="d-flex align-items-center gap-2">
+                    <strong>提交任务</strong>
+                  </div>
+                  <span class="pill">预览</span>
+                </div>
+                <div id="preview-proof"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- 字段编辑模态框（用于配置字段属性） -->
+  <div class="modal fade" id="fieldEditModal" tabindex="-1" aria-labelledby="fieldEditLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="fieldEditLabel">编辑字段</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+        </div>
+        <div class="modal-body">
+          <form id="fieldEditForm">
+            <!-- 基本属性 -->
+            <div class="row">
+              <div class="col-md-8 mb-3">
+                <label class="form-label">字段名称</label>
+                <input type="text" class="form-control" id="fe-label" placeholder="例如：任务完成截图">
+              </div>
+              <div class="col-md-4 mb-3">
+                <label class="form-label">是否必填</label>
+                <select class="form-select" id="fe-required">
+                  <option value="true">是</option>
+                  <option value="false" selected>否</option>
+                </select>
+              </div>
+            </div>
+            <div id="fe-placeholder-box" class="mb-2" style="display:none;">
+              <label class="form-label">占位提示</label>
+              <input type="text" id="fe-placeholder" class="form-control" placeholder="请输入...">
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-primary" id="fe-save">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 必要脚本 -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // =========================
+    // 工具函数
+    // =========================
+    // 将任意字符串转为 key（用于变量名/映射键）
+    function slugify(str){
+      return String(str || '').trim()
+        .replace(/\s+/g, '_')               // 规范空白
+        .replace(/[（(].*?[）)]/g,'')        // 去掉括号内容
+        .replace(/[^a-zA-Z0-9_\u4e00-\u9fa5]/g, '') // 允许中英文、数字与下划线
+        .toLowerCase();
+    }
+    // 从 URL 读取参数
+    function getQueryParam(key){
+      const params = new URLSearchParams(window.location.search);
+      return params.get(key) || '';
+    }
+
+    // 全局设计状态（模拟持久化）
+    const designState = {
+      proof: [],       // 完成凭证表单字段
+      // 新增：全局设置（不参与右侧预览渲染）
+      settings: {
+        // 自动完成时间（小时），示例：48；仅保存配置供后端或其他页面使用
+        autoCompleteHours: ''
+      }
+    };
+
+    // =========================
+    // 页面初始化
+    // =========================
+    document.addEventListener('DOMContentLoaded', function(){
+      const cat = getQueryParam('category');
+      if(cat) document.getElementById('categoryName').textContent = '（' + cat + '）';
+
+      // 返回
+      document.getElementById('btnBack').addEventListener('click', function(e){
+        e.preventDefault();
+        window.location.href = 'hq-admin-settings-categories.html';
+      });
+
+      // 载入历史草稿（如果存在）
+      try{
+        const draft = JSON.parse(localStorage.getItem('formDesignProofDraft'));
+        if(draft){ Object.assign(designState, draft); }
+      }catch(e){ console.warn('读取草稿失败', e); }
+
+      // palette（字段库）点击：采用事件委托，保证后续动态节点也生效
+      document.body.addEventListener('click', function(evt){
+        const btn = evt.target.closest('.palette .btn[data-type]');
+        if(!btn) return;
+        evt.preventDefault();
+        const type = btn.getAttribute('data-type');
+        const palette = btn.closest('.palette');
+        const canvasSel = palette && palette.getAttribute('data-canvas');
+        const canvas = canvasSel ? document.querySelector(canvasSel) : null;
+        if(!canvas) return;
+        // 创建字段并挂载
+        const item = createFieldItem(type);
+        canvas.appendChild(item);
+        // 新增字段后立即同步状态与预览
+        snapshotCanvas('proof');
+        refreshPreview();
+      });
+
+      // 绑定画布（凭证）——使用委托，点击上移/下移/删除/编辑
+      bindCanvas(document.getElementById('canvas-proof'), 'proof');
+
+      // 初始字段同步（把初始示例同步到状态）
+      snapshotCanvas('proof');
+
+      // 保存按钮（写入 localStorage 并返回）
+      document.getElementById('btnSave').addEventListener('click', function(e){
+        e.preventDefault();
+        const data = JSON.parse(JSON.stringify(designState));
+        try{ localStorage.setItem('formDesignProofDraft', JSON.stringify(data)); }catch(err){ console.warn('保存草稿失败', err); }
+        alert('表单配置已保存（模拟）。即将返回业务分类管理。');
+        window.location.href = 'hq-admin-settings-categories.html';
+      });
+
+      // 首次渲染预览
+      refreshPreview();
+    });
+
+    // =========================
+    // 画布/字段：创建、绑定、序列化
+    // =========================
+    function createFieldItem(type){
+      // 创建字段 DOM（含操作按钮）
+      const wrap = document.createElement('div');
+      wrap.className = 'field-item';
+      wrap.setAttribute('data-type', type);
+
+      // 默认标题映射
+      const titleMap = {
+        text:'文本说明',
+        file:'文件上传',
+        screenshot:'截图上传',
+        url:'外部链接'
+      };
+
+      // 初始 label
+      const label = titleMap[type] || '字段';
+      // 默认 key
+      const key = slugify(label) + '_' + Date.now().toString().slice(-4);
+      wrap.setAttribute('data-key', key);
+      
+      // 生成 HTML（按钮显式 type="button"，避免默认提交）
+      wrap.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center">
+          <div><strong>${label}</strong></div>
+          <div class="actions">
+            <button class="btn btn-sm btn-outline-secondary me-1" type="button" data-action="up">上移</button>
+            <button class="btn btn-sm btn-outline-secondary me-1" type="button" data-action="down">下移</button>
+            <button class="btn btn-sm btn-outline-secondary me-1" type="button" data-action="edit"><i class="bi bi-gear"></i></button>
+            <button class="btn btn-sm btn-outline-danger" type="button" data-action="del">删除</button>
+          </div>
+        </div>
+        <div class="text-muted small mt-1"></div>
+      `;
+      return wrap;
+    }
+
+    function bindCanvas(canvasEl, channel){
+      if(!canvasEl) return;
+      // 使用事件委托，确保动态插入的字段也可响应
+      canvasEl.addEventListener('click', function(e){
+        const btn = e.target.closest('button[data-action]');
+        if(!btn || !canvasEl.contains(btn)) return;
+        e.preventDefault();
+        const item = btn.closest('.field-item');
+        const action = btn.getAttribute('data-action');
+
+        try{
+          if(action==='up' && item.previousElementSibling){
+            item.parentNode.insertBefore(item, item.previousElementSibling);
+            snapshotCanvas(channel); refreshPreview();
+          }else if(action==='down' && item.nextElementSibling){
+            item.parentNode.insertBefore(item.nextElementSibling, item);
+            snapshotCanvas(channel); refreshPreview();
+          }else if(action==='del'){
+            item.remove();
+            snapshotCanvas(channel); refreshPreview();
+          }else if(action==='edit'){
+            openFieldEdit(item, channel);
+          }
+        }catch(err){
+          console.error('画布按钮处理异常：', err);
+        }
+      });
+    }
+
+    function snapshotCanvas(channel){
+      // 将当前画布 DOM 转为状态结构
+      const canvas = document.getElementById('canvas-proof');
+      const arr = [];
+      canvas.querySelectorAll('.field-item').forEach(el=>{
+        arr.push({
+          key: el.getAttribute('data-key')||slugify(el.querySelector('strong')?.textContent||''),
+          type: el.getAttribute('data-type'),
+          label: el.querySelector('strong')?.textContent || '',
+          required: (el.getAttribute('data-required')==='true'),
+          placeholder: el.getAttribute('data-placeholder')||''
+        });
+      });
+      designState[channel] = arr;
+    }
+
+    // =========================
+    // 字段编辑模态框
+    // =========================
+    let currentEditingEl = null;
+    function openFieldEdit(itemEl, channel){
+      currentEditingEl = itemEl;
+      const type = itemEl.getAttribute('data-type')||'text';
+      const label = itemEl.querySelector('strong')?.textContent||'';
+      const required = itemEl.getAttribute('data-required')==='true';
+      const placeholder = itemEl.getAttribute('data-placeholder')||'';
+
+      // 如果 bootstrap 不可用，使用简易 prompt 作为后备，保证"设置"可用
+      if(!(window.bootstrap && window.bootstrap.Modal)){
+        const newLabel = prompt('字段名称：', label) || label;
+        const req = confirm('是否必填？"确定"为是，"取消"为否');
+        itemEl.querySelector('strong').textContent = newLabel;
+        itemEl.setAttribute('data-required', String(req));
+        if(type==='text'){
+          const ph = prompt('占位提示：', placeholder) || placeholder;
+          itemEl.setAttribute('data-placeholder', ph);
+        }
+        snapshotCanvas(channel);
+        refreshPreview();
+        return;
+      }
+
+      // 使用 Bootstrap 模态框编辑
+      document.getElementById('fe-label').value = label;
+      document.getElementById('fe-required').value = String(required);
+      
+      const phBox = document.getElementById('fe-placeholder-box');
+      
+      // 文本支持占位符
+      if(type==='text'){
+        phBox.style.display='block';
+        document.getElementById('fe-placeholder').value = placeholder;
+      }else{
+        phBox.style.display='none';
+      }
+
+      // 保存
+      document.getElementById('fe-save').onclick = function(){
+        const newLabel = document.getElementById('fe-label').value || label;
+        const newRequired = document.getElementById('fe-required').value==='true';
+        const newPh = (type==='text') ? (document.getElementById('fe-placeholder').value||'') : '';
+
+        // 写回 DOM 属性
+        itemEl.querySelector('strong').textContent = newLabel;
+        itemEl.setAttribute('data-required', String(newRequired));
+        itemEl.setAttribute('data-placeholder', newPh);
+
+        // 同步状态并刷新
+        snapshotCanvas(channel);
+        refreshPreview();
+
+        bootstrap.Modal.getInstance(document.getElementById('fieldEditModal')).hide();
+      };
+
+      // 打开模态框
+      const m = new bootstrap.Modal(document.getElementById('fieldEditModal'));
+      m.show();
+    }
+
+    // =========================
+    // 预览渲染
+    // =========================
+    function refreshPreview(){
+      renderProofPreview();
+    }
+
+    // 完成凭证预览控件渲染
+    function renderProofPreview(){
+      const host = document.getElementById('preview-proof');
+      host.innerHTML = '';
+      designState.proof.forEach(f=>{
+        const key = f.key || slugify(f.label);
+        let block = document.createElement('div');
+        block.className = 'pub-card';
+
+        let ctrl = '';
+        const requiredStar = f.required ? '<span class="text-danger">*</span>' : '';
+        const ph = f.placeholder || '';
+        
+        if(f.type==='text'){
+          ctrl = `<textarea class="form-control form-control-sm" rows="3" placeholder="${ph}"></textarea>`;
+        }else if(f.type==='file'){
+          ctrl = '<div class="file-drop">拖拽或点击上传文件</div>';
+        }else if(f.type==='screenshot'){
+          ctrl = '<div class="file-drop">拖拽或点击上传截图</div>';
+        }else if(f.type==='url'){
+          ctrl = `<input class="form-control form-control-sm" type="url" placeholder="${ph || 'https://'}">`;
+        }else{
+          ctrl = '<input class="form-control form-control-sm">';
+        }
+
+        block.innerHTML = `
+          <div class="pub-row"><div class="pub-label">${f.label}${requiredStar}</div><div class="pub-value">${ctrl}</div></div>
+        `;
+        host.appendChild(block);
+      });
+    }
+  </script>
+
+<script>
+// 侧边栏统一：插入“系统设置”（接口管理与监控下方），隐藏“数据概览/团队投诉反馈”
+(function(){
+  try{
+    const aside = document.querySelector('aside.sidebar');
+    if(aside){
+      const links = aside.querySelectorAll('a');
+      let apiLink = null, settingsLinkExists = false;
+      links.forEach(a=>{
+        if(a.textContent && a.textContent.includes('接口管理与监控')) apiLink = a;
+        if(a.textContent && a.textContent.trim() === '系统设置') settingsLinkExists = true;
+      });
+      if(apiLink && !settingsLinkExists){
+        const li = document.createElement('li'); li.className = 'nav-item';
+        const a = document.createElement('a'); a.className='nav-link'; a.textContent='系统设置';
+        a.href = 'hq-admin-settings-system_v1.2.1d_tabs.html';
+        li.appendChild(a);
+        const parentUl = apiLink.closest('ul') || aside.querySelector('ul');
+        parentUl.insertBefore(li, apiLink.parentElement.nextSibling);
+      }
+      // 隐藏“数据概览”“团队投诉反馈”
+      links.forEach(a=>{
+        const t = (a.textContent||'').trim();
+        if(t.includes('数据概览') || t.includes('团队投诉反馈')){
+          const li = a.closest('li'); if(li) li.style.display='none';
+        }
+      });
+    }
+  }catch(e){ console.warn('侧边栏统一失败', e); }
+})();
+</script>
+
+
+<script>
+// 将表格中的编号（TSK/TPA/TFA/RCG/WDU/WDT/TF/UF/GF/FBK...）自动变为可点击链接
+(function(){
+  const map = {
+    TSK: 'hq-admin-task-detail.html',
+    TPA: 'hq-admin-audit-task-publish.html',
+    TFA: 'hq-admin-audit-task-completion.html',
+    RCG: 'hq-admin-finance-recharge-review.html',
+    WDU: 'hq-admin-finance-withdrawal-review.html',
+    WDT: 'hq-admin-finance-team-withdrawal-review.html',
+    TF:  'hq-admin-finance-platform-fund-flow.html',
+    UF:  'hq-admin-finance-user-fund-flow.html',
+    GF:  'hq-admin-finance-team-fund-flow.html',
+    FBK: 'hq-admin-users-feedback.html',
+    CAT: 'hq-admin-settings-categories.html',
+    FRM: 'hq-admin-form-design.html',
+    APP: 'hq-admin-system-api-management-monitoring.html',
+    MSG: 'hq-admin-users-feedback.html',
+    LOG: 'hq-admin-audit-task-completion.html',
+    U:   'hq-admin-users-list.html',
+    G:   'hq-admin-team-list.html'
+  };
+  const re = /\b(TSK|TPA|TFA|RCG|WDU|WDT|TF|UF|GF|FBK|CAT|FRM|APP|MSG|LOG|U|G)\d{4,}(?:\s*\d{3,})?\b/g;
+  function linkifyNode(node){
+    if(node.children && node.children.length) return;
+    const text = node.textContent;
+    if(!text || !re.test(text)) return;
+    const html = text.replace(re, (m)=>{
+      const pref = m.match(/^[A-Z]+/)[0];
+      const href = map[pref] || '#';
+      const q = encodeURIComponent(m.replace(/\s+/g,''));
+      return `<a href="${href}?id=${q}" class="text-decoration-underline">${m}</a>`;
+    });
+    const span = document.createElement('span'); span.innerHTML = html;
+    node.replaceWith(span);
+  }
+  const targets = Array.from(document.querySelectorAll('td, span, div, p, li'));
+  targets.forEach(linkifyNode);
+})();
+</script>
+
+
+<style>
+/* 统一状态样式 */
+.unified-empty { text-align:center; padding:28px 12px; color:#6c757d; }
+.unified-empty .icon { display:inline-block; width:36px; height:36px; border-radius:50%; border:2px dashed #ced4da; margin-bottom:6px; }
+.unified-loading { position:relative; min-height:80px; }
+.unified-loading:after {
+  content:""; position:absolute; inset:0; background:
+    linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.04) 50%, rgba(0,0,0,0) 100%);
+  animation: shimmer 1.2s infinite;
+}
+@keyframes shimmer { 0%{background-position:-200% 0;} 100%{background-position:200% 0;} }
+.unified-error { color:#dc3545; padding:8px 0; }
+
+/* 统一筛选浮层 */
+#unifiedFilterPanel {
+  position: fixed; right: 16px; top: 84px; width: 360px; z-index: 1080;
+  background: #fff; border: 1px solid #dee2e6; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.12);
+  display:none;
+}
+#unifiedFilterPanel .hdr { padding: 10px 12px; border-bottom:1px solid #eee; display:flex; align-items:center; justify-content:space-between; }
+#unifiedFilterPanel .bd { padding: 12px; }
+#btnUnifiedFilter { margin-left: 8px; }
+
+/* 按钮意图颜色统一（基于文本） */
+button, .btn { transition: filter .2s ease; }
+.btn-intent-approve { background:#198754; color:#fff; border-color:#198754; }
+.btn-intent-reject { background:#dc3545; color:#fff; border-color:#dc3545; }
+.btn-intent-return { background:#ffc107; color:#212529; border-color:#ffc107; }
+.btn-intent-pay { background:#0d6efd; color:#fff; border-color:#0d6efd; }
+
+/* 可点击编号统一下划线（若页面未设置） */
+a.id-link { text-decoration: underline; }
+</style>
+
+<script>
+(function(){
+  // ===== 读取系统设置（货币/精度/时区） =====
+  const PUB_KEY = 'hq_sys_settings_v1_2_1d_published';
+  let locale = { lang:'zh-CN', tz:'Asia/Shanghai', currency:'CNY', precision:2 };
+  try{
+    const cfg = JSON.parse(localStorage.getItem(PUB_KEY)||'{}');
+    if(cfg.locale){
+      locale.lang = cfg.locale.lang || locale.lang;
+      locale.tz = cfg.locale.tz || locale.tz;
+      locale.currency = cfg.locale.currency || locale.currency;
+      locale.precision = parseInt(cfg.locale.precision||locale.precision,10);
+    }
+  }catch(e){}
+
+  // ===== 统一筛选：在首个 .card-header 右侧添加“筛选”按钮 + 浮层 =====
+  function ensureFilterUI(){
+    if(document.getElementById('unifiedFilterPanel')) return;
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-outline-secondary btn-sm';
+    btn.id = 'btnUnifiedFilter';
+    btn.innerHTML = '<i class="bi bi-funnel me-1"></i>筛选';
+    // 尝试挂到第一个 card-header 右侧
+    const hdr = document.querySelector('.card .card-header') || document.querySelector('.d-flex.align-items-center.justify-content-between');
+    if(hdr){ hdr.appendChild(btn); }
+    else {
+      // 顶部右上角浮动按钮（兜底）
+      const fbtn = btn.cloneNode(true);
+      fbtn.style.position='fixed'; fbtn.style.right='16px'; fbtn.style.top='20px'; fbtn.style.zIndex='1080';
+      document.body.appendChild(fbtn);
+    }
+
+    const panel = document.createElement('div');
+    panel.id = 'unifiedFilterPanel';
+    panel.innerHTML = `
+      <div class="hdr">
+        <strong>通用筛选</strong>
+        <button type="button" class="btn-close" id="btnUFclose"></button>
+      </div>
+      <div class="bd">
+        <div class="mb-2">
+          <label class="form-label">关键字</label>
+          <input class="form-control" id="uf-key" placeholder="编号/手机号/名称">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">状态</label>
+          <select class="form-select" id="uf-status">
+            <option value="">全部</option>
+            <option>待处理</option>
+            <option>处理中</option>
+            <option>已通过</option>
+            <option>已驳回</option>
+            <option>已完成</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">时间范围</label>
+          <div class="d-flex gap-2">
+            <input type="date" class="form-control" id="uf-from">
+            <input type="date" class="form-control" id="uf-to">
+          </div>
+        </div>
+        <div class="d-flex justify-content-end gap-2">
+          <button class="btn btn-outline-secondary btn-sm" id="uf-reset">重置</button>
+          <button class="btn btn-primary btn-sm" id="uf-apply">应用</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(panel);
+
+    document.body.addEventListener('click', function(e){
+      if(e.target && (e.target.id==='btnUnifiedFilter')){
+        const p = document.getElementById('unifiedFilterPanel');
+        p.style.display = (p.style.display==='none' || !p.style.display) ? 'block' : 'none';
+      }
+      if(e.target && (e.target.id==='btnUFclose')){
+        document.getElementById('unifiedFilterPanel').style.display = 'none';
+      }
+      if(e.target && (e.target.id==='uf-reset')){
+        document.getElementById('uf-key').value='';
+        document.getElementById('uf-status').value='';
+        document.getElementById('uf-from').value='';
+        document.getElementById('uf-to').value='';
+        // 客户端演示：移除高亮
+        document.querySelectorAll('.uf-hl').forEach(n=>n.classList.remove('uf-hl'));
+      }
+      if(e.target && (e.target.id==='uf-apply')){
+        // Demo：仅做关键字高亮；实际项目应触发具体表格筛选逻辑
+        const key = (document.getElementById('uf-key').value||'').trim();
+        document.querySelectorAll('.uf-hl').forEach(n=>n.classList.remove('uf-hl'));
+        if(key){
+          const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+          const re = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+          let node; while(node = walker.nextNode()){
+            if(re.test(node.nodeValue) && node.parentElement && node.parentElement.closest('table')){
+              node.parentElement.classList.add('uf-hl');
+            }
+          }
+        }
+        document.getElementById('unifiedFilterPanel').style.display = 'none';
+      }
+    });
+
+    const style = document.createElement('style');
+    style.textContent = `.uf-hl{ background: rgba(255, 230, 0, .45); outline: 1px dashed #ffbf00; }`;
+    document.head.appendChild(style);
+  }
+
+  // ===== 统一金额格式（根据表头关键字判列） =====
+  function unifyAmountFormat(){
+    const tables = Array.from(document.querySelectorAll('table'));
+    const nf = new Intl.NumberFormat(locale.lang, { style:'currency', currency: locale.currency, minimumFractionDigits: locale.precision, maximumFractionDigits: locale.precision });
+    tables.forEach(tb=>{
+      const ths = Array.from(tb.querySelectorAll('thead th, thead td')).map(th => (th.textContent||'').trim());
+      if(!ths.length) return;
+      ths.forEach((txt, idx)=>{
+        if(/金额|价|费|收款|打款|入账|出账/.test(txt)){
+          Array.from(tb.querySelectorAll(`tbody tr`)).forEach(tr=>{
+            const td = tr.children[idx]; if(!td) return;
+            const raw = (td.textContent||'').replace(/[,￥$]/g,'').trim();
+            const num = parseFloat(raw);
+            if(!isNaN(num)){
+              td.setAttribute('data-raw-amount', num);
+              td.textContent = nf.format(num);
+              td.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace';
+              td.style.textAlign = 'right';
+            }
+          });
+        }
+      });
+    });
+  }
+
+  // ===== 统一时间格式 =====
+  function unifyTimeFormat(){
+    const tables = Array.from(document.querySelectorAll('table'));
+    const fmt = new Intl.DateTimeFormat(locale.lang, { timeZone: locale.tz, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    tables.forEach(tb=>{
+      const ths = Array.from(tb.querySelectorAll('thead th, thead td')).map(th => (th.textContent||'').trim());
+      if(!ths.length) return;
+      ths.forEach((txt, idx)=>{
+        if(/时间|日期|创建|更新/.test(txt)){
+          Array.from(tb.querySelectorAll(`tbody tr`)).forEach(tr=>{
+            const td = tr.children[idx]; if(!td) return;
+            const s = (td.textContent||'').trim();
+            // 常见格式 "YYYY-MM-DD HH:mm[:ss]"
+            const iso = s.replace(/(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(:\d{2})?)/, '$1T$2');
+            const d = new Date(iso);
+            if(!isNaN(+d)){
+              td.title = d.toISOString();
+              td.textContent = fmt.format(d);
+              td.style.whiteSpace = 'nowrap';
+            }
+          });
+        }
+      });
+    });
+  }
+
+  // ===== 空态填充（无数据时） =====
+  function fillEmptyStates(){
+    Array.from(document.querySelectorAll('table')).forEach(tb=>{
+      const body = tb.querySelector('tbody'); if(!body) return;
+      const hasRow = body.querySelector('tr');
+      if(!hasRow){
+        const colSpan = (tb.querySelectorAll('thead th').length || 1);
+        const tr = document.createElement('tr');
+        const td = document.createElement('td'); td.colSpan = colSpan; td.className='unified-empty';
+        td.innerHTML = '<div class="icon"></div><div>暂无数据</div>';
+        tr.appendChild(td); body.appendChild(tr);
+      }
+    });
+  }
+
+  // ===== 动作按钮意图着色（基于文本内容） =====
+  function colorizeActionButtons(){
+    const btns = Array.from(document.querySelectorAll('button, a.btn'));
+    btns.forEach(b=>{
+      const t = (b.textContent||'').trim();
+      if(/通过|同意|Approve/i.test(t)) b.classList.add('btn-intent-approve');
+      if(/驳回|拒绝|Reject/i.test(t)) b.classList.add('btn-intent-reject');
+      if(/打回|退回|Return/i.test(t)) b.classList.add('btn-intent-return');
+      if(/打款|已转账|Pay/i.test(t)) b.classList.add('btn-intent-pay');
+    });
+  }
+
+  // ===== 启动顺序 =====
+  document.addEventListener('DOMContentLoaded', function(){
+    ensureFilterUI();
+    unifyAmountFormat();
+    unifyTimeFormat();
+    fillEmptyStates();
+    colorizeActionButtons();
+  });
+})();
+</script>
+
+</body>
+</html>

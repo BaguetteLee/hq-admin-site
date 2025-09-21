@@ -1,0 +1,1524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>总部管理系统 - 平台用户列表（重构版 v6）</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+  <style>
+    :root{
+      --primary:#3b7ddd; --primary-light:#e8f0fe; --white:#fff; --light:#f5f6f8; --border:#e2e8f0; --text:#2d3748;
+      --dot-platform:#3b7ddd; --dot-user:#2fb67b; --dot-team:#f6a035; --dot-system:#7a5af8;
+      --danger:#dc3545; --success:#2fb67b; --warning:#f6a035; --muted:#64748b;
+    }
+    body{background-color:var(--light);font-family:'Segoe UI',Tahoma,Arial,sans-serif;color:var(--text);}
+    .navbar{background:var(--white);border-bottom:1px solid var(--border);box-shadow:0 2px 10px rgba(0,0,0,.05);
+      position:fixed;top:0;left:0;right:0;z-index:1030;padding-left:260px}
+    .navbar-brand{color:var(--primary);font-weight:700;display:flex;gap:.6rem;align-items:center}
+    .navbar-toggler{display:none;border:none;font-size:1.25rem}
+    .navbar-toggler:focus{box-shadow:none}
+    .sidebar{background:var(--white);height:100vh;position:fixed;left:0;top:0;width:260px;padding-top:60px;
+      border-right:1px solid var(--border);box-shadow:2px 0 10px rgba(0,0,0,.05);z-index:1000;overflow-y:auto}
+    .sidebar .nav-link{color:#4a5568;padding:.8rem 1rem;margin:.1rem .5rem;border-radius:6px;display:flex;gap:.55rem;align-items:center}
+    .sidebar .nav-link i{color:#718096}
+    .sidebar .nav-link:hover,.sidebar .nav-link.active{color:var(--primary);background:var(--primary-light)}
+    .sidebar .nav-link.active i,.sidebar .nav-link:hover i{color:var(--primary)}
+    .sidebar .menu-section{padding:.75rem 1rem .25rem;color:#94a3b8;font-weight:700;font-size:.75rem;letter-spacing:.06em;text-transform:uppercase}
+    .cat-dot{display:inline-block;width:.6rem;height:.6rem;border-radius:2px}
+    .dot-platform{background:var(--dot-platform)} .dot-user{background:var(--dot-user)} .dot-team{background:var(--dot-team)} .dot-system{background:var(--dot-system)}
+    .main-content{margin-left:260px;padding:20px 20px 40px 20px;padding-top:80px}
+    .dashboard-card{background:var(--white);border-radius:10px;box-shadow:0 4px 6px rgba(0,0,0,.04);margin-bottom:18px;border:none}
+    .card-header{background:var(--white);border-bottom:1px solid var(--border);font-weight:600}
+    .small-muted{color:#6b7280}
+    .kpi{display:flex;align-items:center;gap:.6rem}
+    .kpi .icon{font-size:1.1rem;color:#64748b}
+    .kpi .val{font-weight:800;font-size:1.2rem}
+    .kpi .sub{font-size:.85rem;color:#94a3b8}
+    .table-sm>:not(caption)>*>*{padding:.38rem .5rem}
+    .table thead th{font-weight:600;color:#4a5568;border-bottom:2px solid var(--border)}
+    .badge-role{border-radius:6px;padding:.25rem .5rem}
+    .r-pub{background:#e8f0fe;color:#1d4ed8}
+    .r-rec{background:#e8fff3;color:#166534}
+    .risk-normal{background:#f3f4f6;color:#374151;border-radius:6px;padding:.25rem .5rem}
+    .risk-watch{background:#fff7ed;color:#b45309;border-radius:6px;padding:.25rem .5rem}
+    .risk-black{background:#fde8ea;color:#b91c1c;border-radius:6px;padding:.25rem .5rem}
+    .text-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+    .drawer{position:fixed;right:-880px;top:56px;bottom:0;width:880px;background:#fff;border-left:1px solid var(--border);
+      box-shadow:-8px 0 24px rgba(0,0,0,.08);transition:right .25s;z-index:1060;display:flex;flex-direction:column}
+    .drawer.open{right:0}
+    .drawer-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+    .drawer-body{padding:16px;overflow:auto}
+    .kv{display:grid;grid-template-columns:160px 1fr;gap:.5rem 1rem;align-items:center}
+    .kv .k{color:#64748b}
+    .kv .v{font-weight:600}
+    .modal { z-index: 2000 !important; } /* 确保模态框盖过抽屉 */
+    .modal-backdrop { z-index: 1990 !important; }
+    @media (max-width: 992px){
+      .sidebar{width:84px;padding-top:70px}
+      .sidebar .nav-link span.text,.sidebar .menu-section{display:none}
+      .main-content{margin-left:84px}
+      .navbar{padding-left:84px}
+    }
+    @media (max-width: 768px){
+      .sidebar{transform:translateX(-100%);width:260px}
+      .sidebar.show{transform:translateX(0)}
+      .main-content{margin-left:0}
+      .navbar{padding-left:15px}
+      .navbar-toggler{display:block}
+    }
+  </style>
+</head>
+<body>
+  <!-- 顶部导航 -->
+  <nav class="navbar navbar-expand-lg navbar-light">
+    <div class="container-fluid">
+      <button class="navbar-toggler" type="button" id="sidebarToggle"><span class="navbar-toggler-icon"></span></button>
+      <a class="navbar-brand" href="#"><strong><i class="bi bi-building me-2"></i>总部管理系统</strong></a>
+      <div class="collapse navbar-collapse">
+        <ul class="navbar-nav ms-auto me-5">
+          <li class="nav-item dropdown ms-2">
+            <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" data-bs-toggle="dropdown">
+              <i class="bi bi-person-circle me-2"></i> 管理员
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li><a class="dropdown-item" href="#" id="btnLogout"><i class="bi bi-box-arrow-right me-2"></i>退出</a></li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- 左侧侧边栏 -->
+  <aside class="sidebar" id="sidebar">
+    <ul class="nav flex-column">
+      <li class="menu-section">平台</li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-dashboard.html"><span class="cat-dot dot-platform"></span><i class="bi bi-speedometer2"></i><span class="text">平台总仪表盘</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-finance-platform-fund-flow.html"><span class="cat-dot dot-platform"></span><i class="bi bi-currency-exchange"></i><span class="text">平台资金流水</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-tasks-global-management.html"><span class="cat-dot dot-platform"></span><i class="bi bi-list-task"></i><span class="text">任务全局管理</span></a></li>
+
+      <li class="menu-section">用户</li>
+      <li class="nav-item"><a class="nav-link active" href="hq-admin-users-list.html"><span class="cat-dot dot-user"></span><i class="bi bi-people"></i><span class="text">平台用户列表</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-finance-recharge-review.html"><span class="cat-dot dot-user"></span><i class="bi bi-wallet2"></i><span class="text">用户充值审核</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-finance-withdrawal-payout.html"><span class="cat-dot dot-user"></span><i class="bi bi-cash-coin"></i><span class="text">用户提现审核</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-finance-user-fund-flow.html"><span class="cat-dot dot-user"></span><i class="bi bi-currency-exchange"></i><span class="text">用户资金流水</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-users-feedback.html"><span class="cat-dot dot-user"></span><i class="bi bi-chat-left-text"></i><span class="text">用户投诉反馈</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-audit-task-publish.html"><span class="cat-dot dot-user"></span><i class="bi bi-send-check"></i><span class="text">用户发布审核</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-audit-task-completion.html"><span class="cat-dot dot-user"></span><i class="bi bi-check2-circle"></i><span class="text">任务完成审核</span></a></li>
+
+      <li class="menu-section">团队</li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-team-dashboard.html"><span class="cat-dot dot-team"></span><i class="bi bi-graph-up"></i><span class="text">团队数据概览</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-team-list.html"><span class="cat-dot dot-team"></span><i class="bi bi-building"></i><span class="text">平台团队列表</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-finance-team-withdrawal-review.html"><span class="cat-dot dot-team"></span><i class="bi bi-bank"></i><span class="text">团队提现审核</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-finance-team-fund-flow.html"><span class="cat-dot dot-team"></span><i class="bi bi-currency-exchange"></i><span class="text">团队资金流水</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-team-feedback.html"><span class="cat-dot dot-team"></span><i class="bi bi-chat-left-text"></i><span class="text">团队投诉反馈</span></a></li>
+
+      <li class="menu-section">系统</li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-settings-categories.html"><span class="cat-dot dot-system"></span><i class="bi bi-tags"></i><span class="text">业务分类管理</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-system-api-management-monitoring.html"><span class="cat-dot dot-system"></span><i class="bi bi-hdd-network"></i><span class="text">接口管理监控</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-settings-system.html"><span class="cat-dot dot-system"></span><i class="bi bi-gear-fill"></i><span class="text">系统设置</span></a></li>
+    </ul>
+  </aside>
+
+  <!-- 主内容 -->
+  <main class="main-content">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <div>
+        <h4 class="mb-0">平台用户列表</h4>
+        <div class="small-muted">定位：管理平台用户、分配团队、风控管理与批量操作。</div>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-outline-primary btn-sm" id="btnExport"><i class="bi bi-download me-1"></i>导出 CSV</button>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalAdd"><i class="bi bi-plus-circle me-1"></i>新增用户</button>
+      </div>
+    </div>
+
+    <!-- KPI -->
+    <div class="row g-3 mb-3">
+      <div class="col-sm-6 col-lg-3">
+        <div class="dashboard-card card h-100"><div class="card-body kpi">
+          <i class="bi bi-people icon"></i>
+          <div><div class="sub">平台总用户数</div><div class="val" id="kpiTotal">0</div></div>
+        </div></div>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <div class="dashboard-card card h-100"><div class="card-body kpi">
+          <i class="bi bi-check-circle icon"></i>
+          <div><div class="sub">启用用户（非黑名单）</div><div class="val" id="kpiActive">0</div></div>
+        </div></div>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <div class="dashboard-card card h-100"><div class="card-body kpi">
+          <i class="bi bi-shield-exclamation icon"></i>
+          <div><div class="sub">风控/黑名单</div><div class="val" id="kpiRisk">0</div></div>
+        </div></div>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <div class="dashboard-card card h-100"><div class="card-body kpi">
+          <i class="bi bi-diagram-3 icon"></i>
+          <div><div class="sub">未分配团队</div><div class="val" id="kpiNoTeam">0</div></div>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- 筛选器（等宽排布） -->
+    <div class="dashboard-card card">
+      <div class="card-body">
+        <form id="filterForm" class="row g-3 align-items-end">
+          <div class="col-12 col-md-4 col-lg-3">
+            <label class="form-label">所属团队</label>
+            <select class="form-select" id="fTeam">
+              <option value="">全部团队</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-4 col-lg-3">
+            <label class="form-label">用户性质</label>
+            <select class="form-select" id="fRole">
+              <option value="">全部</option>
+              <option value="publisher">发布用户</option>
+              <option value="receiver">接单用户</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-4 col-lg-3">
+            <label class="form-label">风控</label>
+            <select class="form-select" id="fRisk">
+              <option value="">全部</option>
+              <option value="normal">正常</option>
+              <option value="watch">观察</option>
+              <option value="black">黑名单</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-4 col-lg-3">
+            <label class="form-label">关键词</label>
+            <div class="input-group">
+              <input type="text" class="form-control" id="fKw" placeholder="用户名 / 用户ID / 手机 / 邮箱">
+              <button class="btn btn-outline-secondary" type="button" id="btnQuickSearch"><i class="bi bi-search"></i></button>
+            </div>
+          </div>
+          <div class="col-12 col-md-4 col-lg-3">
+            <label class="form-label">注册时间（起）</label>
+            <input type="date" class="form-control" id="fRegFrom">
+          </div>
+          <div class="col-12 col-md-4 col-lg-3">
+            <label class="form-label">注册时间（止）</label>
+            <input type="date" class="form-control" id="fRegTo">
+          </div>
+          <div class="col-12 col-md-4 col-lg-3">
+            <label class="form-label">余额下限</label>
+            <input type="number" class="form-control" id="fBalMin" placeholder="≥">
+          </div>
+          <div class="col-12 col-md-4 col-lg-3">
+            <label class="form-label">余额上限</label>
+            <input type="number" class="form-control" id="fBalMax" placeholder="≤">
+          </div>
+          <div class="col-12 col-md-4 col-lg-3">
+            <button type="button" class="btn btn-primary w-100" id="btnApply"><i class="bi bi-funnel me-1"></i>应用筛选</button>
+          </div>
+          <div class="col-12 col-md-4 col-lg-3">
+            <button type="button" class="btn btn-outline-secondary w-100" id="btnReset">重置</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 批量操作 -->
+    <div class="dashboard-card card">
+      <div class="card-body d-flex flex-wrap align-items-center gap-2">
+        <div class="small-muted"><i class="bi bi-check-square me-1"></i>批量操作：</div>
+        <button class="btn btn-sm btn-outline-warning" id="btnBatchWatch"><i class="bi bi-shield-exclamation me-1"></i>设为观察</button>
+        <button class="btn btn-sm btn-outline-secondary" id="btnBatchUnwatch"><i class="bi bi-shield-check me-1"></i>取消观察</button>
+        <button class="btn btn-sm btn-outline-danger" id="btnBatchBlack"><i class="bi bi-shield-slash me-1"></i>设为黑名单</button>
+        <button class="btn btn-sm btn-outline-success" id="btnBatchUnblack"><i class="bi bi-shield-check me-1"></i>解除黑名单</button>
+        <button class="btn btn-sm btn-outline-success" id="btnBatchAssignTeam"><i class="bi bi-diagram-3 me-1"></i>分配团队</button>
+        <div class="ms-auto small-muted">当前筛选后共 <b id="listCount">0</b> 条 · 每页 15 条</div>
+      </div>
+    </div>
+
+    <!-- 列表（保持简洁：仅“查看”按钮） -->
+    <div class="dashboard-card card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm align-middle mb-0" id="tbl">
+            <thead>
+              <tr>
+                <th style="width:34px"><input class="form-check-input" type="checkbox" id="chkAll"></th>
+                <th>用户ID</th>
+                <th>用户名</th>
+                <th>用户性质</th>
+                <th>所属团队</th>
+                <th>注册时间</th>
+                <th>发布数</th>
+                <th>完成数</th>
+                <th>余额（可用/冻）</th>
+                <th>风控</th>
+                <th>最近活跃</th>
+                <th style="width:120px">操作</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-body">
+        <nav class="d-flex justify-content-center"><ul class="pagination mb-0" id="pager"></ul></nav>
+      </div>
+    </div>
+  </main>
+
+  <!-- 抽屉 -->
+  <aside class="drawer" id="drawer">
+    <div class="drawer-header">
+      <div class="d-flex align-items-center gap-2">
+        <h6 class="mb-0">用户详情</h6>
+        <span class="risk-normal" id="dRisk">—</span>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-sm btn-outline-secondary" id="btnCloseDrawer"><i class="bi bi-x-lg"></i></button>
+      </div>
+    </div>
+    <div class="drawer-body">
+      <div class="kv mb-3">
+        <div class="k">用户ID</div><div class="v" id="dUid">—</div>
+        <div class="k">用户名</div><div class="v" id="dName">—</div>
+        <div class="k">用户性质</div><div class="v" id="dRole">—</div>
+        <div class="k">所属团队</div><div class="v" id="dTeam">—</div>
+        <div class="k">注册时间</div><div class="v" id="dReg">—</div>
+        <div class="k">联系方式</div><div class="v" id="dContact">—</div>
+        <div class="k">余额（可用/冻结）</div><div class="v" id="dBal">—</div>
+        <div class="k">发布/完成</div><div class="v" id="dStats">—</div>
+      </div>
+
+      <ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-overview">概览</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-fund">资金流水</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-task">任务统计</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-risk">风控</button></li>
+      </ul>
+      <div class="tab-content mt-3">
+        <div class="tab-pane fade show active" id="tab-overview">
+          <div class="alert alert-secondary small mb-2">说明：本页为静态演示，所有改动仅更新当前页面的模拟数据。</div>
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label">风控</label>
+              <select id="dFormRisk" class="form-select form-select-sm">
+                <option value="normal">正常（视为启用）</option>
+                <option value="watch">观察（仍视为启用）</option>
+                <option value="black">黑名单（视为禁用）</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">用户性质</label>
+              <select id="dFormRole" class="form-select form-select-sm">
+                <option value="publisher">发布用户</option>
+                <option value="receiver">接单用户</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">所属团队</label>
+              <select id="dFormTeam" class="form-select form-select-sm"></select>
+            </div>
+            <div class="col-12 text-end">
+              <button class="btn btn-primary btn-sm mt-2 me-2" id="btnSaveUser"><i class="bi bi-save me-1"></i>保存变更</button>
+              <button class="btn btn-outline-primary btn-sm mt-2 me-2" id="btnEditPhone"><i class="bi bi-telephone me-1"></i>修改手机号</button>
+              <button class="btn btn-outline-warning btn-sm mt-2" id="btnResetPwd"><i class="bi bi-key me-1"></i>重置密码</button>
+            </div>
+          </div>
+
+          <!-- 用户日志（预览） + 查看更多入口 -->
+          <div class="mt-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="small-muted">用户日志（最近）</div>
+              <button class="btn btn-sm btn-outline-secondary" id="btnOpenLogs"><i class="bi bi-journal-text me-1"></i>查看全部日志</button>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle mb-0">
+                <thead><tr><th style="width:160px">时间</th><th style="width:120px">事件</th><th>详情</th></tr></thead>
+                <tbody id="logTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="tab-fund">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="small text-muted">最近 10 条资金流水（模拟）</div>
+            <div><button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalAdjust"><i class="bi bi-wallet2 me-1"></i>调整余额</button></div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead><tr><th>时间</th><th>类型</th><th class="text-end">金额</th><th>余额</th><th>备注</th></tr></thead>
+              <tbody id="fundTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="tab-task">
+          <div class="row g-2">
+            <div class="col-md-4"><div class="dashboard-card card"><div class="card-body"><div class="small-muted">发布任务数</div><div class="h5 mb-0" id="statPub">—</div></div></div></div>
+            <div class="col-md-4"><div class="dashboard-card card"><div class="card-body"><div class="small-muted">完成任务数</div><div class="h5 mb-0" id="statDone">—</div></div></div></div>
+            <div class="col-md-4"><div class="dashboard-card card"><div class="card-body"><div class="small-muted">进行中</div><div class="h5 mb-0" id="statRun">—</div></div></div></div>
+          </div>
+          <div class="alert alert-light small mt-2">更多明细请在「任务全局管理」中查看。</div>
+        </div>
+
+        <div class="tab-pane fade" id="tab-risk">
+          <!-- 风控记录表单 + 记录列表 -->
+          <div class="alert alert-light small mb-2">风控改为表单记录：每次记录都会保留，便于审计追踪。</div>
+          <div class="row g-2 align-items-end">
+            <div class="col-md-4">
+              <label class="form-label">标签</label>
+              <select class="form-select form-select-sm" id="riskRecTag">
+                <option value="资料核验">资料核验</option>
+                <option value="行为异常">行为异常</option>
+                <option value="申诉">申诉</option>
+                <option value="风险解除">风险解除</option>
+                <option value="其他">其他</option>
+              </select>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">备注（必填）</label>
+              <input class="form-control form-control-sm" id="riskRecText" placeholder="例如：多设备高频登录，设为观察 7 天">
+            </div>
+            <div class="col-12 text-end">
+              <button class="btn btn-sm btn-outline-secondary" id="btnAddRiskRec"><i class="bi bi-journal-plus me-1"></i>添加记录</button>
+            </div>
+          </div>
+          <div class="table-responsive mt-2">
+            <table class="table table-sm align-middle">
+              <thead><tr><th style="width:160px">时间</th><th style="width:120px">标签</th><th>内容</th><th style="width:120px">记录人</th></tr></thead>
+              <tbody id="riskRecTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 模态框：新增用户 -->
+  <div class="modal fade" id="modalAdd" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <form class="modal-content" id="formAdd">
+        <div class="modal-header"><h6 class="modal-title">新增用户</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div class="mb-2"><label class="form-label">用户名</label><input type="text" class="form-control" name="name" required placeholder="例如：张三"></div>
+          <div class="mb-2"><label class="form-label">手机号</label><input type="text" class="form-control" name="phone" placeholder="用于联系"></div>
+          <div class="mb-2"><label class="form-label">邮箱</label><input type="email" class="form-control" name="email" placeholder="用于通知"></div>
+          <div class="row g-2">
+            <div class="col-6"><label class="form-label">用户性质</label>
+              <select class="form-select" name="role">
+                <option value="publisher">发布用户</option>
+                <option value="receiver">接单用户</option>
+              </select>
+            </div>
+            <div class="col-6"><label class="form-label">风控</label>
+              <select class="form-select" name="risk">
+                <option value="normal">正常（启用）</option>
+                <option value="watch">观察（启用）</option>
+                <option value="black">黑名单（禁用）</option>
+              </select>
+            </div>
+          </div>
+          <div class="mt-2"><label class="form-label">所属团队</label><select class="form-select" name="team"></select></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-light" type="button" data-bs-dismiss="modal">取消</button>
+          <button class="btn btn-primary" type="submit">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 模态框：分配团队（必填原因 + 确认） -->
+  <div class="modal fade" id="modalAssignTeam" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <form class="modal-content" id="formAssignTeam">
+        <div class="modal-header"><h6 class="modal-title">分配团队</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div class="mb-2">
+            <label class="form-label">选择团队</label>
+            <select class="form-select" name="team"></select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">原因（必填）</label>
+            <input class="form-control" name="reason" required placeholder="例如：业务归属调整 / 新增协作团队">
+          </div>
+          <div class="text-muted small">说明：仅更新本页面的模拟数据；原因将记录到「用户日志」。</div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-light" type="button" data-bs-dismiss="modal">取消</button>
+          <button class="btn btn-primary" type="submit">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 模态框：调整余额（含校验） -->
+  <div class="modal fade" id="modalAdjust" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <form class="modal-content" id="formAdjust">
+        <div class="modal-header"><h6 class="modal-title">调整余额</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div class="mb-2">
+            <label class="form-label">调整类型</label>
+            <select class="form-select" name="type">
+              <option value="recharge">后台充值（入）</option>
+              <option value="deduct">后台扣减（出）</option>
+              <option value="freeze">后台冻结</option>
+              <option value="unfreeze">后台解冻</option>
+            </select>
+          </div>
+          <div class="row g-2">
+            <div class="col-6"><label class="form-label">金额（元）</label><input type="number" class="form-control" name="amount" min="0" step="0.01" required></div>
+            <div class="col-6"><label class="form-label">原因（必填）</label><input type="text" class="form-control" name="reason" required placeholder="例如：活动奖励/纠纷扣减"></div>
+          </div>
+          <div class="small text-muted mt-2">注：冻结/解冻/扣减都会做余额校验；系统自动生成流水号并记录到备注与用户日志。</div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-light" type="button" data-bs-dismiss="modal">取消</button>
+          <button class="btn btn-primary" type="submit">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 模态框：用户日志（分页查看） -->
+  <div class="modal fade" id="modalLogs" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h6 class="modal-title"><i class="bi bi-journal-text me-2"></i>用户日志</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <!-- 筛选工具条 -->
+          <div class="row g-2 align-items-end mb-2">
+            <div class="col-sm-4">
+              <label class="form-label">类型</label>
+              <select class="form-select form-select-sm" id="logFilterType">
+                <option value="">全部</option>
+                <option>注册</option>
+                <option>绑定手机</option>
+                <option>系统消息</option>
+                <option>修改手机号</option>
+                <option>重置密码</option>
+                <option>设为观察</option>
+                <option>取消观察</option>
+                <option>加入黑名单</option>
+                <option>移出黑名单</option>
+                <option>分配团队</option>
+                <option>后台调整余额</option>
+                <option>风控记录</option>
+              </select>
+            </div>
+            <div class="col-sm-8">
+              <label class="form-label">关键字</label>
+              <div class="input-group input-group-sm">
+                <input class="form-control" id="logFilterKw" placeholder="在详情里搜索关键字">
+                <button class="btn btn-outline-secondary" id="btnLogFilterApply"><i class="bi bi-search"></i></button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 日志表 -->
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead><tr><th style="width:170px">时间</th><th style="width:140px">事件</th><th>详情</th></tr></thead>
+              <tbody id="logModalTbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer d-flex justify-content-between">
+          <small class="text-muted" id="logPagerInfo">—</small>
+          <ul class="pagination pagination-sm mb-0" id="logPager"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 模态框：修改手机号 -->
+  <div class="modal fade" id="modalEditPhone" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <form class="modal-content" id="formEditPhone">
+        <div class="modal-header"><h6 class="modal-title">修改手机号</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <label class="form-label">新手机号</label>
+          <input type="tel" class="form-control" name="phone" placeholder="例如：13800000000" pattern="^1[3-9]\\d{9}$" required>
+          <div class="form-text">仅演示：不校验唯一性；提交前将进行二次确认。</div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-light" type="button" data-bs-dismiss="modal">取消</button>
+          <button class="btn btn-primary" type="submit">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 模态框：重置密码 -->
+  <div class="modal fade" id="modalResetPwd" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <form class="modal-content" id="formResetPwd">
+        <div class="modal-header"><h6 class="modal-title">重置密码</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div class="mb-2"><label class="form-label">新密码</label><input type="password" class="form-control" name="pwd1" minlength="6" maxlength="32" required></div>
+          <div><label class="form-label">确认新密码</label><input type="password" class="form-control" name="pwd2" minlength="6" maxlength="32" required></div>
+          <div class="form-text">建议使用 8 位以上强口令。提交前将进行二次确认。</div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-light" type="button" data-bs-dismiss="modal">取消</button>
+          <button class="btn btn-primary" type="submit">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // ============== 工具函数 ==============
+    function genSN(){
+      // 生成流水号：SN + 年月日时分秒 + 4位随机数
+      const d = new Date();
+      const pad = (n)=>String(n).padStart(2,'0');
+      const ts = d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+pad(d.getHours())+pad(d.getMinutes())+pad(d.getSeconds());
+      return 'SN' + ts + Math.floor(Math.random()*10000).toString().padStart(4,'0');
+    }
+    const pick = (arr)=>arr[Math.floor(Math.random()*arr.length)];
+    const fmtMoney = (n)=>'¥ ' + Number(n).toFixed(2);
+
+    // ============== 模拟数据 ==============
+    const TEAMS = [
+      {id: '', name: '（无团队）'},
+      {id: 'T1001', name: '创智科技（发布）'},
+      {id: 'T1002', name: '星海传媒（接单）'},
+      {id: 'T1003', name: '云端科技（接单）'},
+      {id: 'T1004', name: '智行团队（发布）'},
+      {id: 'T1005', name: '合力网络（接单）'},
+      {id: 'T1006', name: '凌峰互动（发布）'}
+    ];
+
+    // 初始化用户（仅发布/接单；含空日志）
+    const USERS_SRC = (()=>{
+      const roles = ['publisher','receiver']; // 移除双身份
+      const risks = ['normal','watch','black'];
+      const names = ['张三','李四','王五','赵六','孙七','周八','吴九','郑十','钱十一','冯十二','陈十三','褚十四','卫十五','蒋十六','沈十七','韩十八','杨十九','朱二十'];
+      const arr = []; let idBase = 200001;
+      for(let i=0;i<42;i++){
+        const r = pick(roles);
+        const rk = pick(risks.concat(['normal','normal','normal','watch']));
+        const team = pick(TEAMS);
+        const name = names[i%names.length] + (i+1);
+        const reg = new Date(2024, Math.floor(Math.random()*12), Math.floor(Math.random()*27)+1);
+        const last = new Date(2025, Math.floor(Math.random()*9), Math.floor(Math.random()*27)+1);
+        const publish = r!=='receiver' ? Math.floor(Math.random()*120) : 0;
+        const done = r!=='publisher' ? Math.floor(Math.random()*160) : 0;
+        const bal = (Math.random()*5000).toFixed(2);
+        const frozen = (Math.random()*800).toFixed(2);
+        const u = {
+          id: 'U' + (idBase+i),
+          name, phone: '138****' + String(1000 + i).slice(-4), email: `user${i+1}@demo.com`,
+          role: r, risk: rk,
+          teamId: team.id||'', teamName: team.name||'',
+          regTime: reg.toISOString().slice(0,10),
+          lastActive: last.toISOString().slice(0,10),
+          publishCount: publish, completeCount: done,
+          balAvail: parseFloat(bal), balFrozen: parseFloat(frozen),
+          fundLogs: [], logs: [], riskRecords: [] // 新增 riskRecords
+        };
+        arr.push(u);
+      }
+      return arr;
+    })();
+
+    function seedFundLogs(u){
+      // 预置随机流水（非后台操作）
+      const kinds = [
+        {k:'充值', sign:+1, reason:'活动返利'},
+        {k:'提现', sign:-1, reason:'余额提现'},
+        {k:'任务冻结', sign:0, reason:'任务进行中'},
+        {k:'任务解冻', sign:0, reason:'任务完成释放'},
+        {k:'任务支出', sign:-1, reason:'任务结算'},
+        {k:'平台奖励', sign:+1, reason:'新手奖励'},
+      ];
+      const logs = []; let bal = u.balAvail;
+      for(let i=0;i<10;i++){
+        const t = kinds[Math.floor(Math.random()*kinds.length)];
+        let amt = parseFloat((Math.random()*500).toFixed(2));
+        if(t.k.includes('冻结')) amt = parseFloat((Math.random()*200).toFixed(2));
+        bal = Math.max(0, parseFloat((bal + t.sign*amt).toFixed(2)));
+        const SN = genSN();
+        logs.push({ time:`2025-0${Math.floor(Math.random()*9)+1}-${String(Math.floor(Math.random()*27)+1).padStart(2,'0')} ${String(Math.floor(Math.random()*24)).padStart(2,'0')}:${String(Math.floor(Math.random()*60)).padStart(2,'0')}`,
+          type:t.k, amount:(t.sign===0?0:t.sign*amt), balance:bal, note:`流水号:${SN}｜原因:${t.reason}` });
+      }
+      u.fundLogs = logs.reverse();
+    }
+    function seedUserLogs(u){
+      // 预置少量用户日志
+      const base = [
+        {type:'注册', detail:'完成注册并登录'},
+        {type:'绑定手机', detail:'绑定手机号 '+(u.phone||'—')},
+        {type:'系统消息', detail:'欢迎加入平台'}
+      ];
+      const today = new Date();
+      u.logs = base.map((x,idx)=>{
+        const d = new Date(today.getTime()- (base.length-idx)*86400000);
+        const ts = d.toISOString().replace('T',' ').slice(0,16);
+        return {time:ts, type:x.type, detail:x.detail};
+      }).reverse();
+      // 风控记录初始一条
+      u.riskRecords = [
+        {time: new Date(new Date()-3*86400000).toISOString().replace('T',' ').slice(0,16), tag:'资料核验', text:'初次实名审核通过', by:'管理员'}
+      ];
+    }
+    USERS_SRC.forEach(u=>{ seedFundLogs(u); seedUserLogs(u); });
+
+    // 运行态
+    let USERS = JSON.parse(JSON.stringify(USERS_SRC));
+    let pageSize = 15, currentPage = 1;
+    let checkedIds = new Set();
+    let currentUserId = null;
+
+    // DOM 缓存
+    const tbody = document.getElementById('tbody');
+    const pager = document.getElementById('pager');
+    const chkAll = document.getElementById('chkAll');
+    const listCount = document.getElementById('listCount');
+    const kpiTotal = document.getElementById('kpiTotal');
+    const kpiActive = document.getElementById('kpiActive');
+    const kpiRisk = document.getElementById('kpiRisk');
+    const kpiNoTeam = document.getElementById('kpiNoTeam');
+    const fTeam = document.getElementById('fTeam');
+    const fRole = document.getElementById('fRole');
+    const fRisk = document.getElementById('fRisk');
+    const fKw = document.getElementById('fKw');
+    const fRegFrom = document.getElementById('fRegFrom');
+    const fRegTo = document.getElementById('fRegTo');
+    const fBalMin = document.getElementById('fBalMin');
+    const fBalMax = document.getElementById('fBalMax');
+
+    const drawer = document.getElementById('drawer');
+    const dRisk = document.getElementById('dRisk');
+    const dUid = document.getElementById('dUid');
+    const dName = document.getElementById('dName');
+    const dRole = document.getElementById('dRole');
+    const dTeam = document.getElementById('dTeam');
+    const dReg = document.getElementById('dReg');
+    const dContact = document.getElementById('dContact');
+    const dBal = document.getElementById('dBal');
+    const dStats = document.getElementById('dStats');
+    const dFormRisk = document.getElementById('dFormRisk');
+    const dFormRole = document.getElementById('dFormRole');
+    const dFormTeam = document.getElementById('dFormTeam');
+    const fundTbody = document.getElementById('fundTbody');
+    const statPub = document.getElementById('statPub');
+    const statDone = document.getElementById('statDone');
+    const statRun = document.getElementById('statRun');
+    const logTbody = document.getElementById('logTbody');
+
+    // 风控记录 DOM
+    const riskRecTag = document.getElementById('riskRecTag');
+    const riskRecText = document.getElementById('riskRecText');
+    const riskRecTbody = document.getElementById('riskRecTbody');
+
+    // 日志模态框 DOM 与状态
+    const modalLogs = document.getElementById('modalLogs');
+    const logFilterType = document.getElementById('logFilterType');
+    const logFilterKw = document.getElementById('logFilterKw');
+    const logModalTbody = document.getElementById('logModalTbody');
+    const logPager = document.getElementById('logPager');
+    const logPagerInfo = document.getElementById('logPagerInfo');
+    let logPage = 1, logPageSize = 12;
+
+    // 初始化：团队下拉
+    function fillTeamSelect(sel, withBlank=true){
+      sel.innerHTML = '';
+      TEAMS.forEach(t=>{
+        if(!withBlank && !t.id) return;
+        const opt = document.createElement('option');
+        opt.value = t.id; opt.textContent = t.name;
+        sel.appendChild(opt);
+      });
+    }
+    fillTeamSelect(fTeam, true);
+    (function initModalTeamSelects(){
+      const addTeamSel = document.querySelector('#formAdd select[name="team"]');
+      fillTeamSelect(addTeamSel, true);
+      const assignTeamSel = document.querySelector('#formAssignTeam select[name="team"]');
+      fillTeamSelect(assignTeamSel, true);
+      fillTeamSelect(dFormTeam, true);
+    })();
+
+    // KPI 渲染（启用=非黑名单）
+    function renderKPI(data){
+      kpiTotal.textContent = data.length;
+      kpiActive.textContent = data.filter(x=>x.risk!=='black').length;
+      kpiRisk.textContent = data.filter(x=>x.risk!=='normal').length;
+      kpiNoTeam.textContent = data.filter(x=>!x.teamId).length;
+    }
+
+    // 过滤器
+    function matchKeyword(u, kw){
+      if(!kw) return true;
+      kw = kw.toLowerCase();
+      return (u.id.toLowerCase().includes(kw) || u.name.toLowerCase().includes(kw)
+        || (u.phone||'').toLowerCase().includes(kw) || (u.email||'').toLowerCase().includes(kw));
+    }
+    function applyFilters(){
+      const team = fTeam.value, role = fRole.value, risk = fRisk.value, kw = fKw.value.trim();
+      const regFrom = fRegFrom.value ? new Date(fRegFrom.value) : null;
+      const regTo = fRegTo.value ? new Date(fRegTo.value) : null;
+      const balMin = fBalMin.value !== '' ? parseFloat(fBalMin.value) : null;
+      const balMax = fBalMax.value !== '' ? parseFloat(fBalMax.value) : null;
+      let rows = USERS.filter(u=>{
+        if(team!=='' && u.teamId!==team) return false;
+        if(role!=='' && u.role!==role) return false;
+        if(risk!=='' && u.risk!==risk) return false;
+        if(!matchKeyword(u, kw)) return false;
+        if(regFrom || regTo){
+          const rt = new Date(u.regTime);
+          if(regFrom && rt < regFrom) return false;
+          if(regTo){ const end = new Date(regTo); end.setDate(end.getDate()+1); if(rt >= end) return false; }
+        }
+        if(balMin!==null && u.balAvail < balMin) return false;
+        if(balMax!==null && u.balAvail > balMax) return false;
+        return true;
+      });
+      listCount.textContent = rows.length; renderKPI(rows); return rows;
+    }
+
+    // 徽标/渲染
+    function roleBadge(role){
+      if(role==='publisher') return '<span class="badge-role r-pub">发布</span>';
+      if(role==='receiver') return '<span class="badge-role r-rec">接单</span>';
+      return '<span class="badge-role r-pub">发布</span>';
+    }
+    function riskBadge(r){
+      if(r==='normal') return '<span class="risk-normal">正常</span>';
+      if(r==='watch') return '<span class="risk-watch">观察</span>';
+      return '<span class="risk-black">黑名单</span>';
+    }
+    function setBadge(el, cls, text){ el.className = cls; el.textContent = text; }
+
+    // 表格 + 分页（行操作仅“查看”）
+    function renderTable(){
+      const rows = applyFilters();
+      const start = (currentPage-1)*pageSize;
+      const pageRows = rows.slice(start, start+pageSize);
+      tbody.innerHTML = pageRows.map(u=>{
+        const checked = checkedIds.has(u.id) ? 'checked' : '';
+        const team = u.teamName || '—';
+        return `<tr>
+          <td><input class="form-check-input row-chk" type="checkbox" data-id="${u.id}" ${checked}></td>
+          <td><a href="#" class="text-mono text-decoration-none link-primary fw-semibold" data-action="open" data-id="${u.id}">${u.id}</a></td>
+          <td>${u.name}</td>
+          <td>${roleBadge(u.role)}</td>
+          <td>${team}</td>
+          <td>${u.regTime}</td>
+          <td>${u.publishCount}</td>
+          <td>${u.completeCount}</td>
+          <td><span class="text-mono">${fmtMoney(u.balAvail)}</span><span class="text-muted"> / ${fmtMoney(u.balFrozen)}</span></td>
+          <td>${riskBadge(u.risk)}</td>
+          <td>${u.lastActive}</td>
+          <td class="d-flex gap-2">
+            <button class="btn btn-outline-primary btn-sm" data-action="open" data-id="${u.id}"><i class="bi bi-eye"></i> 查看</button>
+          </td>
+        </tr>`;
+      }).join('');
+
+      // 行复选框
+      document.querySelectorAll('.row-chk').forEach(el=>{
+        el.addEventListener('change', e=>{
+          const id = e.target.getAttribute('data-id');
+          if(e.target.checked) checkedIds.add(id); else checkedIds.delete(id);
+          chkAll.checked = pageRows.every(r=>checkedIds.has(r.id));
+        });
+      });
+
+      // 查看
+      tbody.querySelectorAll('[data-action="open"]').forEach(el=>{
+        el.addEventListener('click', e=>{e.preventDefault(); openDrawer(el.getAttribute('data-id'));});
+      });
+
+      // 分页
+      const totalPages = Math.max(1, Math.ceil(rows.length/pageSize));
+      pager.innerHTML='';
+      const mk = (p, label, active=false, disabled=false)=>`<li class="page-item ${active?'active':''} ${disabled?'disabled':''}"><a class="page-link" href="#" data-p="${p}">${label}</a></li>`;
+      pager.innerHTML += mk(1,'«', false, currentPage===1);
+      for(let p=1;p<=totalPages;p++){
+        if(p===1 || p===totalPages || Math.abs(p-currentPage)<=2){
+          pager.innerHTML += mk(p, String(p), p===currentPage, false);
+        }else if(Math.abs(p-currentPage)===3){
+          pager.innerHTML += `<li class="page-item disabled"><span class="page-link">…</span></li>`;
+        }
+      }
+      pager.innerHTML += mk(totalPages,'»', false, currentPage===totalPages);
+      pager.querySelectorAll('a.page-link').forEach(a=>{
+        a.addEventListener('click', e=>{ e.preventDefault(); const p = parseInt(a.getAttribute('data-p')); if(!isNaN(p)){ currentPage=p; renderTable(); }});
+      });
+
+      const currentRows = rows.slice(start, start+pageSize);
+      chkAll.checked = currentRows.length>0 && currentRows.every(r=>checkedIds.has(r.id));
+    }
+
+    // 全选
+    chkAll.addEventListener('change', e=>{
+      const rows = applyFilters();
+      const start = (currentPage-1)*pageSize;
+      const pageRows = rows.slice(start, start+pageSize);
+      if(e.target.checked){ pageRows.forEach(r=>checkedIds.add(r.id)); }
+      else{ pageRows.forEach(r=>checkedIds.delete(r.id)); }
+      renderTable();
+    });
+
+    // 抽屉逻辑
+    function openDrawer(id){
+      const u = USERS.find(x=>x.id===id); if(!u) return; currentUserId = id;
+      setBadge(dRisk, u.risk==='normal'?'risk-normal':(u.risk==='watch'?'risk-watch':'risk-black'), u.risk==='normal'?'正常':(u.risk==='watch'?'观察':'黑名单'));
+      dUid.textContent = u.id; dName.textContent = u.name;
+      dRole.textContent = u.role==='publisher'?'发布用户':'接单用户';
+      dTeam.textContent = u.teamName || '（未分配团队）';
+      dReg.textContent = u.regTime;
+      dContact.textContent = `${u.phone||'—'} / ${u.email||'—'}`;
+      dBal.textContent = `可用 ${fmtMoney(u.balAvail)} / 冻结 ${fmtMoney(u.balFrozen)}`;
+      dStats.textContent = `发布 ${u.publishCount} / 完成 ${u.completeCount}`;
+      dFormRisk.value = u.risk; dFormRole.value = u.role; dFormTeam.value = u.teamId||'';
+      renderFundLogs(u); renderLogsPreview(u); renderRiskRecords(u);
+      statPub.textContent = u.publishCount; statDone.textContent = u.completeCount; statRun.textContent = Math.max(0, Math.floor((u.publishCount+u.completeCount)/10));
+      drawer.classList.add('open');
+    }
+    document.getElementById('btnCloseDrawer').addEventListener('click', ()=>drawer.classList.remove('open'));
+
+    function renderFundLogs(u){
+      fundTbody.innerHTML = u.fundLogs.map(l=>`
+        <tr>
+          <td class="text-mono">${l.time}</td>
+          <td>${l.type}</td>
+          <td class="text-end ${l.amount>=0?'text-success':'text-danger'}">${l.amount>=0?'+':''}${l.amount.toFixed(2)}</td>
+          <td class="text-mono">${fmtMoney(l.balance)}</td>
+          <td>${l.note||'—'}</td>
+        </tr>`).join('');
+    }
+    function renderLogsPreview(u){
+      // 抽屉中仅预览前 12 条
+      logTbody.innerHTML = (u.logs||[]).slice(0,12).map(l=>`
+        <tr>
+          <td class="text-mono">${l.time}</td>
+          <td>${l.type}</td>
+          <td>${l.detail||'—'}</td>
+        </tr>`).join('');
+    }
+    function addLog(u, type, detail){
+      const d = new Date();
+      const tm = d.toISOString().replace('T',' ').slice(0,16);
+      u.logs = u.logs || [];
+      u.logs.unshift({time:tm, type, detail});
+      if(u.id===currentUserId){ renderLogsPreview(u); }
+    }
+
+    // 风控记录渲染
+    function renderRiskRecords(u){
+      riskRecTbody.innerHTML = (u.riskRecords||[]).slice(0,100).map(r=>`
+        <tr>
+          <td class="text-mono">${r.time}</td>
+          <td>${r.tag}</td>
+          <td>${r.text}</td>
+          <td>${r.by||'管理员'}</td>
+        </tr>
+      `).join('');
+    }
+
+    // 保存（风控/角色/团队）
+    document.getElementById('btnSaveUser').addEventListener('click', ()=>{
+      const u = USERS.find(x=>x.id===currentUserId); if(!u) return;
+      const oldRisk = u.risk, newRisk = dFormRisk.value;
+      const oldTeam = u.teamId, newTeam = dFormTeam.value||'';
+      const oldRole = u.role, newRole = dFormRole.value;
+
+      // 风控变更：设为观察需要原因；取消观察需要确认；黑名单进出需要确认
+      if(oldRisk!==newRisk){
+        if(newRisk==='watch' && oldRisk!=='watch'){
+          const reason = prompt('请输入设为“观察”的原因：'); if(!reason) return alert('未填写原因，操作已取消。');
+          u.risk = 'watch'; addLog(u,'设为观察', reason);
+          // 同步一条风控记录
+          u.riskRecords.unshift({time:new Date().toISOString().replace('T',' ').slice(0,16), tag:'行为异常', text:'设为观察｜原因：'+reason, by:'管理员'});
+        }else if(oldRisk==='watch' && newRisk==='normal'){
+          if(!confirm('确认取消“观察”状态吗？')) return;
+          u.risk = 'normal'; addLog(u,'取消观察','—');
+          u.riskRecords.unshift({time:new Date().toISOString().replace('T',' ').slice(0,16), tag:'风险解除', text:'取消观察', by:'管理员'});
+        }else if(newRisk==='black'){
+          if(!confirm('确认将该用户加入黑名单吗？')) return;
+          u.risk = 'black'; addLog(u,'加入黑名单','—');
+          u.riskRecords.unshift({time:new Date().toISOString().replace('T',' ').slice(0,16), tag:'行为异常', text:'加入黑名单', by:'管理员'});
+        }else if(oldRisk==='black' && newRisk!=='black'){
+          if(!confirm('确认将该用户移出黑名单吗？')) return;
+          u.risk = newRisk; addLog(u,'移出黑名单','—');
+          u.riskRecords.unshift({time:new Date().toISOString().replace('T',' ').slice(0,16), tag:'风险解除', text:'移出黑名单', by:'管理员'});
+        }else{
+          u.risk = newRisk;
+        }
+      }
+
+      // 角色变更
+      if(oldRole!==newRole){ u.role = newRole; addLog(u,'修改角色', newRole==='publisher'?'发布用户':'接单用户'); }
+
+      // 团队变更（抽屉保存不强制原因，批量分配会强制原因）
+      if(oldTeam!==newTeam){
+        u.teamId = newTeam; u.teamName = (TEAMS.find(t=>t.id===u.teamId)||{name:''}).name;
+        addLog(u,'修改团队', u.teamName||'（未分配）');
+      }
+
+      openDrawer(u.id); renderTable();
+    });
+
+    // 风控记录：添加表单记录
+    document.getElementById('btnAddRiskRec').addEventListener('click', ()=>{
+      const u = USERS.find(x=>x.id===currentUserId); if(!u) return;
+      const tag = riskRecTag.value;
+      const text = (riskRecText.value||'').trim();
+      if(!text){ alert('请填写备注内容'); return; }
+      const tm = new Date().toISOString().replace('T',' ').slice(0,16);
+      u.riskRecords.unshift({time:tm, tag, text, by:'管理员'});
+      addLog(u,'风控记录', `${tag}｜${text}`);
+      riskRecText.value='';
+      renderRiskRecords(u);
+    });
+
+    // 调整余额（含余额校验 + 日志）
+    document.getElementById('formAdjust').addEventListener('submit', e=>{
+      e.preventDefault();
+      const u = USERS.find(x=>x.id===currentUserId); if(!u) return;
+      const fd = new FormData(e.target);
+      const type = fd.get('type'); const amount = parseFloat(fd.get('amount')); const reason = (fd.get('reason')||'').trim();
+      if(!(amount>0)){ alert('金额必须大于 0'); return; }
+      if(!reason){ alert('请填写调整原因'); return; }
+      // —— 校验 ——
+      if(type==='deduct' && amount>u.balAvail){ return alert('可用余额不足，当前可用：'+u.balAvail.toFixed(2)); }
+      if(type==='freeze' && amount>u.balAvail){ return alert('可用余额不足以冻结，当前可用：'+u.balAvail.toFixed(2)); }
+      if(type==='unfreeze' && amount>u.balFrozen){ return alert('冻结余额不足以解冻，当前冻结：'+u.balFrozen.toFixed(2)); }
+
+      const SN = genSN();
+      const now = new Date(); const tm = now.toISOString().replace('T',' ').slice(0,16);
+      let delta = 0, typeCN = '';
+      if(type==='recharge'){ delta = +amount; typeCN='后台充值'; u.balAvail = parseFloat((u.balAvail + delta).toFixed(2)); }
+      else if(type==='deduct'){ delta = -amount; typeCN='后台扣减'; u.balAvail = parseFloat((u.balAvail + delta).toFixed(2)); }
+      else if(type==='freeze'){ typeCN='后台冻结'; u.balFrozen = parseFloat((u.balFrozen + amount).toFixed(2)); u.balAvail = parseFloat((u.balAvail - amount).toFixed(2)); }
+      else if(type==='unfreeze'){ typeCN='后台解冻'; u.balFrozen = parseFloat((u.balFrozen - amount).toFixed(2)); u.balAvail = parseFloat((u.balAvail + amount).toFixed(2)); }
+
+      u.fundLogs.unshift({time:tm, type:typeCN, amount: (type==='freeze'||type==='unfreeze')?0:delta, balance:u.balAvail, note:`流水号:${SN}｜原因:${reason}`});
+      addLog(u,'后台调整余额', `${typeCN} ${amount.toFixed(2)} 元｜流水号:${SN}｜原因:${reason}`);
+      renderFundLogs(u); dBal.textContent = `可用 ${fmtMoney(u.balAvail)} / 冻结 ${fmtMoney(u.balFrozen)}`;
+      renderTable();
+      const modal = bootstrap.Modal.getInstance(document.getElementById('modalAdjust')); modal.hide();
+      e.target.reset();
+      alert('已调整余额，流水号：'+SN);
+    });
+
+    // 修改手机号（记录日志）
+    document.getElementById('btnEditPhone').addEventListener('click', ()=>{
+      const m = new bootstrap.Modal(document.getElementById('modalEditPhone'));
+      const u = USERS.find(x=>x.id===currentUserId);
+      const inp = document.querySelector('#formEditPhone input[name="phone"]');
+      inp.value = (u && u.phone && u.phone.indexOf('*')<0) ? u.phone : '';
+      m.show();
+    });
+    document.getElementById('formEditPhone').addEventListener('submit', e=>{
+      e.preventDefault();
+      const phone = new FormData(e.target).get('phone');
+      if(!confirm('确认将手机号修改为：' + phone + ' ？')) return;
+      const u = USERS.find(x=>x.id===currentUserId); if(!u) return;
+      u.phone = phone; addLog(u,'修改手机号', '新手机号：'+phone);
+      openDrawer(u.id);
+      const m = bootstrap.Modal.getInstance(document.getElementById('modalEditPhone')); m.hide();
+      alert('手机号已更新。');
+    });
+
+    // 重置密码（记录日志）
+    document.getElementById('btnResetPwd').addEventListener('click', ()=>{
+      const m = new bootstrap.Modal(document.getElementById('modalResetPwd')); m.show();
+    });
+    document.getElementById('formResetPwd').addEventListener('submit', e=>{
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const p1 = (fd.get('pwd1')||'').trim(); const p2 = (fd.get('pwd2')||'').trim();
+      if(p1.length<6){ alert('密码长度至少 6 位'); return; }
+      if(p1!==p2){ alert('两次输入不一致'); return; }
+      if(!confirm('确认重置该用户密码？')) return;
+      const u = USERS.find(x=>x.id===currentUserId); if(u) addLog(u,'重置密码','已重置密码');
+      const m = bootstrap.Modal.getInstance(document.getElementById('modalResetPwd')); m.hide();
+      alert('密码已重置。');
+    });
+
+    // 批量：设为观察（原因必填）、取消观察、设为黑名单（确认）、解除黑名单（确认）、分配团队（原因必填+确认）
+    function getChecked(){ return Array.from(checkedIds).map(id=>USERS.find(u=>u.id===id)).filter(Boolean); }
+
+    document.getElementById('btnBatchWatch').addEventListener('click', ()=>{
+      const sel = getChecked(); if(sel.length===0) return alert('请先勾选要操作的用户。');
+      const reason = prompt('请输入将选中用户设为“观察”的原因：'); if(!reason) return;
+      sel.forEach(u=>{ u.risk='watch'; addLog(u,'设为观察',reason); u.riskRecords.unshift({time:new Date().toISOString().replace('T',' ').slice(0,16), tag:'行为异常', text:'设为观察｜原因：'+reason, by:'管理员'}); });
+      renderTable(); if(currentUserId){ const u = USERS.find(x=>x.id===currentUserId); if(u) openDrawer(u.id); }
+    });
+
+    document.getElementById('btnBatchUnwatch').addEventListener('click', ()=>{
+      const sel = getChecked().filter(u=>u.risk==='watch'); if(sel.length===0) return alert('选中的用户中没有“观察”状态。');
+      if(!confirm('确认取消选中用户的“观察”状态吗？')) return;
+      sel.forEach(u=>{ u.risk='normal'; addLog(u,'取消观察','—'); u.riskRecords.unshift({time:new Date().toISOString().replace('T',' ').slice(0,16), tag:'风险解除', text:'取消观察', by:'管理员'}); });
+      renderTable(); if(currentUserId){ const u = USERS.find(x=>x.id===currentUserId); if(u) openDrawer(u.id); }
+    });
+
+    document.getElementById('btnBatchBlack').addEventListener('click', ()=>{
+      const sel = getChecked(); if(sel.length===0) return alert('请先勾选要操作的用户。');
+      if(!confirm('确认将选中用户加入黑名单吗？')) return;
+      sel.forEach(u=>{ u.risk='black'; addLog(u,'加入黑名单','—'); u.riskRecords.unshift({time:new Date().toISOString().replace('T',' ').slice(0,16), tag:'行为异常', text:'加入黑名单', by:'管理员'}); });
+      renderTable(); if(currentUserId){ const u = USERS.find(x=>x.id===currentUserId); if(u) openDrawer(u.id); }
+    });
+
+    document.getElementById('btnBatchUnblack').addEventListener('click', ()=>{
+      const sel = getChecked().filter(u=>u.risk==='black'); if(sel.length===0) return alert('选中的用户中没有“黑名单”状态。');
+      if(!confirm('确认将选中用户移出黑名单并恢复正常吗？')) return;
+      sel.forEach(u=>{ u.risk='normal'; addLog(u,'移出黑名单','—'); u.riskRecords.unshift({time:new Date().toISOString().replace('T',' ').slice(0,16), tag:'风险解除', text:'移出黑名单', by:'管理员'}); });
+      renderTable(); if(currentUserId){ const u = USERS.find(x=>x.id===currentUserId); if(u) openDrawer(u.id); }
+    });
+
+    function openAssignModal(ids){
+      const modalEl = document.getElementById('modalAssignTeam');
+      modalEl.dataset.ids = JSON.stringify(ids);
+      const modal = new bootstrap.Modal(modalEl); modal.show();
+    }
+    document.getElementById('btnBatchAssignTeam').addEventListener('click', ()=>{
+      const ids = Array.from(checkedIds);
+      if(ids.length===0) return alert('请先勾选要分配的用户。');
+      openAssignModal(ids);
+    });
+    document.getElementById('formAssignTeam').addEventListener('submit', e=>{
+      e.preventDefault();
+      const ids = JSON.parse(document.getElementById('modalAssignTeam').dataset.ids||'[]');
+      const fd = new FormData(e.target);
+      const teamId = fd.get('team')||'';
+      const reason = (fd.get('reason')||'').trim();
+      if(!reason){ alert('请填写分配原因'); return; }
+      const teamName = (TEAMS.find(t=>t.id===teamId)||{name:''}).name;
+      if(!confirm('确认将所选用户分配至：'+ (teamName||'（无团队）') +' ？')) return;
+      ids.forEach(id=>{
+        const u = USERS.find(x=>x.id===id); if(!u) return;
+        u.teamId = teamId; u.teamName = teamName; addLog(u, '分配团队', (teamName||'（无团队）')+'｜原因：'+reason);
+      });
+      renderTable();
+      const modal = bootstrap.Modal.getInstance(document.getElementById('modalAssignTeam')); modal.hide();
+      e.target.reset();
+      if(currentUserId){ const u = USERS.find(x=>x.id===currentUserId); if(u) openDrawer(u.id); }
+    });
+
+    // “查看全部日志”入口：打开模态并渲染分页
+    document.getElementById('btnOpenLogs').addEventListener('click', ()=>{
+      const u = USERS.find(x=>x.id===currentUserId); if(!u) return;
+      logPage = 1; logFilterType.value=''; logFilterKw.value='';
+      renderLogsModal(u);
+      const m = new bootstrap.Modal(modalLogs); m.show();
+    });
+    document.getElementById('btnLogFilterApply').addEventListener('click', ()=>{
+      const u = USERS.find(x=>x.id===currentUserId); if(!u) return;
+      logPage = 1; renderLogsModal(u);
+    });
+
+    // 模态日志渲染（分页 + 筛选）
+    function filterUserLogs(u){
+      const t = (logFilterType.value||'').trim();
+      const kw = (logFilterKw.value||'').trim().toLowerCase();
+      return (u.logs||[]).filter(l=>{
+        if(t && l.type !== t) return false;
+        if(kw && !( (l.detail||'').toLowerCase().includes(kw) )) return false;
+        return true;
+      });
+    }
+    function renderLogsModal(u){
+      const rows = filterUserLogs(u);
+      const total = rows.length;
+      const totalPages = Math.max(1, Math.ceil(total/logPageSize));
+      logPage = Math.min(logPage, totalPages);
+      const start = (logPage-1)*logPageSize;
+      const pageRows = rows.slice(start, start+logPageSize);
+      logModalTbody.innerHTML = pageRows.map(l=>`
+        <tr>
+          <td class="text-mono">${l.time}</td>
+          <td>${l.type}</td>
+          <td>${l.detail||'—'}</td>
+        </tr>`).join('');
+      // 分页构建
+      logPager.innerHTML = '';
+      const mk = (p, label, active=false, disabled=false)=>`<li class="page-item ${active?'active':''} ${disabled?'disabled':''}"><a class="page-link" href="#" data-p="${p}">${label}</a></li>`;
+      logPager.innerHTML += mk(1,'«', false, logPage===1);
+      for(let p=1;p<=totalPages;p++){
+        if(p===1 || p===totalPages || Math.abs(p-logPage)<=2){
+          logPager.innerHTML += mk(p, String(p), p===logPage, false);
+        }else if(Math.abs(p-logPage)===3){
+          logPager.innerHTML += `<li class="page-item disabled"><span class="page-link">…</span></li>`;
+        }
+      }
+      logPager.innerHTML += mk(totalPages,'»', false, logPage===totalPages);
+      logPager.querySelectorAll('a.page-link').forEach(a=>{
+        a.addEventListener('click', e=>{ e.preventDefault(); const p = parseInt(a.getAttribute('data-p')); if(!isNaN(p)){ logPage=p; renderLogsModal(u); }});
+      });
+      logPagerInfo.textContent = `共 ${total} 条 · 第 ${logPage}/${totalPages} 页`;
+    }
+
+    // 新增用户
+    document.getElementById('formAdd').addEventListener('submit', e=>{
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const nextId = 'U' + (200001 + USERS.length + 1);
+      const teamId = fd.get('team')||'';
+      const teamName = (TEAMS.find(t=>t.id===teamId)||{name:''}).name;
+      const u = {
+        id: nextId,
+        name: fd.get('name')||('新用户'+USERS.length),
+        phone: fd.get('phone')||'—',
+        email: fd.get('email')||'—',
+        role: fd.get('role')||'publisher',
+        risk: fd.get('risk')||'normal',
+        teamId, teamName,
+        regTime: new Date().toISOString().slice(0,10),
+        lastActive: new Date().toISOString().slice(0,10),
+        publishCount: 0, completeCount: 0,
+        balAvail: 0, balFrozen: 0,
+        fundLogs: [], logs: [], riskRecords: []
+      };
+      USERS.unshift(u); seedFundLogs(u);
+      addLog(u,'注册','后台新增用户');
+      u.riskRecords.unshift({time:new Date().toISOString().replace('T',' ').slice(0,16), tag:'资料核验', text:'后台创建用户', by:'管理员'});
+      currentPage = 1; renderTable();
+      const modal = bootstrap.Modal.getInstance(document.getElementById('modalAdd')); modal.hide();
+      e.target.reset();
+    });
+
+    // 导出 CSV
+    function exportCSV(){
+      const rows = applyFilters();
+      const header = ['用户ID','用户名','用户性质','所属团队','注册时间','发布数','完成数','可用余额','冻结余额','风控','最近活跃'];
+      const lines = [header.join(',')];
+      rows.forEach(u=>{
+        lines.push([u.id,u.name,u.role,u.teamName||'',u.regTime,u.publishCount,u.completeCount,u.balAvail,u.balFrozen,u.risk,u.lastActive].join(','));
+      });
+      const blob = new Blob(['\\uFEFF' + lines.join('\\n')], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'users.csv'; a.click();
+      URL.revokeObjectURL(url);
+    }
+    document.getElementById('btnExport').addEventListener('click', exportCSV);
+
+    // 顶部交互
+    document.getElementById('sidebarToggle').addEventListener('click', ()=>{
+      document.getElementById('sidebar').classList.toggle('show');
+    });
+    document.getElementById('btnLogout').addEventListener('click', e=>{ e.preventDefault(); alert('已退出登录（演示）。'); });
+
+    // 初始渲染
+    renderTable();
+  </script>
+
+<script>
+// 侧边栏统一：插入“系统设置”（接口管理与监控下方），隐藏“数据概览/团队投诉反馈”
+(function(){
+  try{
+    const aside = document.querySelector('aside.sidebar');
+    if(aside){
+      const links = aside.querySelectorAll('a');
+      let apiLink = null, settingsLinkExists = false;
+      links.forEach(a=>{
+        if(a.textContent && a.textContent.includes('接口管理与监控')) apiLink = a;
+        if(a.textContent && a.textContent.trim() === '系统设置') settingsLinkExists = true;
+      });
+      if(apiLink && !settingsLinkExists){
+        const li = document.createElement('li'); li.className = 'nav-item';
+        const a = document.createElement('a'); a.className='nav-link'; a.textContent='系统设置';
+        a.href = 'hq-admin-settings-system_v1.2.1d_tabs.html';
+        li.appendChild(a);
+        const parentUl = apiLink.closest('ul') || aside.querySelector('ul');
+        parentUl.insertBefore(li, apiLink.parentElement.nextSibling);
+      }
+      // 隐藏“数据概览”“团队投诉反馈”
+      links.forEach(a=>{
+        const t = (a.textContent||'').trim();
+        if(t.includes('数据概览') || t.includes('团队投诉反馈')){
+          const li = a.closest('li'); if(li) li.style.display='none';
+        }
+      });
+    }
+  }catch(e){ console.warn('侧边栏统一失败', e); }
+})();
+</script>
+
+
+<script>
+// 将表格中的编号（TSK/TPA/TFA/RCG/WDU/WDT/TF/UF/GF/FBK...）自动变为可点击链接
+(function(){
+  const map = {
+    TSK: 'hq-admin-task-detail.html',
+    TPA: 'hq-admin-audit-task-publish.html',
+    TFA: 'hq-admin-audit-task-completion.html',
+    RCG: 'hq-admin-finance-recharge-review.html',
+    WDU: 'hq-admin-finance-withdrawal-review.html',
+    WDT: 'hq-admin-finance-team-withdrawal-review.html',
+    TF:  'hq-admin-finance-platform-fund-flow.html',
+    UF:  'hq-admin-finance-user-fund-flow.html',
+    GF:  'hq-admin-finance-team-fund-flow.html',
+    FBK: 'hq-admin-users-feedback.html',
+    CAT: 'hq-admin-settings-categories.html',
+    FRM: 'hq-admin-form-design.html',
+    APP: 'hq-admin-system-api-management-monitoring.html',
+    MSG: 'hq-admin-users-feedback.html',
+    LOG: 'hq-admin-audit-task-completion.html',
+    U:   'hq-admin-users-list.html',
+    G:   'hq-admin-team-list.html'
+  };
+  const re = /\b(TSK|TPA|TFA|RCG|WDU|WDT|TF|UF|GF|FBK|CAT|FRM|APP|MSG|LOG|U|G)\d{4,}(?:\s*\d{3,})?\b/g;
+  function linkifyNode(node){
+    if(node.children && node.children.length) return;
+    const text = node.textContent;
+    if(!text || !re.test(text)) return;
+    const html = text.replace(re, (m)=>{
+      const pref = m.match(/^[A-Z]+/)[0];
+      const href = map[pref] || '#';
+      const q = encodeURIComponent(m.replace(/\s+/g,''));
+      return `<a href="${href}?id=${q}" class="text-decoration-underline">${m}</a>`;
+    });
+    const span = document.createElement('span'); span.innerHTML = html;
+    node.replaceWith(span);
+  }
+  const targets = Array.from(document.querySelectorAll('td, span, div, p, li'));
+  targets.forEach(linkifyNode);
+})();
+</script>
+
+
+<style>
+/* 统一状态样式 */
+.unified-empty { text-align:center; padding:28px 12px; color:#6c757d; }
+.unified-empty .icon { display:inline-block; width:36px; height:36px; border-radius:50%; border:2px dashed #ced4da; margin-bottom:6px; }
+.unified-loading { position:relative; min-height:80px; }
+.unified-loading:after {
+  content:""; position:absolute; inset:0; background:
+    linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.04) 50%, rgba(0,0,0,0) 100%);
+  animation: shimmer 1.2s infinite;
+}
+@keyframes shimmer { 0%{background-position:-200% 0;} 100%{background-position:200% 0;} }
+.unified-error { color:#dc3545; padding:8px 0; }
+
+/* 统一筛选浮层 */
+#unifiedFilterPanel {
+  position: fixed; right: 16px; top: 84px; width: 360px; z-index: 1080;
+  background: #fff; border: 1px solid #dee2e6; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.12);
+  display:none;
+}
+#unifiedFilterPanel .hdr { padding: 10px 12px; border-bottom:1px solid #eee; display:flex; align-items:center; justify-content:space-between; }
+#unifiedFilterPanel .bd { padding: 12px; }
+#btnUnifiedFilter { margin-left: 8px; }
+
+/* 按钮意图颜色统一（基于文本） */
+button, .btn { transition: filter .2s ease; }
+.btn-intent-approve { background:#198754; color:#fff; border-color:#198754; }
+.btn-intent-reject { background:#dc3545; color:#fff; border-color:#dc3545; }
+.btn-intent-return { background:#ffc107; color:#212529; border-color:#ffc107; }
+.btn-intent-pay { background:#0d6efd; color:#fff; border-color:#0d6efd; }
+
+/* 可点击编号统一下划线（若页面未设置） */
+a.id-link { text-decoration: underline; }
+</style>
+
+<script>
+(function(){
+  // ===== 读取系统设置（货币/精度/时区） =====
+  const PUB_KEY = 'hq_sys_settings_v1_2_1d_published';
+  let locale = { lang:'zh-CN', tz:'Asia/Shanghai', currency:'CNY', precision:2 };
+  try{
+    const cfg = JSON.parse(localStorage.getItem(PUB_KEY)||'{}');
+    if(cfg.locale){
+      locale.lang = cfg.locale.lang || locale.lang;
+      locale.tz = cfg.locale.tz || locale.tz;
+      locale.currency = cfg.locale.currency || locale.currency;
+      locale.precision = parseInt(cfg.locale.precision||locale.precision,10);
+    }
+  }catch(e){}
+
+  // ===== 统一筛选：在首个 .card-header 右侧添加“筛选”按钮 + 浮层 =====
+  function ensureFilterUI(){
+    if(document.getElementById('unifiedFilterPanel')) return;
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-outline-secondary btn-sm';
+    btn.id = 'btnUnifiedFilter';
+    btn.innerHTML = '<i class="bi bi-funnel me-1"></i>筛选';
+    // 尝试挂到第一个 card-header 右侧
+    const hdr = document.querySelector('.card .card-header') || document.querySelector('.d-flex.align-items-center.justify-content-between');
+    if(hdr){ hdr.appendChild(btn); }
+    else {
+      // 顶部右上角浮动按钮（兜底）
+      const fbtn = btn.cloneNode(true);
+      fbtn.style.position='fixed'; fbtn.style.right='16px'; fbtn.style.top='20px'; fbtn.style.zIndex='1080';
+      document.body.appendChild(fbtn);
+    }
+
+    const panel = document.createElement('div');
+    panel.id = 'unifiedFilterPanel';
+    panel.innerHTML = `
+      <div class="hdr">
+        <strong>通用筛选</strong>
+        <button type="button" class="btn-close" id="btnUFclose"></button>
+      </div>
+      <div class="bd">
+        <div class="mb-2">
+          <label class="form-label">关键字</label>
+          <input class="form-control" id="uf-key" placeholder="编号/手机号/名称">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">状态</label>
+          <select class="form-select" id="uf-status">
+            <option value="">全部</option>
+            <option>待处理</option>
+            <option>处理中</option>
+            <option>已通过</option>
+            <option>已驳回</option>
+            <option>已完成</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">时间范围</label>
+          <div class="d-flex gap-2">
+            <input type="date" class="form-control" id="uf-from">
+            <input type="date" class="form-control" id="uf-to">
+          </div>
+        </div>
+        <div class="d-flex justify-content-end gap-2">
+          <button class="btn btn-outline-secondary btn-sm" id="uf-reset">重置</button>
+          <button class="btn btn-primary btn-sm" id="uf-apply">应用</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(panel);
+
+    document.body.addEventListener('click', function(e){
+      if(e.target && (e.target.id==='btnUnifiedFilter')){
+        const p = document.getElementById('unifiedFilterPanel');
+        p.style.display = (p.style.display==='none' || !p.style.display) ? 'block' : 'none';
+      }
+      if(e.target && (e.target.id==='btnUFclose')){
+        document.getElementById('unifiedFilterPanel').style.display = 'none';
+      }
+      if(e.target && (e.target.id==='uf-reset')){
+        document.getElementById('uf-key').value='';
+        document.getElementById('uf-status').value='';
+        document.getElementById('uf-from').value='';
+        document.getElementById('uf-to').value='';
+        // 客户端演示：移除高亮
+        document.querySelectorAll('.uf-hl').forEach(n=>n.classList.remove('uf-hl'));
+      }
+      if(e.target && (e.target.id==='uf-apply')){
+        // Demo：仅做关键字高亮；实际项目应触发具体表格筛选逻辑
+        const key = (document.getElementById('uf-key').value||'').trim();
+        document.querySelectorAll('.uf-hl').forEach(n=>n.classList.remove('uf-hl'));
+        if(key){
+          const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+          const re = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+          let node; while(node = walker.nextNode()){
+            if(re.test(node.nodeValue) && node.parentElement && node.parentElement.closest('table')){
+              node.parentElement.classList.add('uf-hl');
+            }
+          }
+        }
+        document.getElementById('unifiedFilterPanel').style.display = 'none';
+      }
+    });
+
+    const style = document.createElement('style');
+    style.textContent = `.uf-hl{ background: rgba(255, 230, 0, .45); outline: 1px dashed #ffbf00; }`;
+    document.head.appendChild(style);
+  }
+
+  // ===== 统一金额格式（根据表头关键字判列） =====
+  function unifyAmountFormat(){
+    const tables = Array.from(document.querySelectorAll('table'));
+    const nf = new Intl.NumberFormat(locale.lang, { style:'currency', currency: locale.currency, minimumFractionDigits: locale.precision, maximumFractionDigits: locale.precision });
+    tables.forEach(tb=>{
+      const ths = Array.from(tb.querySelectorAll('thead th, thead td')).map(th => (th.textContent||'').trim());
+      if(!ths.length) return;
+      ths.forEach((txt, idx)=>{
+        if(/金额|价|费|收款|打款|入账|出账/.test(txt)){
+          Array.from(tb.querySelectorAll(`tbody tr`)).forEach(tr=>{
+            const td = tr.children[idx]; if(!td) return;
+            const raw = (td.textContent||'').replace(/[,￥$]/g,'').trim();
+            const num = parseFloat(raw);
+            if(!isNaN(num)){
+              td.setAttribute('data-raw-amount', num);
+              td.textContent = nf.format(num);
+              td.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace';
+              td.style.textAlign = 'right';
+            }
+          });
+        }
+      });
+    });
+  }
+
+  // ===== 统一时间格式 =====
+  function unifyTimeFormat(){
+    const tables = Array.from(document.querySelectorAll('table'));
+    const fmt = new Intl.DateTimeFormat(locale.lang, { timeZone: locale.tz, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    tables.forEach(tb=>{
+      const ths = Array.from(tb.querySelectorAll('thead th, thead td')).map(th => (th.textContent||'').trim());
+      if(!ths.length) return;
+      ths.forEach((txt, idx)=>{
+        if(/时间|日期|创建|更新/.test(txt)){
+          Array.from(tb.querySelectorAll(`tbody tr`)).forEach(tr=>{
+            const td = tr.children[idx]; if(!td) return;
+            const s = (td.textContent||'').trim();
+            // 常见格式 "YYYY-MM-DD HH:mm[:ss]"
+            const iso = s.replace(/(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(:\d{2})?)/, '$1T$2');
+            const d = new Date(iso);
+            if(!isNaN(+d)){
+              td.title = d.toISOString();
+              td.textContent = fmt.format(d);
+              td.style.whiteSpace = 'nowrap';
+            }
+          });
+        }
+      });
+    });
+  }
+
+  // ===== 空态填充（无数据时） =====
+  function fillEmptyStates(){
+    Array.from(document.querySelectorAll('table')).forEach(tb=>{
+      const body = tb.querySelector('tbody'); if(!body) return;
+      const hasRow = body.querySelector('tr');
+      if(!hasRow){
+        const colSpan = (tb.querySelectorAll('thead th').length || 1);
+        const tr = document.createElement('tr');
+        const td = document.createElement('td'); td.colSpan = colSpan; td.className='unified-empty';
+        td.innerHTML = '<div class="icon"></div><div>暂无数据</div>';
+        tr.appendChild(td); body.appendChild(tr);
+      }
+    });
+  }
+
+  // ===== 动作按钮意图着色（基于文本内容） =====
+  function colorizeActionButtons(){
+    const btns = Array.from(document.querySelectorAll('button, a.btn'));
+    btns.forEach(b=>{
+      const t = (b.textContent||'').trim();
+      if(/通过|同意|Approve/i.test(t)) b.classList.add('btn-intent-approve');
+      if(/驳回|拒绝|Reject/i.test(t)) b.classList.add('btn-intent-reject');
+      if(/打回|退回|Return/i.test(t)) b.classList.add('btn-intent-return');
+      if(/打款|已转账|Pay/i.test(t)) b.classList.add('btn-intent-pay');
+    });
+  }
+
+  // ===== 启动顺序 =====
+  document.addEventListener('DOMContentLoaded', function(){
+    ensureFilterUI();
+    unifyAmountFormat();
+    unifyTimeFormat();
+    fillEmptyStates();
+    colorizeActionButtons();
+  });
+})();
+</script>
+
+</body>
+</html>

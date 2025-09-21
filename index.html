@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>总部管理后台登录</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    :root{ --bg-grad: linear-gradient(135deg, #f8f9fa 0%, #eef2f7 50%, #e6ebf2 100%); }
+    html,body{ height: 100%; }
+    body{ background: var(--bg-grad); }
+    .login-wrap{ min-height: 100%; display: grid; place-items: center; padding: 24px; }
+    .login-card{ width: 100%; max-width: 980px; border: 1px solid #e9ecef; border-radius: 18px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.06); background: #fff; }
+    .login-left{ background: radial-gradient(1200px 600px at -20% -20%, #e8f4ff 0, transparent 40%), #f7fbff; height: 100%; padding: 36px 28px; }
+    .brand{ display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 22px; }
+    .brand .dot{ width: 10px; height: 10px; border-radius: 50%; background: #0d6efd; display:inline-block; }
+    .slogan{ color:#6c757d; margin-top:6px; }
+    .illus{ margin-top: 36px; border-radius: 16px; background: linear-gradient(135deg, #e9f5ff, #eef7ff); border: 1px solid #e5f1ff; padding: 18px; }
+    .illus small{ color:#6c757d; }
+    .login-right{ padding: 36px 28px; }
+    .input-icon{ position: relative; }
+    .input-icon .toggle{ position:absolute; right:10px; top:50%; transform:translateY(-50%); cursor:pointer; color:#6c757d; }
+    .form-check-label{ user-select: none; }
+    .login-actions{ display:flex; align-items:center; justify-content:space-between; gap: 12px; }
+    .btn-lg{ border-radius: 10px; }
+    .foot-note{ font-size: 12px; color:#6c757d; }
+    @media (max-width: 991.98px){ .login-left{ display:none; } .login-card{ max-width: 520px; } }
+  </style>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-card row g-0">
+    <div class="col-lg-6 login-left">
+      <div class="brand"><span class="dot"></span><span>总部管理后台</span></div>
+      <div class="slogan">线下结算 · 站内通知 · 规则集中</div>
+      <div class="illus">
+        <h5 class="mb-2">登录须知</h5>
+        <ul class="mb-2">
+          <li>仅支持 <strong>手机号 + 密码</strong> 登录；</li>
+          <li>短信仅用于 <strong>注册/找回密码验证码</strong>；</li>
+          <li>首次登录请前往“系统设置 → 登录与安全”修改密码，并绑定手机号；</li>
+          <li>如无访问权限，请联系总部管理员为你开通页面可见性。</li>
+        </ul>
+        <small>安全提示：请勿在公共设备勾选“记住手机号”。</small>
+      </div>
+    </div>
+
+    <div class="col-lg-6 login-right">
+      <h4 class="mb-1">登录</h4>
+      <div class="text-muted mb-4">进入总部管理后台</div>
+
+      <form id="loginForm" class="needs-validation" novalidate>
+        <!-- 手机号：移除 pattern，使用 JS 自定义校验；限制 maxlength=11，只允许数字 -->
+        <div class="mb-3">
+          <label for="phone" class="form-label">手机号</label>
+          <input type="tel" class="form-control" id="phone" name="phone" inputmode="numeric"
+                 placeholder="请输入 11 位手机号" required minlength="11" maxlength="11" aria-describedby="phoneHelp">
+          <div id="phoneHelp" class="form-text">必须以 1 开头，共 11 位数字。</div>
+          <div class="invalid-feedback">请输入正确的 11 位手机号（1 开头）</div>
+        </div>
+
+        <!-- 密码 -->
+        <div class="mb-3 input-icon">
+          <label for="password" class="form-label">密码</label>
+          <input type="password" class="form-control" id="password" name="password" placeholder="请输入密码" required minlength="6">
+          <i class="bi bi-eye-slash toggle" id="togglePwd" aria-label="显示/隐藏密码" title="显示/隐藏密码"></i>
+          <div class="invalid-feedback">请输入不少于 6 位的密码</div>
+        </div>
+
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="1" id="rememberPhone">
+            <label class="form-check-label" for="rememberPhone">记住手机号</label>
+          </div>
+          <a href="#" class="small" data-bs-toggle="modal" data-bs-target="#forgetModal">忘记密码？</a>
+        </div>
+
+        <div class="login-actions mb-2">
+          <button class="btn btn-primary btn-lg w-100" type="submit" id="btnLogin">
+            <i class="bi bi-box-arrow-in-right me-1"></i> 登录
+          </button>
+        </div>
+        <div class="foot-note">登录即表示同意内部使用规范，所有操作将被审计。</div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- 找回密码模态 -->
+<div class="modal fade" id="forgetModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">找回密码</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label" for="fpPhone">手机号</label>
+          <input type="tel" class="form-control" id="fpPhone" placeholder="请输入 11 位手机号" minlength="11" maxlength="11">
+          <div class="form-text">将向该手机号发送重置验证码（模拟）。</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="fpCode">短信验证码</label>
+          <div class="input-group">
+            <input type="text" class="form-control" id="fpCode" placeholder="6位验证码">
+            <button class="btn btn-outline-secondary" type="button" id="btnSendCode">发送验证码</button>
+          </div>
+          <div class="form-text">验证码仅用于找回密码，不用于通知其他内容。</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="fpNewPwd">新密码</label>
+          <input type="password" class="form-control" id="fpNewPwd" placeholder="请输入新密码（>=6位）" minlength="6">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-primary" id="btnResetPwd">设置新密码</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast 容器 -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1080">
+  <div id="liveToast" class="toast align-items-center text-white bg-dark border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body" id="toastBody">操作结果</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="关闭"></button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+(function(){
+  const ADMIN_USERS_KEY = 'demo_admin_users';
+  const SESSION_KEY = 'hq_admin_session';
+  const DASHBOARD_CANDIDATES = [
+    'hq-admin-dashboard.html',
+  ];
+
+  // 工具：Toast
+  function toast(msg){ document.getElementById('toastBody').textContent = msg; new bootstrap.Toast(document.getElementById('liveToast')).show(); }
+
+  // 工具：手机号正则
+  const phoneReg = /^1\d{10}$/;
+
+  // 工具：只取数字并限长 11
+  function sanitizePhone(val){
+    val = (val||'').replace(/\D/g,'');
+    if(val.length > 11) val = val.slice(0,11);
+    return val;
+  }
+
+  // 演示管理员（本地）
+  function ensureDemoAdmin(){
+    try{
+      const map = JSON.parse(localStorage.getItem(ADMIN_USERS_KEY) || '{}');
+      if(!map['13800000000']){ map['13800000000'] = { password: '123456', name:'演示管理员'}; }
+      localStorage.setItem(ADMIN_USERS_KEY, JSON.stringify(map));
+    }catch(e){}
+  }
+
+  // 记住手机号
+  function rememberPhone(val){ try{ localStorage.setItem('login_phone_remember', val || ''); }catch(e){} }
+  function readRememberPhone(){ try{ return localStorage.getItem('login_phone_remember') || ''; }catch(e){ return ''; } }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    ensureDemoAdmin();
+
+    // 获取元素引用（避免依赖全局变量）
+    const $phone = document.getElementById('phone');
+    const $pwd = document.getElementById('password');
+    const $remember = document.getElementById('rememberPhone');
+    const $togglePwd = document.getElementById('togglePwd');
+    const $loginForm = document.getElementById('loginForm');
+    const $btnSendCode = document.getElementById('btnSendCode');
+    const $fpPhone = document.getElementById('fpPhone');
+    const $fpCode = document.getElementById('fpCode');
+    const $fpNewPwd = document.getElementById('fpNewPwd');
+    const $btnResetPwd = document.getElementById('btnResetPwd');
+
+    // 回填已记住的手机号
+    const savedPhone = readRememberPhone();
+    if(savedPhone){ $phone.value = savedPhone; $remember.checked = true; $pwd.focus(); } else { $phone.focus(); }
+
+    // 手机号输入：仅保留数字、限长 11，并设置自定义校验
+    function validatePhoneInput(el){
+      el.value = sanitizePhone(el.value);
+      if(!el.value){
+        el.setCustomValidity('请输入手机号');
+      }else if(!phoneReg.test(el.value)){
+        el.setCustomValidity('请输入 11 位手机号（1 开头）');
+      }else{
+        el.setCustomValidity('');
+      }
+    }
+    $phone.addEventListener('input', ()=> validatePhoneInput($phone));
+    $phone.addEventListener('blur', ()=> validatePhoneInput($phone));
+    // 初始化一次
+    validatePhoneInput($phone);
+
+    // 密码可见切换
+    $togglePwd.addEventListener('click', function(){
+      if($pwd.type === 'password'){ $pwd.type = 'text'; this.classList.replace('bi-eye-slash','bi-eye'); }
+      else{ $pwd.type = 'password'; this.classList.replace('bi-eye','bi-eye-slash'); }
+    });
+
+    // 登录提交
+    $loginForm.addEventListener('submit', function(e){
+      e.preventDefault(); e.stopPropagation();
+      this.classList.add('was-validated');
+      validatePhoneInput($phone);
+      if(!$loginForm.checkValidity()){
+        toast('请检查输入项'); return;
+      }
+      const ph = $phone.value.trim(), pwd = $pwd.value;
+      try{
+        const map = JSON.parse(localStorage.getItem(ADMIN_USERS_KEY) || '{}');
+        if(!map[ph] || map[ph].password !== pwd){ toast('账号或密码错误'); return; }
+      }catch(e){ toast('本地用户数据异常'); return; }
+      if($remember.checked){ rememberPhone(ph); } else { rememberPhone(''); }
+      try{ localStorage.setItem(SESSION_KEY, JSON.stringify({ phone: ph, loginAt: Date.now() })); }catch(e){}
+      // 跳转仪表盘（优先顺序）
+      location.href = DASHBOARD_CANDIDATES[0];
+    });
+
+    // 找回密码：发送验证码（倒计时演示）
+    $btnSendCode.addEventListener('click', function(){
+      $fpPhone.value = sanitizePhone($fpPhone.value);
+      if(!phoneReg.test($fpPhone.value)){ toast('请输入正确的 11 位手机号'); return; }
+      let sec = 60; const btn = this; btn.disabled = true; btn.textContent = sec + ' 秒后重试';
+      const timer = setInterval(()=>{ sec--; if(sec<=0){ clearInterval(timer); btn.disabled = false; btn.textContent = '发送验证码'; } else { btn.textContent = sec + ' 秒后重试'; } }, 1000);
+      toast('验证码已发送（模拟）'); btn.dataset.code = '123456';
+    });
+
+    // 找回密码：设置新密码（本地演示）
+    $btnResetPwd.addEventListener('click', function(){
+      $fpPhone.value = sanitizePhone($fpPhone.value);
+      if(!phoneReg.test($fpPhone.value)){ toast('手机号格式不正确'); return; }
+      if(($fpCode.value||'').trim().length < 4){ toast('请输入正确的验证码'); return; }
+      if(($fpNewPwd.value||'').length < 6){ toast('新密码长度至少 6 位'); return; }
+      try{
+        const map = JSON.parse(localStorage.getItem(ADMIN_USERS_KEY) || '{}');
+        if(!map[$fpPhone.value]){ map[$fpPhone.value] = { password: $fpNewPwd.value, name: '新建管理员' }; }
+        else{ map[$fpPhone.value].password = $fpNewPwd.value; }
+        localStorage.setItem(ADMIN_USERS_KEY, JSON.stringify(map));
+      }catch(e){ toast('保存失败'); return; }
+      toast('新密码已设置，请使用新密码登录');
+      const modal = bootstrap.Modal.getInstance(document.getElementById('forgetModal')); modal && modal.hide();
+    });
+  });
+})();
+</script>
+</body>
+</html>

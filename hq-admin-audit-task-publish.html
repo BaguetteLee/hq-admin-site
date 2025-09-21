@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>总部管理系统 - 任务发布审核（v3.3.1）</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+<style>
+:root{
+  --primary:#3b7ddd; --primary-light:#e8f0fe; --red:#dc3545; --white:#ffffff; --light:#f5f6f8; --border:#e2e8f0; --text:#2d3748;
+  --dot-platform:#3b7ddd; --dot-user:#2fb67b; --dot-team:#f6a035; --dot-system:#7a5af8;
+}
+body{background-color:var(--light);font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:var(--text);}
+.navbar{background-color:var(--white);box-shadow:0 2px 10px rgba(0,0,0,.05);border-bottom:1px solid var(--border);position:fixed;top:0;left:0;right:0;z-index:1030;padding-left:260px;transition:padding-left .3s;}
+.navbar-brand{color:var(--primary);font-weight:700;display:flex;align-items:center;gap:.6rem;}
+.navbar-toggler{display:none;border:none;font-size:1.25rem;}
+.navbar-toggler:focus{box-shadow:none;}
+.sidebar{background-color:var(--white);color:#4a5568;height:100vh;position:fixed;left:0;top:0;width:260px;padding-top:60px;box-shadow:2px 0 10px rgba(0,0,0,0.05);border-right:1px solid var(--border);z-index:1000;overflow-y:auto;}
+.sidebar .nav-link{color:#4a5568;padding:.8rem 1rem;margin:.1rem .5rem;border-radius:6px;transition:all .2s;display:flex;align-items:center;gap:.55rem;}
+.sidebar .nav-link i{color:#718096;}
+.sidebar .nav-link:hover,.sidebar .nav-link.active{color:var(--primary);background-color:var(--primary-light);}
+.sidebar .nav-link.active i,.sidebar .nav-link:hover i{color:var(--primary);}
+.sidebar .menu-section{padding:.75rem 1rem .25rem;color:#94a3b8;font-weight:700;text-transform:uppercase;font-size:.75rem;letter-spacing:.06em;}
+.cat-dot{display:inline-block;width:.6rem;height:.6rem;border-radius:2px;flex:0 0 auto;}
+.dot-platform{background-color:var(--dot-platform);}
+.dot-user{background-color:var(--dot-user);}
+.dot-team{background-color:var(--dot-team);}
+.dot-system{background-color:var(--dot-system);}
+.main-content{margin-left:260px;padding:20px;padding-top:80px;transition:margin-left .3s;}
+@media (max-width: 992px){
+  .sidebar{width:84px;padding-top:70px;}
+  .sidebar .nav-link span.text{display:none;}
+  .sidebar .menu-section{display:none;}
+  .main-content{margin-left:84px;}
+  .navbar{padding-left:84px;}
+}
+@media (max-width: 768px){
+  .sidebar{transform:translateX(-100%);width:260px;}
+  .sidebar.show{transform:translateX(0);}
+  .main-content{margin-left:0;}
+  .navbar{padding-left:15px;}
+  .navbar-toggler{display:block;}
+}
+.dashboard-card{background:var(--white);border-radius:10px;box-shadow:0 4px 6px rgba(0,0,0,.04);margin-bottom:24px;border:none;}
+.card-header{background-color:var(--white);border-bottom:1px solid var(--border);font-weight:600;padding:1rem 1.5rem;}
+.card-body{padding:1.5rem;}
+.table th{font-weight:600;color:#4a5568;border-top:none;border-bottom:2px solid var(--border);}
+.table-hover tbody tr:hover{background:#f8f9fa;}
+.badge{border-radius:6px}
+.modal-lg{max-width:1024px;}
+.nav-audit .nav-link{color:#495057}
+.nav-audit .nav-link.active{color:var(--primary);font-weight:600;border-color:var(--primary)!important}
+.info-card{background:#f8f9fa;border-radius:8px;padding:1rem;margin-bottom:1rem;}
+.pub-row{display:flex;gap:.75rem;margin-bottom:.35rem;}
+.pub-label{width:7.5rem;color:#6c757d;flex-shrink:0;}
+.pub-value{flex:1;color:#2d3748;}
+.kv{display:grid;grid-template-columns:repeat(2, minmax(0,1fr));gap:.5rem 1.5rem;align-items:center}
+.kv .k{color:#6c757d}
+.kv .v{font-weight:600}
+.small-muted{font-size:.85rem;color:#6c757d}
+.money-strong{font-weight:700}
+.section-title{font-weight:700;margin:.25rem 0 .5rem}
+.log-item{border-left:3px solid var(--primary-light);padding-left:.75rem;margin-left:.25rem;margin-bottom:.5rem}
+.textarea-note{min-height:80px}
+.pagination-wrap{display:flex;justify-content:center;align-items:center;padding:12px;}
+.image-preview{max-width:100%;max-height:180px;border-radius:6px;margin-right:10px;margin-bottom:10px}
+.toast-container{position:fixed;right:16px;bottom:16px;z-index:2000}
+</style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-light">
+  <div class="container-fluid">
+    <button class="navbar-toggler" type="button" id="sidebarToggle">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <a class="navbar-brand" href="#"><strong><i class="bi bi-building me-2"></i>总部管理系统</strong></a>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto me-5">
+        <li class="nav-item dropdown ms-2">
+          <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+            <i class="bi bi-person-circle me-2"></i> 管理员
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="#" id="btnLogout"><i class="bi bi-box-arrow-right me-2"></i>退出</a></li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<aside class="sidebar">
+  <div class="position-sticky">
+    <ul class="nav flex-column">
+      <li class="menu-section">平台</li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-dashboard.html"><span class="cat-dot dot-platform"></span><i class="bi bi-speedometer2"></i><span class="text">平台总仪表盘</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-finance-platform-fund-flow.html"><span class="cat-dot dot-platform"></span><i class="bi bi-currency-exchange"></i><span class="text">平台资金流水</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-tasks-global-management.html"><span class="cat-dot dot-platform"></span><i class="bi bi-list-task"></i><span class="text">任务全局管理</span></a></li>
+
+      <li class="menu-section">用户</li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-users-list.html"><span class="cat-dot dot-user"></span><i class="bi bi-people"></i><span class="text">平台用户列表</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-finance-recharge-review.html"><span class="cat-dot dot-user"></span><i class="bi bi-wallet2"></i><span class="text">用户充值审核</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-finance-withdrawal-review.html"><span class="cat-dot dot-user"></span><i class="bi bi-cash-coin"></i><span class="text">用户提现审核</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-finance-user-fund-flow.html"><span class="cat-dot dot-user"></span><i class="bi bi-currency-exchange"></i><span class="text">用户资金流水</span></a></li>
+ <li class="nav-item"><a class="nav-link" href="hq-admin-users-feedback.html"><span class="cat-dot dot-user"></span><i class="bi bi-chat-left-text"></i><span class="text">用户投诉反馈</span></a></li>
+      <li class="nav-item"><a class="nav-link active" href="hq-admin-audit-task-publish.html"><span class="cat-dot dot-user"></span><i class="bi bi-send-check"></i><span class="text">用户发布审核</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-audit-task-completion.html"><span class="cat-dot dot-user"></span><i class="bi bi-check2-circle"></i><span class="text">任务完成审核</span></a></li>
+
+      <li class="menu-section">团队</li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-team-dashboard.html"><span class="cat-dot dot-team"></span><i class="bi bi-graph-up"></i><span class="text">团队数据概览</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-team-list.html"><span class="cat-dot dot-team"></span><i class="bi bi-building"></i><span class="text">平台团队列表</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-finance-team-withdrawal-review.html"><span class="cat-dot dot-team"></span><i class="bi bi-bank"></i><span class="text">团队提现审核</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-finance-team-fund-flow.html"><span class="cat-dot dot-team"></span><i class="bi bi-currency-exchange"></i><span class="text">团队资金流水</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-team-feedback.html"><span class="cat-dot dot-team"></span><i class="bi bi-chat-left-text"></i><span class="text">团队投诉反馈</span></a></li>
+
+      <li class="menu-section">系统</li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-settings-categories.html"><span class="cat-dot dot-system"></span><i class="bi bi-tags"></i><span class="text">业务分类管理</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-system-api-management-monitoring.html"><span class="cat-dot dot-system"></span><i class="bi bi-hdd-network"></i><span class="text">接口管理监控</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-settings-system.html"><span class="cat-dot dot-system"></span><i class="bi bi-gear-fill"></i><span class="text">系统设置</span></a></li>
+    </ul>
+  </div>
+</aside>
+
+<main class="main-content">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">任务发布审核</h4>
+    <div class="text-muted">待审核任务: <span class="fw-bold text-primary" id="pendingCount">0</span> 个</div>
+  </div>
+
+  <div class="card dashboard-card">
+    <div class="card-body">
+      <form class="row g-3" id="filterForm">
+        <div class="col-md-3">
+          <label class="form-label">任务状态</label>
+          <select class="form-select" id="taskStatus" name="status">
+            <option value="" selected>全部</option>
+            <option value="pending">待审核</option>
+            <option value="approved">已通过</option>
+            <option value="rejected">已驳回</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">任务分类</label>
+          <select class="form-select" id="taskCategory" name="category">
+            <option value="">全部</option>
+            <option value="社交媒体">社交媒体推广</option>
+            <option value="内容创作">内容创作</option>
+            <option value="设计类">设计类</option>
+            <option value="测试体验">测试体验</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">所属团队</label>
+          <select class="form-select" id="teamFilter" name="team">
+            <option value="">全部</option>
+            <option value="星海传媒">星海传媒</option>
+            <option value="创智科技">创智科技</option>
+            <option value="优创团队">优创团队</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">发布时间</label>
+          <input type="date" class="form-control" id="dateFilter" name="date">
+        </div>
+        <div class="col-12 text-end">
+          <button type="reset" class="btn btn-outline-secondary">重置</button>
+          <button type="submit" class="btn btn-primary">筛选</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <section class="dashboard-card card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span>待审核任务列表</span>
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="onlyShowPending">
+        <label class="form-check-label" for="onlyShowPending">仅显示待审核</label>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0" id="taskTable">
+          <thead>
+            <tr>
+              <th width="60">ID</th>
+              <th>发布用户</th>
+              <th>任务分类</th>
+              <th>单价</th>
+              <th>总赏金</th>
+              <th>服务费</th>
+              <th>发布时间</th>
+              <th>审核时间</th>
+              <th>状态</th>
+              <th width="210">操作</th>
+            </tr>
+          </thead>
+          <tbody id="taskTbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card-footer">
+      <nav aria-label="Page navigation" class="pagination-wrap">
+        <ul class="pagination mb-0" id="pagination"></ul>
+      </nav>
+    </div>
+  </section>
+</main>
+
+<div class="modal fade" id="taskDetailModal" tabindex="-1" aria-hidden="true" data-service-fee="0.10">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h5 class="modal-title" id="modalTitle">任务审核</h5>
+          <div class="small-muted" id="modalSubTitle">—</div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+      </div>
+
+      <ul class="nav nav-tabs nav-audit px-3 pt-2" role="tablist">
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-form" type="button">提交内容</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-money" type="button">金额与资金</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-edit" type="button">后台调整</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-check" type="button">校验与日志</button></li>
+      </ul>
+
+      <div class="modal-body">
+        <div class="tab-content">
+          <div class="tab-pane fade show active" id="tab-form">
+            <div class="info-card">
+              <div class="kv">
+                <div class="k">任务ID</div><div class="v" id="kvId">#—</div>
+                <div class="k">发布用户</div><div class="v" id="kvUser">—</div>
+                <div class="k">团队</div><div class="v" id="kvTeam">—</div>
+                <div class="k">分类</div><div class="v" id="kvCategory">—</div>
+              </div>
+            </div>
+            <div class="info-card">
+              <div class="section-title">提交字段与内容</div>
+              <div id="formReplay">正在载入…</div>
+            </div>
+            <div class="info-card">
+              <div class="section-title">参考素材（示例）</div>
+              <div class="small-muted mb-2">以下为演示图片占位。真实系统中来自用户提交。</div>
+              <div class="d-flex flex-wrap">
+                <img src="https://via.placeholder.com/200" class="image-preview">
+                <img src="https://via.placeholder.com/200" class="image-preview">
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-pane fade" id="tab-money">
+            <div class="row">
+              <div class="col-md-6">
+                <div class="info-card">
+                  <div class="section-title">金额明细</div>
+                  <div class="pub-row"><div class="pub-label">任务单价</div><div class="pub-value money-strong" id="ovUnit">¥0</div></div>
+                  <div class="pub-row"><div class="pub-label">任务数量</div><div class="pub-value" id="ovQty">0个</div></div>
+                  <div class="pub-row"><div class="pub-label">总赏金</div><div class="pub-value money-strong" id="ovBounty">¥0</div></div>
+                  <div class="pub-row"><div class="pub-label">服务费（<span id="ovFeeRate">10%</span>）</div><div class="pub-value money-strong" id="ovFee">¥0</div></div>
+                  <hr>
+                  <div class="pub-row"><div class="pub-label">应付总额</div><div class="pub-value money-strong" id="ovPay">¥0</div></div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="info-card">
+                  <div class="section-title">资金校验</div>
+                  <div class="kv">
+                    <div class="k">可用余额</div><div class="v" id="ovBalance">¥0</div>
+                    <div class="k">当前已冻结</div><div class="v" id="ovFrozen">¥0</div>
+                    <div class="k">本单需冻结</div><div class="v" id="ovNeedFreeze">¥0</div>
+                  </div>
+                  <div class="mt-2"><span class="badge bg-success" id="ovBalanceResult"><i class="bi bi-shield-check me-1"></i>余额足额</span> <span class="small-muted ms-2">（静态模拟）</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-pane fade" id="tab-edit">
+            <form id="editForm" class="row g-3">
+              <div class="col-12"><div class="section-title">基础信息</div></div>
+              <div class="col-md-6">
+                <label class="form-label">任务分类</label>
+                <select class="form-select" id="edCategory">
+                  <option>社交媒体推广</option><option>内容创作</option><option>设计类</option><option>测试体验</option><option>其他</option>
+                </select>
+              </div>
+
+              <div class="col-12"><div class="section-title">金额与数量</div></div>
+              <div class="col-md-3">
+                <label class="form-label">任务单价（¥）</label>
+                <input type="number" class="form-control" id="edUnit" min="0" step="1">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">任务数量（个）</label>
+                <input type="number" class="form-control" id="edQty" min="1" step="1">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">服务费率</label>
+                <select class="form-select" id="edFeeRate">
+                  <option value="0.10">10%</option><option value="0.12">12%</option><option value="0.15">15%</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">用户限领（个/人）</label>
+                <input type="number" class="form-control" id="edPerLimit" min="1" step="1">
+              </div>
+
+              <div class="col-12"><div class="section-title">时间与链接</div></div>
+              <div class="col-md-6">
+                <label class="form-label">开始时间</label>
+                <input type="datetime-local" class="form-control" id="edStart">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">截止时间</label>
+                <input type="datetime-local" class="form-control" id="edEnd">
+              </div>
+              <div class="col-md-12">
+                <label class="form-label">参考链接</label>
+                <input type="url" class="form-control" id="edLink" placeholder="https://">
+              </div>
+
+              <div class="col-12"><div class="section-title">文本内容</div></div>
+              <div class="col-12">
+                <label class="form-label">任务描述</label>
+                <textarea class="form-control" id="edDesc" rows="3"></textarea>
+              </div>
+              <div class="col-12">
+                <label class="form-label">任务要求（每行一条）</label>
+                <textarea class="form-control" id="edReq" rows="3"></textarea>
+              </div>
+
+              <div class="col-12 text-end">
+                <button type="button" class="btn btn-outline-secondary" id="btnRecalc">重新计算金额</button>
+                <button type="button" class="btn btn-primary" id="btnSaveEdit">保存修改</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="tab-pane fade" id="tab-check">
+            <div class="row g-3">
+              <div class="col-md-7">
+                <div class="info-card">
+                  <div class="section-title">合规检查清单</div>
+                  <div class="form-check"><input class="form-check-input check-item" type="checkbox" id="chk1"> <label class="form-check-label" for="chk1">标题与描述无敏感词</label></div>
+                  <div class="form-check"><input class="form-check-input check-item" type="checkbox" id="chk2"> <label class="form-check-label" for="chk2">表单字段完整、可执行</label></div>
+                  <div class="form-check"><input class="form-check-input check-item" type="checkbox" id="chk3"> <label class="form-check-label" for="chk3">时间设置合理（≥24小时）</label></div>
+                  <div class="form-check"><input class="form-check-input check-item" type="checkbox" id="chk4"> <label class="form-check-label" for="chk4">预算足额（余额校验通过）</label></div>
+                  <div class="form-check"><input class="form-check-input check-item" type="checkbox" id="chk5"> <label class="form-check-label" for="chk5">无重复/高相似任务</label></div>
+                  <div class="mt-2">
+                    <button class="btn btn-outline-primary btn-sm" id="btnCheckAll">一键全选通过</button>
+                    <span class="ms-2 small-muted">结果：<span id="checkResult" class="fw-semibold">未完成</span></span>
+                  </div>
+                </div>
+
+                <div class="info-card">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <div class="section-title mb-0">线下沟通纪要（内部）</div>
+                    <button class="btn btn-sm btn-outline-secondary" id="btnAddNoteToLog" type="button">
+                      <i class="bi bi-journal-plus me-1"></i>添加到日志
+                    </button>
+                  </div>
+                  <textarea class="form-control textarea-note mt-2" id="offlineNote" placeholder="在此记录与客户在线下沟通的关键结论、修改点、风险等（此内容不会发送给用户）"></textarea>
+                  <div class="form-text">点击“添加到日志”会把当前纪要作为一条日志写入右侧“变更日志”，并自动清空文本。</div>
+                </div>
+
+                <div class="info-card">
+                  <div class="section-title">驳回原因</div>
+                  <select class="form-select mb-2" id="rejectTpl">
+                    <option value="">选择常用模板</option>
+                    <option>描述不清，请补充具体执行步骤与交付标准</option>
+                    <option>时间设置不合理，请确保≥24小时执行期</option>
+                    <option>示例材料不足，请补充截图或链接</option>
+                  </select>
+                  <textarea class="form-control" id="rejectReason" rows="4" placeholder="请详细说明驳回原因…"></textarea>
+                  <div class="form-text">此处仅做记录；点击底部“驳回”时必须填写。</div>
+                </div>
+              </div>
+
+              <div class="col-md-5">
+                <div class="info-card">
+                  <div class="section-title">变更日志</div>
+                  <div id="changeLog" class="small">
+                    <div class="log-item">— 尚无修改记录 —</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /tab-content -->
+      </div>
+
+      <div class="modal-footer">
+        <span class="me-auto small-muted">操作对象：<span id="footerTaskId">#—</span></span>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+        <button type="button" class="btn btn-danger" id="rejectBtn">驳回</button>
+        <button type="button" class="btn btn-success" id="approveBtn">通过审核</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container">
+  <div id="toastSaved" class="toast align-items-center text-bg-dark border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body">已添加到日志并清空纪要。</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="关闭"></button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+/* 工具函数（中文注释） */
+function toCNY(n){ return '¥' + Number(n).toLocaleString('zh-CN'); }
+function parseCNY(txt){ return Number(String(txt).replace(/[¥,]/g,'')); }
+function nowString(){ const d=new Date(),p=x=>String(x).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
+
+/* 顶部/侧边栏交互 */
+document.getElementById('sidebarToggle')?.addEventListener('click',()=>document.querySelector('.sidebar')?.classList.toggle('show'));
+document.getElementById('btnLogout')?.addEventListener('click', function(e){
+  e.preventDefault(); try{ localStorage.removeItem('auth_token'); localStorage.removeItem('user_info'); sessionStorage.clear(); }catch(err){} window.location.href='login.html';
+});
+
+/* 列表模拟数据 */
+const demoRows = [
+  {id:1001, user:'张三', team:'星海传媒', category:'社交媒体', unit:50, bounty:5000, fee:500, pub:'2023-10-20 14:30', audit:'—', status:'pending', date:'2023-10-20'},
+  {id:1002, user:'李四', team:'创智科技', category:'内容创作', unit:125, bounty:2500, fee:250, pub:'2023-10-20 13:15', audit:'—', status:'pending', date:'2023-10-20'},
+  {id:1003, user:'王五', team:'优创团队', category:'设计类', unit:1600, bounty:8000, fee:800, pub:'2023-10-19 16:45', audit:'2023-10-20 10:20', status:'approved', date:'2023-10-19'},
+];
+const namePool=['赵六','孙七','周八','钱九','吴十','郑一一','王一二','冯一三','陈一四','褚一五','卫一六','蒋一七','沈一八','韩一九','杨二十','朱二一','秦二二','尤二三','许二四'];
+const teamPool=['优创团队','星海传媒','创智科技'];
+for(let i=4;i<=22;i++){
+  demoRows.push({
+    id:1000+i,
+    user:namePool[(i-4)%namePool.length],
+    team:teamPool[i%3],
+    category:(i%4===0?'社交媒体':i%4===1?'内容创作':i%4===2?'设计类':'测试体验'),
+    unit:(i%4===0?60:(i%4===1?95:(i%4===2?260:30))),
+    bounty:(i%4===0?6000:(i%4===1?1900:(i%4===2?5200:900))),
+    fee:(i%4===0?600:(i%4===1?190:(i%4===2?520:90))),
+    pub:'2023-10-20 12:'+String(10+i).padStart(2,'0'),
+    audit:(i%5===0?('2023-10-21 09:'+String(10+i).padStart(2,'0')):'—'),
+    status:(i%4===0?'pending':i%4===1?'approved':i%4===2?'rejected':'pending'),
+    date:'2023-10-20'
+  });
+}
+
+/* 渲染、分页与筛选 */
+const tbody=document.getElementById('taskTbody');
+const pendingCountEl=document.getElementById('pendingCount');
+const onlyShowPending=document.getElementById('onlyShowPending');
+const paginationEl=document.getElementById('pagination');
+const PAGE_SIZE=15;
+let currentPage=1;
+let filtered=[];
+
+function renderRows(slice){
+  tbody.innerHTML='';
+  slice.forEach(row=>{
+    const tr=document.createElement('tr');
+    tr.dataset.status=row.status;
+    tr.dataset.category=row.category.replace('推广','');
+    tr.dataset.team=row.team;
+    tr.dataset.date=row.date;
+    tr.innerHTML=`
+      <td>${row.id}</td>
+      <td>${row.user}</td>
+      <td><span class="badge ${row.category.includes('社交')?'bg-info':row.category.includes('内容')?'bg-primary':row.category.includes('设计')?'bg-success':'bg-secondary'}">${row.category}</span></td>
+      <td>¥${row.unit.toLocaleString()}</td>
+      <td>¥${row.bounty.toLocaleString()}</td>
+      <td>¥${row.fee.toLocaleString()}</td>
+      <td>${row.pub}</td>
+      <td>${row.audit}</td>
+      <td>${row.status==='pending'?'<span class="badge bg-warning">待审核</span>':row.status==='approved'?'<span class="badge bg-success">已通过</span>':'<span class="badge bg-danger">已驳回</span>'}</td>
+      <td>
+        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#taskDetailModal" data-task-id="${row.id}" ${row.status!=='pending'?'disabled':''}>审核</button>
+        <button class="btn btn-sm btn-outline-danger btn-inline-reject" data-task-id="${row.id}" ${row.status!=='pending'?'disabled':''}>快速驳回</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+  bindRowActions();
+}
+
+function buildPagination(total){
+  const totalPages=Math.ceil(total/PAGE_SIZE);
+  paginationEl.innerHTML='';
+  if(totalPages<=1){ paginationEl.parentElement.style.display='none'; return; }
+  paginationEl.parentElement.style.display='';
+  const addItem=(label,page,disabled=false,active=false)=>{
+    const li=document.createElement('li');
+    li.className='page-item'+(disabled?' disabled':'')+(active?' active':'');
+    const a=document.createElement('a');
+    a.className='page-link'; a.href='#'; a.textContent=label;
+    a.addEventListener('click',e=>{ e.preventDefault(); if(disabled||active) return; currentPage=page; renderPage(); });
+    li.appendChild(a); paginationEl.appendChild(li);
+  };
+  addItem('上一页',Math.max(1,currentPage-1),currentPage===1,false);
+  for(let p=1;p<=totalPages;p++){ addItem(String(p),p,false,p===currentPage); }
+  addItem('下一页',Math.min(totalPages,currentPage+1),currentPage===totalPages,false);
+}
+
+function refreshPendingCount(){
+  pendingCountEl.textContent = filtered.filter(x=>x.status==='pending').length;
+}
+
+function applyFilters(){
+  const status=document.getElementById('taskStatus').value;
+  const category=document.getElementById('taskCategory').value;
+  const team=document.getElementById('teamFilter').value;
+  const date=document.getElementById('dateFilter').value;
+  const onlyPending=onlyShowPending.checked;
+  filtered=demoRows.filter(r=>{
+    const m1=!status||r.status===status;
+    const m2=!category||r.category.includes(category);
+    const m3=!team||r.team===team;
+    const m4=!date||r.date===date;
+    const m5=!onlyPending||r.status==='pending';
+    return m1&&m2&&m3&&m4&&m5;
+  });
+  currentPage=1; renderPage();
+}
+
+function renderPage(){
+  const total=filtered.length;
+  const start=(currentPage-1)*PAGE_SIZE;
+  const end=start+PAGE_SIZE;
+  renderRows(filtered.slice(start,end));
+  buildPagination(total);
+  refreshPendingCount();
+}
+
+/* 任务详细数据（示例） */
+const taskData={
+  "1001":{id:"1001", user:"张三", team:"星海传媒", category:"社交媒体推广", unit:50, qty:100, feeRate:0.10, publishTime:"2023-10-20 14:30:25", start:"2023-10-21 00:00", end:"2023-10-31 23:59", perLimit:2, link:"https://example.com/reference", desc:"需要在微博/小红书/抖音推广健康管理APP，强调健康数据追踪等核心功能。", req:["粉丝数≥1000","内容原创","@官方账号","发布后提交链接"], balance:6500, frozen:500, formValues:{"总数量":"100","平台选择":"微博","内容方向":"健康管理APP核心功能解读","开始/截止时间":"2023-10-21 00:00 / 2023-10-31 23:59"}},
+  "1002":{id:"1002", user:"李四", team:"创智科技", category:"内容创作", unit:125, qty:20, feeRate:0.10, publishTime:"2023-10-20 13:15:00", start:"2023-10-22 09:00", end:"2023-10-25 18:00", perLimit:1, link:"https://example.com/post", desc:"撰写产品体验评测，关注可用性、性能与创新点。", req:["原创首发","≥800字","配3张高清图"], balance:1200, frozen:0, formValues:{"总数量":"20","字数要求":"≥800","配图数量":"3","开始/截止时间":"2023-10-22 09:00 / 2023-10-25 18:00"}},
+  "1003":{id:"1003", user:"王五", team:"优创团队", category:"设计类", unit:1600, qty:5, feeRate:0.10, publishTime:"2023-10-19 16:45:00", start:"2023-10-26 10:00", end:"2023-11-05 18:00", perLimit:1, link:"#", desc:"优化核心流程界面，提升转化。", req:["提供原型链接","给出设计说明与规范"], balance:30000, frozen:0, formValues:{"总数量":"5","交付物":"高保真稿+动效稿","风格偏好":"简洁、克制","开始/截止时间":"2023-10-26 10:00 / 2023-11-05 18:00"}}
+};
+
+/* 模态元素引用 */
+const taskDetailModal=document.getElementById('taskDetailModal');
+const modalTitle=document.getElementById('modalTitle');
+const modalSubTitle=document.getElementById('modalSubTitle');
+const footerTaskId=document.getElementById('footerTaskId');
+const formReplay=document.getElementById('formReplay');
+const kvId=document.getElementById('kvId'), kvUser=document.getElementById('kvUser'), kvTeam=document.getElementById('kvTeam'), kvCategory=document.getElementById('kvCategory');
+
+const ovUnit=document.getElementById('ovUnit'), ovQty=document.getElementById('ovQty'), ovBounty=document.getElementById('ovBounty'), ovFee=document.getElementById('ovFee'), ovFeeRate=document.getElementById('ovFeeRate'), ovPay=document.getElementById('ovPay');
+const ovBalance=document.getElementById('ovBalance'), ovFrozen=document.getElementById('ovFrozen'), ovNeedFreeze=document.getElementById('ovNeedFreeze'), ovBalanceResult=document.getElementById('ovBalanceResult');
+
+/* 编辑区 */
+const edCategory=document.getElementById('edCategory'), edUnit=document.getElementById('edUnit'), edQty=document.getElementById('edQty'), edFeeRate=document.getElementById('edFeeRate'), edPerLimit=document.getElementById('edPerLimit'), edStart=document.getElementById('edStart'), edEnd=document.getElementById('edEnd'), edLink=document.getElementById('edLink'), edDesc=document.getElementById('edDesc'), edReq=document.getElementById('edReq');
+const btnRecalc=document.getElementById('btnRecalc'), btnSaveEdit=document.getElementById('btnSaveEdit');
+
+/* 校验区与日志 */
+const checkItems=document.querySelectorAll('.check-item'), checkResult=document.getElementById('checkResult'), btnCheckAll=document.getElementById('btnCheckAll'), rejectTpl=document.getElementById('rejectTpl'), rejectReason=document.getElementById('rejectReason'), offlineNote=document.getElementById('offlineNote');
+const changeLog=document.getElementById('changeLog');
+const btnAddNoteToLog=document.getElementById('btnAddNoteToLog');
+const rejectBtn=document.getElementById('rejectBtn'), approveBtn=document.getElementById('approveBtn');
+
+/* 提交内容回放 */
+function renderFormReplay(task){
+  formReplay.innerHTML='';
+  const values=task.formValues||{};
+  const keys=Object.keys(values).filter(k=>!/(任务名称|任务标题)/.test(k));
+  if(keys.length===0){ formReplay.innerHTML='<span class="text-muted">（无可展示字段）</span>'; return; }
+  keys.forEach(label=>{
+    const wrap=document.createElement('div');
+    wrap.className='pub-row';
+    const val=Array.isArray(values[label])?values[label].join('、'):values[label];
+    wrap.innerHTML=`<div class="pub-label">${label}</div><div class="pub-value">${val}</div>`;
+    formReplay.appendChild(wrap);
+  });
+}
+
+/* 金额联动与保存修改 */
+function recalcMoney(){
+  const unit=Number(edUnit.value||0), qty=Number(edQty.value||0), rate=Number(edFeeRate.value||0);
+  const bounty=unit*qty, fee=Math.round(bounty*rate);
+  ovUnit.textContent=toCNY(unit);
+  ovQty.textContent=qty+'个';
+  ovBounty.textContent=toCNY(bounty);
+  ovFee.textContent=toCNY(fee);
+  ovFeeRate.textContent=Math.round(rate*100)+'%';
+  ovPay.textContent=toCNY(bounty+fee);
+  ovNeedFreeze.textContent=toCNY(bounty);
+  const bal=parseCNY(ovBalance.textContent), frz=parseCNY(ovFrozen.textContent);
+  const enough=(bal-frz)>=bounty;
+  ovBalanceResult.classList.toggle('bg-success',enough);
+  ovBalanceResult.classList.toggle('bg-danger',!enough);
+  ovBalanceResult.innerHTML=enough?'<i class="bi bi-shield-check me-1"></i>余额足额':'<i class="bi bi-exclamation-octagon me-1"></i>余额不足';
+}
+btnRecalc?.addEventListener('click', recalcMoney);
+
+function doSaveEdit(){
+  recalcMoney();
+  changeLog.prepend(Object.assign(document.createElement('div'),{className:'log-item',textContent:nowString()+' 管理员：保存修改（单价/数量/费率/时间等）'}));
+  alert('已保存（模拟）');
+}
+btnSaveEdit?.addEventListener('click', doSaveEdit);
+
+/* 新增：纪要“添加到日志”并自动清空 */
+btnAddNoteToLog?.addEventListener('click', ()=>{
+  const txt=(offlineNote.value||'').trim();
+  if(!txt){ alert('请先填写沟通纪要内容'); return; }
+  const safe=txt.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  const div=document.createElement('div');
+  div.className='log-item';
+  div.innerHTML=nowString()+' 管理员：记录沟通纪要 — '+safe;
+  changeLog.prepend(div);
+  // 自动清空并给出轻提示
+  offlineNote.value='';
+  try{
+    const toastEl=document.getElementById('toastSaved');
+    const toast=new bootstrap.Toast(toastEl,{delay:1500});
+    toast.show();
+  }catch(e){}
+});
+
+btnCheckAll?.addEventListener('click', ()=>{
+  checkItems.forEach(c=>c.checked=true);
+  checkResult.textContent='已全部通过';
+  checkResult.classList.add('text-success');
+});
+rejectTpl?.addEventListener('change', function(){ if(this.value) rejectReason.value=this.value; });
+
+/* 行内操作与模态 */
+function bindRowActions(){
+  document.querySelectorAll('.btn-inline-reject').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id=Number(btn.dataset.taskId);
+      if(!confirm('确定驳回任务 #'+id+' 吗？')) return;
+      const item=demoRows.find(x=>x.id===id);
+      if(item){ item.status='rejected'; item.audit=nowString(); }
+      applyFilters();
+      alert('任务 #'+id+' 已驳回（模拟）');
+    });
+  });
+
+  document.querySelectorAll('[data-bs-target="#taskDetailModal"]').forEach(btn=>{
+    btn.addEventListener('click', function(){
+      const taskId=this.getAttribute('data-task-id');
+      const data=taskData[taskId]||null;
+      const listItem=demoRows.find(x=>String(x.id)===String(taskId));
+      if(!data && !listItem){ return; }
+
+      modalTitle.textContent='任务审核 - #'+taskId;
+      const cat=(data?.category||listItem?.category||'—');
+      const user=(data?.user||listItem?.user||'—');
+      modalSubTitle.textContent=cat+' · '+user+' · 提交时间 '+(data?.publishTime||listItem?.pub||'—');
+
+      kvId.textContent='#'+taskId;
+      kvUser.textContent=user;
+      kvTeam.textContent=(data?.team||listItem?.team||'—');
+      kvCategory.textContent=cat;
+
+      if(data){ renderFormReplay(data); } else { formReplay.innerHTML='<span class="text-muted">（无提交字段）</span>'; }
+
+      const unit=data?.unit ?? listItem?.unit ?? 0;
+      const qty=data?.qty ?? 0;
+      const rate=data?.feeRate ?? 0.10;
+      const bounty=(data? unit*qty : listItem?.bounty) || 0;
+      const fee=data? Math.round(bounty*rate) : (listItem?.fee||0);
+      ovUnit.textContent=toCNY(unit);
+      ovQty.textContent=(data? qty+'个' : (listItem? Math.round((bounty||0)/(unit||1))+'个':'0个'));
+      ovBounty.textContent=toCNY(bounty||0);
+      ovFee.textContent=toCNY(fee||0);
+      ovFeeRate.textContent=Math.round((data?rate:0.10)*100)+'%';
+      ovPay.textContent=toCNY((bounty||0)+(fee||0));
+      ovBalance.textContent=toCNY(data?.balance ?? 0);
+      ovFrozen.textContent=toCNY(data?.frozen ?? 0);
+      ovNeedFreeze.textContent=toCNY(bounty||0);
+      const enough=((data?.balance||0)-(data?.frozen||0))>=(bounty||0);
+      ovBalanceResult.classList.toggle('bg-success',enough);
+      ovBalanceResult.classList.toggle('bg-danger',!enough);
+      ovBalanceResult.innerHTML=enough?'<i class="bi bi-shield-check me-1"></i>余额足额':'<i class="bi bi-exclamation-octagon me-1"></i>余额不足';
+
+      edCategory.value=(cat||'').replace('推广','');
+      edUnit.value=unit||0;
+      edQty.value=data? (qty||0) : (listItem? Math.round((bounty||0)/(unit||1)) : 0);
+      edFeeRate.value=String(data? (rate||0.10) : 0.10);
+      edPerLimit.value=data?.perLimit ?? 1;
+      edStart.value=(data?.start||'').replace(' ','T');
+      edEnd.value=(data?.end||'').replace(' ','T');
+      edLink.value=data?.link || '';
+      edDesc.value=data?.desc || '';
+      edReq.value=(data?.req||[]).join('\\n');
+
+      rejectReason.value=''; offlineNote.value='';
+      changeLog.innerHTML='<div class="log-item">'+nowString()+' 系统：载入任务 #'+taskId+'</div>';
+      footerTaskId.textContent='#'+taskId;
+    });
+  });
+}
+
+/* 审核动作 */
+rejectBtn?.addEventListener('click', ()=>{
+  const reason=rejectReason.value.trim();
+  if(!reason){ alert('请在“校验与日志”页签填写驳回原因或选择模板'); return; }
+  if(!confirm('确认驳回？')) return;
+  const taskId=Number(footerTaskId.textContent.replace('#',''));
+  const item=demoRows.find(x=>x.id===taskId);
+  if(item){ item.status='rejected'; item.audit=nowString(); }
+  applyFilters();
+  bootstrap.Modal.getInstance(taskDetailModal).hide();
+  alert('已驳回（模拟）');
+});
+
+approveBtn?.addEventListener('click', ()=>{
+  const allPassed=Array.from(checkItems).every(c=>c.checked);
+  if(!allPassed && !confirm('有未勾选的校验项，仍要通过吗？')) return;
+  const taskId=Number(footerTaskId.textContent.replace('#',''));
+  const item=demoRows.find(x=>x.id===taskId);
+  if(item){ item.status='approved'; item.audit=nowString(); }
+  applyFilters();
+  bootstrap.Modal.getInstance(taskDetailModal).hide();
+  alert('任务已通过并上架（模拟）');
+});
+
+/* 初始渲染 */
+function initList(){ applyFilters(); }
+if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', initList); } else { initList(); }
+</script>
+
+<script>
+// 侧边栏统一：插入“系统设置”（接口管理与监控下方），隐藏“数据概览/团队投诉反馈”
+(function(){
+  try{
+    const aside = document.querySelector('aside.sidebar');
+    if(aside){
+      const links = aside.querySelectorAll('a');
+      let apiLink = null, settingsLinkExists = false;
+      links.forEach(a=>{
+        if(a.textContent && a.textContent.includes('接口管理与监控')) apiLink = a;
+        if(a.textContent && a.textContent.trim() === '系统设置') settingsLinkExists = true;
+      });
+      if(apiLink && !settingsLinkExists){
+        const li = document.createElement('li'); li.className = 'nav-item';
+        const a = document.createElement('a'); a.className='nav-link'; a.textContent='系统设置';
+        a.href = 'hq-admin-settings-system_v1.2.1d_tabs.html';
+        li.appendChild(a);
+        const parentUl = apiLink.closest('ul') || aside.querySelector('ul');
+        parentUl.insertBefore(li, apiLink.parentElement.nextSibling);
+      }
+      // 隐藏“数据概览”“团队投诉反馈”
+      links.forEach(a=>{
+        const t = (a.textContent||'').trim();
+        if(t.includes('数据概览') || t.includes('团队投诉反馈')){
+          const li = a.closest('li'); if(li) li.style.display='none';
+        }
+      });
+    }
+  }catch(e){ console.warn('侧边栏统一失败', e); }
+})();
+</script>
+
+
+<script>
+// 将表格中的编号（TSK/TPA/TFA/RCG/WDU/WDT/TF/UF/GF/FBK...）自动变为可点击链接
+(function(){
+  const map = {
+    TSK: 'hq-admin-task-detail.html',
+    TPA: 'hq-admin-audit-task-publish.html',
+    TFA: 'hq-admin-audit-task-completion.html',
+    RCG: 'hq-admin-finance-recharge-review.html',
+    WDU: 'hq-admin-finance-withdrawal-review.html',
+    WDT: 'hq-admin-finance-team-withdrawal-review.html',
+    TF:  'hq-admin-finance-platform-fund-flow.html',
+    UF:  'hq-admin-finance-user-fund-flow.html',
+    GF:  'hq-admin-finance-team-fund-flow.html',
+    FBK: 'hq-admin-users-feedback.html',
+    CAT: 'hq-admin-settings-categories.html',
+    FRM: 'hq-admin-form-design.html',
+    APP: 'hq-admin-system-api-management-monitoring.html',
+    MSG: 'hq-admin-users-feedback.html',
+    LOG: 'hq-admin-audit-task-completion.html',
+    U:   'hq-admin-users-list.html',
+    G:   'hq-admin-team-list.html'
+  };
+  const re = /\b(TSK|TPA|TFA|RCG|WDU|WDT|TF|UF|GF|FBK|CAT|FRM|APP|MSG|LOG|U|G)\d{4,}(?:\s*\d{3,})?\b/g;
+  function linkifyNode(node){
+    if(node.children && node.children.length) return;
+    const text = node.textContent;
+    if(!text || !re.test(text)) return;
+    const html = text.replace(re, (m)=>{
+      const pref = m.match(/^[A-Z]+/)[0];
+      const href = map[pref] || '#';
+      const q = encodeURIComponent(m.replace(/\s+/g,''));
+      return `<a href="${href}?id=${q}" class="text-decoration-underline">${m}</a>`;
+    });
+    const span = document.createElement('span'); span.innerHTML = html;
+    node.replaceWith(span);
+  }
+  const targets = Array.from(document.querySelectorAll('td, span, div, p, li'));
+  targets.forEach(linkifyNode);
+})();
+</script>
+
+
+<style>
+/* 统一状态样式 */
+.unified-empty { text-align:center; padding:28px 12px; color:#6c757d; }
+.unified-empty .icon { display:inline-block; width:36px; height:36px; border-radius:50%; border:2px dashed #ced4da; margin-bottom:6px; }
+.unified-loading { position:relative; min-height:80px; }
+.unified-loading:after {
+  content:""; position:absolute; inset:0; background:
+    linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.04) 50%, rgba(0,0,0,0) 100%);
+  animation: shimmer 1.2s infinite;
+}
+@keyframes shimmer { 0%{background-position:-200% 0;} 100%{background-position:200% 0;} }
+.unified-error { color:#dc3545; padding:8px 0; }
+
+/* 统一筛选浮层 */
+#unifiedFilterPanel {
+  position: fixed; right: 16px; top: 84px; width: 360px; z-index: 1080;
+  background: #fff; border: 1px solid #dee2e6; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.12);
+  display:none;
+}
+#unifiedFilterPanel .hdr { padding: 10px 12px; border-bottom:1px solid #eee; display:flex; align-items:center; justify-content:space-between; }
+#unifiedFilterPanel .bd { padding: 12px; }
+#btnUnifiedFilter { margin-left: 8px; }
+
+/* 按钮意图颜色统一（基于文本） */
+button, .btn { transition: filter .2s ease; }
+.btn-intent-approve { background:#198754; color:#fff; border-color:#198754; }
+.btn-intent-reject { background:#dc3545; color:#fff; border-color:#dc3545; }
+.btn-intent-return { background:#ffc107; color:#212529; border-color:#ffc107; }
+.btn-intent-pay { background:#0d6efd; color:#fff; border-color:#0d6efd; }
+
+/* 可点击编号统一下划线（若页面未设置） */
+a.id-link { text-decoration: underline; }
+</style>
+
+<script>
+(function(){
+  // ===== 读取系统设置（货币/精度/时区） =====
+  const PUB_KEY = 'hq_sys_settings_v1_2_1d_published';
+  let locale = { lang:'zh-CN', tz:'Asia/Shanghai', currency:'CNY', precision:2 };
+  try{
+    const cfg = JSON.parse(localStorage.getItem(PUB_KEY)||'{}');
+    if(cfg.locale){
+      locale.lang = cfg.locale.lang || locale.lang;
+      locale.tz = cfg.locale.tz || locale.tz;
+      locale.currency = cfg.locale.currency || locale.currency;
+      locale.precision = parseInt(cfg.locale.precision||locale.precision,10);
+    }
+  }catch(e){}
+
+  // ===== 统一筛选：在首个 .card-header 右侧添加“筛选”按钮 + 浮层 =====
+  function ensureFilterUI(){
+    if(document.getElementById('unifiedFilterPanel')) return;
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-outline-secondary btn-sm';
+    btn.id = 'btnUnifiedFilter';
+    btn.innerHTML = '<i class="bi bi-funnel me-1"></i>筛选';
+    // 尝试挂到第一个 card-header 右侧
+    const hdr = document.querySelector('.card .card-header') || document.querySelector('.d-flex.align-items-center.justify-content-between');
+    if(hdr){ hdr.appendChild(btn); }
+    else {
+      // 顶部右上角浮动按钮（兜底）
+      const fbtn = btn.cloneNode(true);
+      fbtn.style.position='fixed'; fbtn.style.right='16px'; fbtn.style.top='20px'; fbtn.style.zIndex='1080';
+      document.body.appendChild(fbtn);
+    }
+
+    const panel = document.createElement('div');
+    panel.id = 'unifiedFilterPanel';
+    panel.innerHTML = `
+      <div class="hdr">
+        <strong>通用筛选</strong>
+        <button type="button" class="btn-close" id="btnUFclose"></button>
+      </div>
+      <div class="bd">
+        <div class="mb-2">
+          <label class="form-label">关键字</label>
+          <input class="form-control" id="uf-key" placeholder="编号/手机号/名称">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">状态</label>
+          <select class="form-select" id="uf-status">
+            <option value="">全部</option>
+            <option>待处理</option>
+            <option>处理中</option>
+            <option>已通过</option>
+            <option>已驳回</option>
+            <option>已完成</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">时间范围</label>
+          <div class="d-flex gap-2">
+            <input type="date" class="form-control" id="uf-from">
+            <input type="date" class="form-control" id="uf-to">
+          </div>
+        </div>
+        <div class="d-flex justify-content-end gap-2">
+          <button class="btn btn-outline-secondary btn-sm" id="uf-reset">重置</button>
+          <button class="btn btn-primary btn-sm" id="uf-apply">应用</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(panel);
+
+    document.body.addEventListener('click', function(e){
+      if(e.target && (e.target.id==='btnUnifiedFilter')){
+        const p = document.getElementById('unifiedFilterPanel');
+        p.style.display = (p.style.display==='none' || !p.style.display) ? 'block' : 'none';
+      }
+      if(e.target && (e.target.id==='btnUFclose')){
+        document.getElementById('unifiedFilterPanel').style.display = 'none';
+      }
+      if(e.target && (e.target.id==='uf-reset')){
+        document.getElementById('uf-key').value='';
+        document.getElementById('uf-status').value='';
+        document.getElementById('uf-from').value='';
+        document.getElementById('uf-to').value='';
+        // 客户端演示：移除高亮
+        document.querySelectorAll('.uf-hl').forEach(n=>n.classList.remove('uf-hl'));
+      }
+      if(e.target && (e.target.id==='uf-apply')){
+        // Demo：仅做关键字高亮；实际项目应触发具体表格筛选逻辑
+        const key = (document.getElementById('uf-key').value||'').trim();
+        document.querySelectorAll('.uf-hl').forEach(n=>n.classList.remove('uf-hl'));
+        if(key){
+          const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+          const re = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+          let node; while(node = walker.nextNode()){
+            if(re.test(node.nodeValue) && node.parentElement && node.parentElement.closest('table')){
+              node.parentElement.classList.add('uf-hl');
+            }
+          }
+        }
+        document.getElementById('unifiedFilterPanel').style.display = 'none';
+      }
+    });
+
+    const style = document.createElement('style');
+    style.textContent = `.uf-hl{ background: rgba(255, 230, 0, .45); outline: 1px dashed #ffbf00; }`;
+    document.head.appendChild(style);
+  }
+
+  // ===== 统一金额格式（根据表头关键字判列） =====
+  function unifyAmountFormat(){
+    const tables = Array.from(document.querySelectorAll('table'));
+    const nf = new Intl.NumberFormat(locale.lang, { style:'currency', currency: locale.currency, minimumFractionDigits: locale.precision, maximumFractionDigits: locale.precision });
+    tables.forEach(tb=>{
+      const ths = Array.from(tb.querySelectorAll('thead th, thead td')).map(th => (th.textContent||'').trim());
+      if(!ths.length) return;
+      ths.forEach((txt, idx)=>{
+        if(/金额|价|费|收款|打款|入账|出账/.test(txt)){
+          Array.from(tb.querySelectorAll(`tbody tr`)).forEach(tr=>{
+            const td = tr.children[idx]; if(!td) return;
+            const raw = (td.textContent||'').replace(/[,￥$]/g,'').trim();
+            const num = parseFloat(raw);
+            if(!isNaN(num)){
+              td.setAttribute('data-raw-amount', num);
+              td.textContent = nf.format(num);
+              td.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace';
+              td.style.textAlign = 'right';
+            }
+          });
+        }
+      });
+    });
+  }
+
+  // ===== 统一时间格式 =====
+  function unifyTimeFormat(){
+    const tables = Array.from(document.querySelectorAll('table'));
+    const fmt = new Intl.DateTimeFormat(locale.lang, { timeZone: locale.tz, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    tables.forEach(tb=>{
+      const ths = Array.from(tb.querySelectorAll('thead th, thead td')).map(th => (th.textContent||'').trim());
+      if(!ths.length) return;
+      ths.forEach((txt, idx)=>{
+        if(/时间|日期|创建|更新/.test(txt)){
+          Array.from(tb.querySelectorAll(`tbody tr`)).forEach(tr=>{
+            const td = tr.children[idx]; if(!td) return;
+            const s = (td.textContent||'').trim();
+            // 常见格式 "YYYY-MM-DD HH:mm[:ss]"
+            const iso = s.replace(/(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(:\d{2})?)/, '$1T$2');
+            const d = new Date(iso);
+            if(!isNaN(+d)){
+              td.title = d.toISOString();
+              td.textContent = fmt.format(d);
+              td.style.whiteSpace = 'nowrap';
+            }
+          });
+        }
+      });
+    });
+  }
+
+  // ===== 空态填充（无数据时） =====
+  function fillEmptyStates(){
+    Array.from(document.querySelectorAll('table')).forEach(tb=>{
+      const body = tb.querySelector('tbody'); if(!body) return;
+      const hasRow = body.querySelector('tr');
+      if(!hasRow){
+        const colSpan = (tb.querySelectorAll('thead th').length || 1);
+        const tr = document.createElement('tr');
+        const td = document.createElement('td'); td.colSpan = colSpan; td.className='unified-empty';
+        td.innerHTML = '<div class="icon"></div><div>暂无数据</div>';
+        tr.appendChild(td); body.appendChild(tr);
+      }
+    });
+  }
+
+  // ===== 动作按钮意图着色（基于文本内容） =====
+  function colorizeActionButtons(){
+    const btns = Array.from(document.querySelectorAll('button, a.btn'));
+    btns.forEach(b=>{
+      const t = (b.textContent||'').trim();
+      if(/通过|同意|Approve/i.test(t)) b.classList.add('btn-intent-approve');
+      if(/驳回|拒绝|Reject/i.test(t)) b.classList.add('btn-intent-reject');
+      if(/打回|退回|Return/i.test(t)) b.classList.add('btn-intent-return');
+      if(/打款|已转账|Pay/i.test(t)) b.classList.add('btn-intent-pay');
+    });
+  }
+
+  // ===== 启动顺序 =====
+  document.addEventListener('DOMContentLoaded', function(){
+    ensureFilterUI();
+    unifyAmountFormat();
+    unifyTimeFormat();
+    fillEmptyStates();
+    colorizeActionButtons();
+  });
+})();
+</script>
+
+
+<script>
+(function(){
+  // 统一“通知回执”与“总部收件箱”写入
+  const PUB_KEY = 'hq_sys_settings_v1_2_1d_published';
+
+  function pushHQInbox(msg){
+    try{
+      const cfg = JSON.parse(localStorage.getItem(PUB_KEY) || '{}');
+      const inbox = (cfg.notifySite && cfg.notifySite.hq && Array.isArray(cfg.notifySite.hq.inbox)) ? cfg.notifySite.hq.inbox : [];
+      inbox.unshift(msg);
+      if(!cfg.notifySite) cfg.notifySite = {};
+      if(!cfg.notifySite.hq) cfg.notifySite.hq = {};
+      cfg.notifySite.hq.inbox = inbox.slice(0, 500); // 限制长度
+      localStorage.setItem(PUB_KEY, JSON.stringify(cfg));
+      // 触发 storage 监听（同页不会触发），这里手动广播一次
+      window.dispatchEvent(new StorageEvent('storage', {key: PUB_KEY, newValue: JSON.stringify(cfg)}));
+    }catch(e){ console.warn('写入总部收件箱失败', e); }
+  }
+
+  function toast(msg, link){
+    let wrap = document.getElementById('p2ToastWrap');
+    if(!wrap){
+      wrap = document.createElement('div');
+      wrap.id = 'p2ToastWrap';
+      wrap.style.position='fixed'; wrap.style.right='16px'; wrap.style.bottom='16px';
+      wrap.style.zIndex='2000'; document.body.appendChild(wrap);
+    }
+    const el = document.createElement('div');
+    el.style.background='#212529'; el.style.color='#fff'; el.style.padding='10px 12px'; el.style.borderRadius='10px';
+    el.style.boxShadow='0 6px 18px rgba(0,0,0,.2)'; el.style.marginTop='8px'; el.style.maxWidth='360px';
+    el.innerHTML = `<div>${msg}${link?`　<a href="${link}" class="link-light text-decoration-underline" target="_blank">查看总部收件箱</a>`:''}</div>`;
+    wrap.appendChild(el);
+    setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateY(10px)'; el.style.transition='all .3s'; setTimeout(()=>el.remove(), 350); }, 2200);
+  }
+
+  function nowStr(){
+    const d = new Date();
+    const pad = (n)=>String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function getIdFromUrl(){
+    try{
+      const u = new URL(location.href);
+      return u.searchParams.get('id') || '';
+    }catch(e){ return ''; }
+  }
+
+  // 财务：监听“选择付款账户”确认按钮（如存在则联动）
+  document.addEventListener('click', function(e){
+    if(e.target && e.target.id === 'btnConfirmPayout'){
+      let count = 1; // 总部
+      let type = '财务';
+      let summary = '已完成打款操作';
+      if(location.pathname.includes('recharge')){ type='充值'; summary='充值审核已通过'; count = 2; }
+      if(location.pathname.includes('withdrawal') && !location.pathname.includes('team')){ type='提现（个人）'; summary='个人提现已转账'; count = 3; }
+      if(location.pathname.includes('team-withdrawal')){ type='提现（团队）'; summary='团队提现已转账'; count = 3; }
+      const id = getIdFromUrl();
+      pushHQInbox({time: nowStr(), type, summary: (id? (summary+' '+id) : summary), read:false});
+      toast(`已发送 ${count} 条通知（模拟）`, 'hq-admin-settings-system_v1.2.1d_tabs_p2.html#tab-notify-site');
+    }
+  }, true);
+
+  // 审核页：监听“通过/驳回/打回”按钮文本
+  document.addEventListener('click', function(e){
+    const btn = e.target.closest('button, a.btn');
+    if(!btn) return;
+    const text = (btn.textContent||'').trim();
+    if(/通过|驳回|打回/i.test(text)){
+      let type = '任务审核';
+      if(location.pathname.includes('publish')) type = '任务发布审核';
+      if(location.pathname.includes('completion')) type = '任务完成审核';
+      const id = getIdFromUrl();
+      const summary = `${text} ${id||''}`.trim();
+      pushHQInbox({time: nowStr(), type, summary, read:false});
+      const count = /驳回/.test(text) ? 2 : 3;
+      toast(`已发送 ${count} 条通知（模拟）`, 'hq-admin-settings-system_v1.2.1d_tabs_p2.html#tab-notify-site');
+    }
+  }, true);
+})();
+</script>
+
+</body>
+</html>

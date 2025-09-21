@@ -1,0 +1,1774 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>总部管理系统 - 仪表盘（完整优化版）</title>
+    <!-- 依赖：Bootstrap、Bootstrap Icons、Chart.js -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* ================== 主题变量 ================== */
+        :root{
+            --primary:#3b7ddd;
+            --primary-light:#e8f0fe;
+            --red:#dc3545;
+            --white:#ffffff;
+            --light:#f5f6f8;
+            --border:#e2e8f0;
+            --text:#2d3748;
+            /* 分类色块颜色（平台/用户/团队/系统） */
+            --dot-platform:#3b7ddd;
+            --dot-user:#2fb67b;
+            --dot-team:#f6a035;
+            --dot-system:#7a5af8;
+        }
+        body{background-color:var(--light);font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:var(--text);}
+
+        /* ================== 侧边栏 ================== */
+        .sidebar{background-color:var(--white);color:#4a5568;height:100vh;position:fixed;left:0;top:0;width:260px;padding-top:60px;box-shadow:2px 0 10px rgba(0,0,0,0.05);border-right:1px solid var(--border);z-index:1000;overflow-y:auto;}
+        .sidebar .nav-link{color:#4a5568;padding:.8rem 1rem;margin:.1rem .5rem;border-radius:6px;transition:all .2s;display:flex;align-items:center;gap:.55rem;}
+        .sidebar .nav-link i{color:#718096;}
+        .sidebar .nav-link:hover,.sidebar .nav-link.active{color:var(--primary);background-color:var(--primary-light);}
+        .sidebar .nav-link.active i,.sidebar .nav-link:hover i{color:var(--primary);}
+        .sidebar .menu-section{padding:.75rem 1rem .25rem;color:#94a3b8;font-weight:700;text-transform:uppercase;font-size:.75rem;letter-spacing:.06em;}
+        /* 菜单项前置小色块（用于平台/用户/团队/系统快速分辨） */
+        .cat-dot{display:inline-block;width:.6rem;height:.6rem;border-radius:2px;flex:0 0 auto;}
+        .dot-platform{background-color:var(--dot-platform);}
+        .dot-user{background-color:var(--dot-user);}
+        .dot-team{background-color:var(--dot-team);}
+        .dot-system{background-color:var(--dot-system);}
+
+        /* ================== 主内容区与顶部导航 ================== */
+        .main-content{margin-left:260px;padding:20px;padding-top:80px;transition:margin-left .3s;}
+        .navbar{background-color:var(--white);box-shadow:0 2px 10px rgba(0,0,0,.05);border-bottom:1px solid var(--border);position:fixed;top:0;left:0;right:0;z-index:1030;padding-left:260px;transition:padding-left .3s;}
+        .navbar-brand{color:var(--primary);font-weight:700;display:flex;align-items:center;gap:.6rem;}
+        .navbar-toggler{display:none;border:none;font-size:1.25rem;}
+        .navbar-toggler:focus{box-shadow:none;}
+        /* 顶部Logo图片位（可替换src为真实logo） */
+        .brand-logo{width:120px;height:32px;border-radius:6px;background:#e5ecfb;border:1px dashed #9ab6f6;display:inline-block;overflow:hidden;}
+        .brand-logo img{width:100%;height:100%;object-fit:contain;}
+
+        /* ================== 卡片与图表 ================== */
+        .dashboard-card{background:var(--white);border-radius:10px;box-shadow:0 4px 6px rgba(0,0,0,.04);margin-bottom:24px;border:none;}
+        .card-header{background-color:var(--white);border-bottom:1px solid var(--border);font-weight:600;padding:1rem 1.5rem;}
+        .card-body{padding:1.5rem;}
+        .stat-card{border-radius:10px;box-shadow:0 4px 6px rgba(0,0,0,.04);border:none;overflow:hidden;transition:transform .2s,box-shadow .2s;}
+        .stat-card:hover{transform:translateY(-4px);box-shadow:0 10px 15px rgba(0,0,0,.08);}
+        .card-border-red{border-top:4px solid var(--red);}
+        .card-border-blue{border-top:4px solid var(--primary);}
+        .metric-value{font-size:1.8rem;font-weight:700;}
+        .metric-sub{font-size:.875rem;color:#6c757d;}
+        .mini-tabs .btn{padding:.25rem .5rem;font-size:.75rem;}
+        .table-sm td,.table-sm th{padding:.4rem .5rem;}
+
+        /* ================== 响应式处理 ================== */
+        @media (max-width: 992px){
+            .sidebar{width:84px;padding-top:70px;}
+            .sidebar .nav-link span.text{display:none;}
+            .sidebar .menu-section{display:none;}
+            .main-content{margin-left:84px;}
+            .navbar{padding-left:84px;}
+            .brand-logo{width:84px;}
+        }
+        @media (max-width: 768px){
+            .sidebar{transform:translateX(-100%);width:260px;}
+            .sidebar.show{transform:translateX(0);}
+            .main-content{margin-left:0;}
+            .navbar{padding-left:15px;}
+            .navbar-toggler{display:block;}
+        }
+        .kanban-group-title{font-size:.95rem;color:#718096;margin-bottom:.5rem;font-weight:600;}
+    </style>
+</head>
+<body>
+<aside class="sidebar">
+        <div class="position-sticky">
+            <ul class="nav flex-column">
+                <!-- 平台层面 -->
+                <li class="menu-section">平台</li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-dashboard.html">
+                        <span class="cat-dot dot-platform"></span><i class="bi bi-speedometer2"></i><span class="text">平台总仪表盘</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-finance-platform-fund-flow.html">
+                        <span class="cat-dot dot-platform"></span><i class="bi bi-currency-exchange"></i><span class="text">平台资金流水</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-tasks-global-management.html">
+                        <span class="cat-dot dot-platform"></span><i class="bi bi-list-task"></i><span class="text">任务全局管理</span>
+                    </a>
+                </li>
+
+                <!-- 用户层面 -->
+                <li class="menu-section">用户</li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-users-list.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-people"></i><span class="text">平台用户列表</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-finance-recharge-review.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-wallet2"></i><span class="text">用户充值审核</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-finance-withdrawal-review.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-cash-coin"></i><span class="text">用户提现审核</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-finance-user-fund-flow.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-currency-exchange"></i><span class="text">用户资金流水</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-users-feedback.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-chat-left-text"></i><span class="text">用户投诉反馈</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-audit-task-publish.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-send-check"></i><span class="text">用户发布审核</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-audit-task-completion.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-check2-circle"></i><span class="text">任务完成审核</span>
+                    </a>
+                </li>
+
+                <!-- 团队层面 -->
+                <li class="menu-section">团队</li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-team-dashboard.html">
+                        <span class="cat-dot dot-team"></span><i class="bi bi-graph-up"></i><span class="text">团队数据概览</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-team-list.html">
+                        <span class="cat-dot dot-team"></span><i class="bi bi-building"></i><span class="text">平台团队列表</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-finance-team-withdrawal-review.html">
+                        <span class="cat-dot dot-team"></span><i class="bi bi-bank"></i><span class="text">团队提现审核</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-finance-team-fund-flow.html">
+                        <span class="cat-dot dot-team"></span><i class="bi bi-currency-exchange"></i><span class="text">团队资金流水</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-team-feedback.html">
+                        <span class="cat-dot dot-team"></span><i class="bi bi-chat-left-text"></i><span class="text">团队投诉反馈</span>
+                    </a>
+                </li>
+
+                <!-- 系统设置层面 -->
+                <li class="menu-section">系统</li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-settings-categories.html">
+                        <span class="cat-dot dot-system"></span><i class="bi bi-tags"></i><span class="text">业务分类管理</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-system-api-management-monitoring.html">
+                        <span class="cat-dot dot-system"></span><i class="bi bi-hdd-network"></i><span class="text">接口管理监控</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="hq-admin-settings-system.html">
+                        <span class="cat-dot dot-system"></span><i class="bi bi-gear-fill"></i><span class="text">系统设置</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </aside>
+<nav class="navbar navbar-expand-lg navbar-light">
+        <div class="container-fluid">
+            <button class="navbar-toggler" type="button" id="sidebarToggle">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <a class="navbar-brand" href="#"><strong><i class="bi bi-building me-2"></i>总部管理系统</strong></a>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto me-5">
+                    <li class="nav-item dropdown ms-2">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle me-2"></i> 管理员
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <!-- 退出登录按钮：清理本地会话并跳转到登录页 -->
+                            <li><a class="dropdown-item" href="#" id="btnLogout"><i class="bi bi-box-arrow-right me-2"></i>退出</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+<main class="main-content">
+  <div class="container-fluid py-4">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h2 class="mb-0">系统设置 System Settings <small class="text-muted fs-6">v1.2.1d（选项卡/分区发布）</small></h2>
+      <div class="d-flex gap-2">
+        <span class="badge bg-success" id="settings-status">已加载</span>
+        <button class="btn btn-outline-secondary btn-sm" id="btn-reset-draft"><i class="bi bi-clock-history me-1"></i>恢复草稿</button>
+        <button class="btn btn-outline-dark btn-sm" id="btn-export-config"><i class="bi bi-box-arrow-up me-1"></i>导出配置</button>
+      </div>
+    </div>
+
+    <!-- 顶部选项卡导航 -->
+    <ul class="nav nav-tabs" id="sysTabs" role="tablist">
+      <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-accounts" type="button" role="tab">账户管理（线下）</button></li>
+      <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-numbering" type="button" role="tab">编号与编码规则</button></li>
+      <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-notify-site" type="button" role="tab">通知（站内信）</button></li>
+      <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-sms" type="button" role="tab">短信（阿里云验证码）</button></li>
+      <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-security" type="button" role="tab">登录与安全</button></li>
+      <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-audit" type="button" role="tab">日志与合规</button></li>
+      <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-backup" type="button" role="tab">数据与备份</button></li>
+      <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-locale" type="button" role="tab">区域/时区/币种</button></li>
+      <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-support" type="button" role="tab">平台客服（微信）</button></li>
+      
+      <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-order-limits" type="button" role="tab">接单规则（用户/分类）</button></li>
+      <li class="nav-item ms-auto small text-muted d-none d-lg-block" role="presentation"><span class="nav-link disabled">全部交易为线下人工处理</span></li>
+    </ul>
+
+    <div class="tab-content border-start border-end border-bottom p-3 bg-white rounded-bottom shadow-sm">
+      <!-- 接单规则（仅用户/分类） -->
+      <div class="tab-pane fade" id="tab-order-limits" role="tabpanel">
+        <div class="row g-3">
+          <div class="col-12">
+            <div class="card shadow-sm">
+              <div class="card-header fw-bold">全局默认规则（应用于所有接单用户，除非被分类或用户覆盖）</div>
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-md-3">
+                    <label class="form-label">启用接单限制</label>
+                    <select class="form-select" id="ol-enabled">
+                      <option value="on" selected>是</option>
+                      <option value="off">否</option>
+                    </select>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">同时接单上限</label>
+                    <input type="number" min="0" class="form-control" id="ol-concurrent-default" value="5">
+                    <div class="form-text">0 表示不限制；口径见下方。</div>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">每日接单上限</label>
+                    <input type="number" min="0" class="form-control" id="ol-daily-default" value="20">
+                    <div class="form-text">0 表示不限制；按系统时区自然日。</div>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">触发策略</label>
+                    <select class="form-select" id="ol-enforcement">
+                      <option value="block" selected>阻止接单</option>
+                      <option value="warn">仅警告</option>
+                      <option value="queue">排队等待</option>
+                      <option value="require_override">需要管理员豁免</option>
+                    </select>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">统计口径</label>
+                    <div class="row gy-2 gx-3">
+                      <div class="col-auto form-check">
+                        <input class="form-check-input" type="checkbox" id="ol-count-review" checked>
+                        <label class="form-check-label" for="ol-count-review">计入“审核中”</label>
+                      </div>
+                      
+                      <div class="col-auto">
+                        <span class="form-text">时区沿用「区域/时区/币种」设置；不在此重复。</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12">
+            <div class="card shadow-sm">
+              <div class="card-header fw-bold d-flex justify-content-between align-items-center">
+                <span>用户覆盖（按需为个别用户设置更严或更宽的上限）</span>
+                <button class="btn btn-outline-primary btn-sm" id="btnAddOverride"><i class="bi bi-person-gear me-1"></i>选择用户并设置</button>
+              </div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-sm align-middle">
+                    <thead class="table-light"><tr><th>用户编号</th><th>手机号</th><th>并发上限</th><th>每日上限</th><th>来源</th><th>操作</th></tr></thead>
+                    <tbody id="ol-user-overrides"><tr><td colspan="6" class="text-muted text-center">暂无覆盖</td></tr></tbody>
+                  </table>
+                </div>
+                <div class="form-text">来源为“用户覆盖”时优先于分类与全局；留空则继承更上层规则。</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12">
+            <div class="card shadow-sm">
+              <div class="card-header fw-bold">口径说明与通知联动</div>
+              <div class="card-body">
+                <ul class="mb-2">
+                  <li>并发统计：进行中 + 待验收/审核 + 打回重做（可在上方勾选是否纳入“审核中/重做”）；</li>
+                  <li>每日统计窗口：按系统设置的时区，以自然日重置；</li>
+                  
+                  <li>冲突取值：若用户覆盖与分类默认同时存在，生效值取<strong>更小</strong>。</li>
+                </ul>
+                
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-end align-items-center gap-2 mt-3">
+          <span class="badge bg-secondary" id="status-order-limits">未变更</span>
+          <button class="btn btn-outline-secondary btn-sm" data-save="orderLimits">保存草稿（本页）</button>
+          <button class="btn btn-primary btn-sm" data-publish="orderLimits">发布生效（本页）</button>
+        </div>
+      </div>
+        
+
+      <!-- 账户管理（线下）：上下排列 -->
+      <div class="tab-pane fade show active" id="tab-accounts" role="tabpanel">
+        <div class="row g-3">
+          <div class="col-12">
+            <div class="card shadow-sm">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-bold">用户端展示的收款账户</span>
+                <button class="btn btn-outline-primary btn-sm" id="btn-add-display-acct"><i class="bi bi-plus-lg me-1"></i>新增展示账户</button>
+              </div>
+              <div class="card-body">
+                <!-- 中文注释：以下账户将显示在客户端，指导用户“线下转账”。 -->
+                <div class="table-responsive">
+                  <table class="table table-sm align-middle">
+                    <thead class="table-light">
+                      <tr>
+                        <th>名称</th><th>类型</th><th>开户名</th><th>账号/卡号</th><th>开户行/备注</th><th>二维码</th><th>显示</th><th>排序</th><th>操作</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbl-display-accounts"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="card shadow-sm">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-bold">后台转账使用的付款账户（记录用哪个账户打款）</span>
+                <button class="btn btn-outline-primary btn-sm" id="btn-add-payout-acct"><i class="bi bi-plus-lg me-1"></i>新增付款账户</button>
+              </div>
+              <div class="card-body">
+                <!-- 中文注释：以下账户仅供后台在“提现审核/团队结算”等页面记录“本次打款使用的账户”。 -->
+                <div class="table-responsive">
+                  <table class="table table-sm align-middle">
+                    <thead class="table-light">
+                      <tr>
+                        <th>名称</th><th>类型</th><th>开户名</th><th>账号/卡号</th><th>开户行/备注</th><th>默认</th><th>启用</th><th>操作</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbl-payout-accounts"></tbody>
+                  </table>
+                </div>
+                <div class="form-text">说明：所有交易线下完成，不涉及“限额/结算周期”等系统级参数。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex justify-content-end align-items-center gap-2 mt-3">
+          <span class="badge bg-secondary" id="status-accounts">未变更</span>
+          <button class="btn btn-outline-secondary btn-sm" data-save="accounts">保存草稿（本页）</button>
+          <button class="btn btn-primary btn-sm" data-publish="accounts">发布生效（本页）</button>
+        </div>
+      </div>
+
+      <!-- 编号与编码规则 -->
+      <div class="tab-pane fade" id="tab-numbering" role="tabpanel">
+        <div class="card shadow-sm">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-bold">编号与编码规则（统一管理）</span>
+            <button class="btn btn-outline-primary btn-sm" id="btn-add-code-type"><i class="bi bi-plus-lg me-1"></i>新增编码类型</button>
+          </div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-sm align-middle">
+                <thead class="table-light">
+                  <tr>
+                    <th style="min-width:160px;">编码类型</th>
+                    <th>前缀</th>
+                    <th>日期粒度</th>
+                    <th>序列宽度</th>
+                    <th>示例（今日）</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="tbl-code-rules"></tbody>
+              </table>
+            </div>
+            <div class="small text-muted">提示：实际发号在后端完成；本页仅定义规则与示例展示。</div>
+          </div>
+        </div>
+        <div class="d-flex justify-content-end align-items-center gap-2 mt-3">
+          <span class="badge bg-secondary" id="status-numbering">未变更</span>
+          <button class="btn btn-outline-secondary btn-sm" data-save="numbering">保存草稿（本页）</button>
+          <button class="btn btn-primary btn-sm" data-publish="numbering">发布生效（本页）</button>
+        </div>
+      </div>
+
+      <!-- 通知（站内信） -->
+      <div class="tab-pane fade" id="tab-notify-site" role="tabpanel">
+        <div class="row g-3">
+          <div class="col-12 col-xl-6">
+            <div class="card shadow-sm h-100">
+              <div class="card-header fw-bold">用户通知（发单/接单）</div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-sm align-middle">
+                    <thead class="table-light"><tr><th>事件</th><th>启用</th><th>模板变量示例</th></tr></thead>
+                    <tbody id="tbl-user-notify"></tbody>
+                  </table>
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">重复通知降噪（分钟）</label>
+                    <input type="number" class="form-control" id="user-cooldown" value="10">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">重要事件绕过降噪</label>
+                    <select class="form-select" id="user-bypass" multiple></select>
+                    <div class="form-text">按住 Ctrl/⌘ 多选</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-xl-6">
+            <div class="card shadow-sm h-100">
+              <div class="card-header fw-bold">团队通知（发单团队/接单团队）</div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-sm align-middle">
+                    <thead class="table-light"><tr><th>事件</th><th>启用</th><th>模板变量示例</th></tr></thead>
+                    <tbody id="tbl-team-notify"></tbody>
+                  </table>
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">重复通知降噪（分钟）</label>
+                    <input type="number" class="form-control" id="team-cooldown" value="10">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">重要事件绕过降噪</label>
+                    <select class="form-select" id="team-bypass" multiple></select>
+                    <div class="form-text">按住 Ctrl/⌘ 多选</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12">
+            <div class="card shadow-sm">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-bold">总部通知（管理后台）</span>
+                <div class="d-flex align-items-center gap-2">
+                  <label class="form-label mb-0 small">保留（天）</label>
+                  <input type="number" class="form-control form-control-sm" id="hq-retain" value="30" style="width:100px;">
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-sm align-middle">
+                    <thead class="table-light"><tr><th>时间</th><th>类型</th><th>摘要</th><th>状态</th><th>操作</th></tr></thead>
+                    <tbody id="tbl-hq-inbox"></tbody>
+                  </table>
+                </div>
+                <div class="form-text">说明：此处为站内信通知的总部收件箱预览（示例数据）。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex justify-content-end align-items-center gap-2 mt-3">
+          <span class="badge bg-secondary" id="status-notifySite">未变更</span>
+          <button class="btn btn-outline-secondary btn-sm" data-save="notifySite">保存草稿（本页）</button>
+          <button class="btn btn-primary btn-sm" data-publish="notifySite">发布生效（本页）</button>
+        </div>
+      </div>
+
+      <!-- 短信（阿里云验证码） -->
+      <div class="tab-pane fade" id="tab-sms" role="tabpanel">
+        <div class="card shadow-sm">
+          <div class="card-header fw-bold">短信（仅用于注册/修改密码验证码）</div>
+          <div class="card-body">
+            <div class="alert alert-info py-2"><div class="small">提示：AccessKeyId/Secret 在「接口管理与监控」配置；本页仅维护 SignName/Region/模板与频率限制。</div></div>
+            <div class="row g-3">
+              <div class="col-md-4"><label class="form-label">Region</label><input class="form-control" id="aliyun-region" placeholder="如：cn-hangzhou"></div>
+              <div class="col-md-4"><label class="form-label">短信签名（SignName）</label><input class="form-control" id="aliyun-sign" placeholder="如：总部管理平台"></div>
+              <div class="col-md-4"><label class="form-label">发送限速（条/分钟）</label><input type="number" class="form-control" id="aliyun-rate" value="30"></div>
+              <div class="col-md-4"><label class="form-label">验证码位数</label><select class="form-select" id="sms-code-len"><option value="4">4</option><option value="5">5</option><option value="6" selected>6</option></select></div>
+              <div class="col-md-4"><label class="form-label">验证码有效期（分钟）</label><input type="number" class="form-control" id="sms-ttl" value="10"></div>
+              <div class="col-md-4"><label class="form-label">重发冷却（秒）</label><input type="number" class="form-control" id="sms-cooldown" value="60"></div>
+              <div class="col-12">
+                <label class="form-label">模板 Code 映射</label>
+                <div class="table-responsive">
+                  <table class="table table-sm align-middle">
+                    <thead class="table-light"><tr><th>场景</th><th>模板Code</th><th>变量示例</th></tr></thead>
+                    <tbody id="tbl-sms-templates">
+                      <tr><td>注册验证码</td><td><input class="form-control form-control-sm" data-key="register_code"></td><td class="text-muted small">{code:'123456'}</td></tr>
+                      <tr><td>修改密码验证码</td><td><input class="form-control form-control-sm" data-key="reset_code"></td><td class="text-muted small">{code:'654321'}</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex justify-content-end align-items-center gap-2 mt-3">
+          <span class="badge bg-secondary" id="status-sms">未变更</span>
+          <button class="btn btn-outline-secondary btn-sm" data-save="sms">保存草稿（本页）</button>
+          <button class="btn btn-primary btn-sm" data-publish="sms">发布生效（本页）</button>
+        </div>
+      </div>
+
+      <!-- 登录与安全：重新排版 + 管理员“直接改密码” -->
+      <div class="tab-pane fade" id="tab-security" role="tabpanel">
+        <div class="row g-3">
+          <!-- 上：本账号设置 -->
+          <div class="col-12">
+            <div class="card shadow-sm">
+              <div class="card-header fw-bold">本账号设置</div>
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-md-3">
+                    <label class="form-label">用户名</label>
+                    <input class="form-control" id="me-username" value="admin" disabled>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">绑定手机号</label>
+                    <div class="input-group">
+                      <input class="form-control" id="me-phone" placeholder="11位手机号">
+                      <button class="btn btn-outline-secondary" id="btn-send-bind-code">发送验证码</button>
+                    </div>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">验证码</label>
+                    <div class="input-group">
+                      <input class="form-control" id="me-sms-code" placeholder="输入验证码">
+                      <button class="btn btn-outline-primary" id="btn-bind-phone">绑定</button>
+                    </div>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">修改密码</label>
+                    <div class="input-group mb-2">
+                      <input type="password" class="form-control" id="me-pwd-old" placeholder="当前密码">
+                    </div>
+                    <div class="input-group mb-2">
+                      <input type="password" class="form-control" id="me-pwd-new" placeholder="新密码（≥6位）">
+                    </div>
+                    <div class="input-group">
+                      <input type="password" class="form-control" id="me-pwd-new2" placeholder="确认新密码">
+                    </div>
+                  </div>
+                  <div class="col-12">
+                    <button class="btn btn-primary" id="btn-save-me">保存账号变更</button>
+                    <span class="text-muted small ms-2" id="me-save-tip"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 下：管理员列表（精简表头 + 直接改密） -->
+          <div class="col-12">
+            <div class="card shadow-sm">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-bold">管理员列表</span>
+                <button class="btn btn-outline-primary btn-sm" id="btn-add-admin"><i class="bi bi-person-plus me-1"></i>新增用户</button>
+              </div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-sm align-middle">
+                    <thead class="table-light">
+                      <tr><th>姓名</th><th>手机号</th><th>状态</th><th>可见页面</th><th style="min-width:240px;">操作</th></tr>
+                    </thead>
+                    <tbody id="tbl-admins"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex justify-content-end align-items-center gap-2 mt-3">
+          <span class="badge bg-secondary" id="status-security">未变更</span>
+          <button class="btn btn-outline-secondary btn-sm" data-save="security">保存草稿（本页）</button>
+          <button class="btn btn-primary btn-sm" data-publish="security">发布生效（本页）</button>
+        </div>
+      </div>
+
+      <!-- 日志与合规 -->
+      <div class="tab-pane fade" id="tab-audit" role="tabpanel">
+        <div class="card shadow-sm">
+          <div class="card-header fw-bold">日志与合规</div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-4"><label class="form-label">操作审计保留（天）</label><input type="number" class="form-control" id="log-retain" value="180"></div>
+              <div class="col-md-4"><label class="form-label">API 访问日志保留（天）</label><input type="number" class="form-control" id="api-log-retain" value="90"></div>
+              <div class="col-md-4"><label class="form-label">日志导出权限</label>
+                <select class="form-select" id="log-export-role">
+                  <option value="system_admin">系统管理员</option>
+                  <option value="finance_exec">财务执行员</option>
+                  <option value="read_only">只读管理员</option>
+                </select>
+              </div>
+              <div class="col-12"><label class="form-label">合规模板版本说明</label><textarea class="form-control" id="compliance-notes" rows="3" placeholder="例如：2025-09-01 隐私政策v3.1，更新数据保留期描述等"></textarea></div>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex justify-content-end align-items-center gap-2 mt-3">
+          <span class="badge bg-secondary" id="status-audit">未变更</span>
+          <button class="btn btn-outline-secondary btn-sm" data-save="audit">保存草稿（本页）</button>
+          <button class="btn btn-primary btn-sm" data-publish="audit">发布生效（本页）</button>
+        </div>
+      </div>
+
+      <!-- 数据与备份：新增“备份记录” -->
+      <div class="tab-pane fade" id="tab-backup" role="tabpanel">
+        <div class="card shadow-sm mb-3">
+          <div class="card-header fw-bold">数据与备份（策略）</div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-4"><label class="form-label">自动备份</label>
+                <select class="form-select" id="backup-enabled"><option value="on" selected>开启</option><option value="off">关闭</option></select></div>
+              <div class="col-md-4"><label class="form-label">备份时间窗</label><input class="form-control" id="backup-window" placeholder="如 02:00-03:00"></div>
+              <div class="col-md-4"><label class="form-label">保留份数</label><input type="number" class="form-control" id="backup-keep" value="7"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card shadow-sm">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-bold">备份记录</span>
+            <div class="d-flex gap-2">
+              <button class="btn btn-outline-secondary btn-sm" id="btn-backup-refresh"><i class="bi bi-arrow-clockwise me-1"></i>刷新</button>
+              <button class="btn btn-primary btn-sm" id="btn-backup-now"><i class="bi bi-hdd-network me-1"></i>立即备份</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-sm align-middle">
+                <thead class="table-light">
+                  <tr><th>时间</th><th>文件名</th><th>大小</th><th>状态</th><th>操作</th></tr>
+                </thead>
+                <tbody id="tbl-backup-history"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-end align-items-center gap-2 mt-3">
+          <span class="badge bg-secondary" id="status-backup">未变更</span>
+          <button class="btn btn-outline-secondary btn-sm" data-save="backup">保存草稿（本页）</button>
+          <button class="btn btn-primary btn-sm" data-publish="backup">发布生效（本页）</button>
+        </div>
+      </div>
+
+      <!-- 区域/时区/币种 -->
+      <div class="tab-pane fade" id="tab-locale" role="tabpanel">
+        <div class="card shadow-sm">
+          <div class="card-header fw-bold">区域/时区/币种与精度</div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-4"><label class="form-label">默认语言</label>
+                <select class="form-select" id="i18n-lang"><option value="zh-CN">简体中文</option><option value="en-US">English</option></select></div>
+              <div class="col-md-4"><label class="form-label">时区</label>
+                <select class="form-select" id="i18n-tz"><option value="Asia/Shanghai">Asia/Shanghai (UTC+8)</option><option value="America/Los_Angeles">America/Los_Angeles (UTC-8/7)</option></select></div>
+              <div class="col-md-4"><label class="form-label">币种</label>
+                <select class="form-select" id="currency"><option value="CNY">CNY 人民币</option><option value="USD">USD 美元</option></select></div>
+              <div class="col-md-6"><label class="form-label">金额小数位</label>
+                <select class="form-select" id="amount-precision"><option value="2">2 位（常规）</option><option value="3">3 位</option><option value="0">0 位（整数）</option></select></div>
+              <div class="col-md-6"><label class="form-label">四舍五入规则</label>
+                <select class="form-select" id="rounding-rule"><option value="bankers">银行家舍入</option><option value="half-up">四舍五入（5入）</option><option value="floor">向下取整</option></select></div>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex justify-content-end align-items-center gap-2 mt-3">
+          <span class="badge bg-secondary" id="status-locale">未变更</span>
+          <button class="btn btn-outline-secondary btn-sm" data-save="locale">保存草稿（本页）</button>
+          <button class="btn btn-primary btn-sm" data-publish="locale">发布生效（本页）</button>
+        </div>
+      </div>
+
+      <!-- 平台客服（微信） -->
+      <div class="tab-pane fade" id="tab-support" role="tabpanel">
+        <div class="card shadow-sm">
+          <div class="card-header fw-bold">平台客服（客户端仅展示微信号或二维码）</div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">客服微信号</label>
+                <input class="form-control" id="support-wechat-id" placeholder="如：service_wechat_001">
+                <div class="form-text">客户端仅显示微信号，不显示链接。</div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">客服二维码图片地址</label>
+                <input class="form-control" id="support-wechat-qr" placeholder="https://.../qrcode.png">
+                <div class="form-text">客户端以二维码图片展示，不显示图片 URL 文本。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex justify-content-end align-items-center gap-2 mt-3">
+          <span class="badge bg-secondary" id="status-support">未变更</span>
+          <button class="btn btn-outline-secondary btn-sm" data-save="support">保存草稿（本页）</button>
+          <button class="btn btn-primary btn-sm" data-publish="support">发布生效（本页）</button>
+        </div>
+      </div>
+
+    </div> <!-- /tab-content -->
+  </div>
+
+  <!-- 管理员编辑抽屉（含密码字段） -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="drawer-admin" aria-labelledby="drawerAdminLabel">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title" id="drawerAdminLabel">编辑管理员</h5>
+      <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+      <div class="mb-3"><label class="form-label">姓名</label><input class="form-control" id="ed-name"></div>
+      <div class="mb-3"><label class="form-label">手机号</label><input class="form-control" id="ed-phone" placeholder="11位手机号"></div>
+      <div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" id="ed-enabled" checked><label class="form-check-label" for="ed-enabled">启用</label></div>
+      <div class="mb-2"><label class="form-label">设置密码</label>
+        <input type="password" class="form-control mb-2" id="ed-pwd1" placeholder="新密码（≥6位）">
+        <input type="password" class="form-control" id="ed-pwd2" placeholder="确认新密码">
+        <div class="form-text">主账号可在此直接设置/修改管理员密码。</div>
+      </div>
+      <div class="d-flex align-items-center mb-2 gap-2">
+        <span class="fw-bold">页面可见性</span>
+        <button class="btn btn-sm btn-outline-secondary" id="btn-pages-all">全选</button>
+        <button class="btn btn-sm btn-outline-secondary" id="btn-pages-none">全不选</button>
+        <input class="form-control form-control-sm ms-auto" style="width: 200px;" placeholder="搜索页面…" id="pages-search">
+      </div>
+    <div class="mt-2 p-2 border rounded bg-light">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-6">
+          <label class="form-label">权限模板</label>
+          <select class="form-select" id="perm-template">
+            <option value="">— 选择模板 —</option>
+            <option value="finance_exec">财务执行员</option>
+            <option value="read_only">只读管理员</option>
+            <option value="ops">运营管理员</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <button class="btn btn-outline-primary" id="btn-apply-template"><i class="bi bi-magic me-1"></i>套用模板</button>
+          <span class="small text-muted ms-2">套用后可继续细调页面勾选</span>
+        </div>
+      </div>
+    </div>
+    
+      <div id="pages-list" class="border rounded p-2" style="max-height: 45vh; overflow:auto;"></div>
+      <div class="mt-3 d-flex justify-content-end gap-2">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="offcanvas">取消</button>
+        <button class="btn btn-primary" id="btn-save-admin">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 直接改密码的模态框 -->
+  <div class="modal fade" id="modalPwd" tabindex="-1" aria-labelledby="modalPwdLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalPwdLabel">修改管理员密码</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-2"><label class="form-label">新密码</label><input type="password" class="form-control" id="pwd1" placeholder="≥6位"></div>
+          <div><label class="form-label">确认新密码</label><input type="password" class="form-control" id="pwd2" placeholder="再次输入"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-primary" id="btn-confirm-pwd">确定</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<style>
+  .main-content { margin-left: 260px; }
+  @media (max-width: 991.98px) { .main-content { margin-left: 0; } }
+  .table-sm td input.form-control-sm { min-width: 110px; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+        // =============== 移动端侧边栏展开/收起 ===============
+        document.getElementById('sidebarToggle')?.addEventListener('click', function (){
+            document.querySelector('.sidebar')?.classList.toggle('show');
+        });
+
+        // =============== 总部收入统计（示例） ===============
+        const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+        const revenueChart = new Chart(revenueCtx, {
+            type:'bar',
+            data:{
+                labels:['第一周','第二周','第三周','第四周'],
+                datasets:[
+                    {label:'团队抽成收入',data:[12500,19200,15800,23400],backgroundColor:'rgba(59,125,221,.7)',borderColor:'rgba(59,125,221,1)',borderWidth:1},
+                    {label:'其他收入',data:[3800,5200,6100,7300],backgroundColor:'rgba(220,53,69,.7)',borderColor:'rgba(220,53,69,1)',borderWidth:1}
+                ]
+            },
+            options:{
+                responsive:true,
+                plugins:{legend:{position:'top'},title:{display:false}},
+                scales:{y:{beginAtZero:true,ticks:{callback:(v)=>'¥'+v}}}
+            }
+        });
+
+        
+        // =============== 总部收入统计切换逻辑 ===============
+        const revenueData = {
+            month:{
+                labels:['第1周','第2周','第3周','第4周'],
+                datasets:[
+                    {label:'团队抽成收入',data:[12500,19200,15800,23400]},
+                    {label:'其他收入',data:[3800,5200,6100,7300]}
+                ]
+            },
+            quarter:{
+                labels:['1月','2月','3月'],
+                datasets:[
+                    {label:'团队抽成收入',data:[42000,51000,46000]},
+                    {label:'其他收入',data:[11800,13600,15200]}
+                ]
+            },
+            year:{
+                labels:['Q1','Q2','Q3','Q4'],
+                datasets:[
+                    {label:'团队抽成收入',data:[135000,148000,159000,172000]},
+                    {label:'其他收入',data:[36000,41000,45800,49500]}
+                ]
+            }
+        };
+
+        document.querySelectorAll('#incomeRangeGroup button').forEach(btn=>{
+            btn.addEventListener('click',()=>{
+                btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+                btn.classList.add('active');
+                const period = btn.getAttribute('data-period');
+                const d = revenueData[period];
+                revenueChart.data.labels = d.labels;
+                revenueChart.data.datasets[0].data = d.datasets[0].data;
+                revenueChart.data.datasets[1].data = d.datasets[1].data;
+                revenueChart.update();
+            });
+        });
+
+        // =============== 任务分类统计（表格 + 金额柱状图） ===============
+        const taskCatData = {
+            d30:[
+                {name:'电商点赞', count:680, amount:168000},
+                {name:'评价优化', count:520, amount:132000},
+                {name:'App拉新', count:430, amount:215000},
+                {name:'内容发布', count:610, amount:149000},
+                {name:'社媒互动', count:760, amount:172000},
+                {name:'小红书推广', count:450, amount:138000},
+                {name:'短视频剪辑', count:390, amount:186000},
+                {name:'问卷收集', count:300, amount:72000}
+            ],
+            d90:[
+                {name:'电商点赞', count:1960, amount:458000},
+                {name:'评价优化', count:1510, amount:387000},
+                {name:'App拉新', count:1280, amount:598000},
+                {name:'内容发布', count:1720, amount:432000},
+                {name:'社媒互动', count:2130, amount:486000},
+                {name:'小红书推广', count:1320, amount:376000},
+                {name:'短视频剪辑', count:1180, amount:542000},
+                {name:'问卷收集', count:890, amount:210000}
+            ]
+        };
+
+        function renderTaskCategoryTable(rangeKey='d30'){
+            const tbody = document.getElementById('taskCategoryTable');
+            tbody.innerHTML = '';
+            (taskCatData[rangeKey]||[]).forEach(r=>{
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${r.name}</td>
+                                <td class="text-end">${r.count.toLocaleString()}</td>
+                                <td class="text-end">¥ ${r.amount.toLocaleString()}</td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        let categoryAmountChart;
+        function renderCategoryAmountChart(rangeKey='d30'){
+            const el = document.getElementById('categoryAmountChart').getContext('2d');
+            const rows = taskCatData[rangeKey]||[];
+            const labels = rows.map(r=>r.name);
+            const data = rows.map(r=>r.amount);
+            if(categoryAmountChart){ categoryAmountChart.destroy(); }
+            categoryAmountChart = new Chart(el, {
+                type:'bar',
+                data:{ labels, datasets:[{ label:'成交金额', data, backgroundColor:'rgba(59,125,221,.7)', borderColor:'rgba(59,125,221,1)', borderWidth:1 }]},
+                options:{
+                    responsive:true,
+                    plugins:{legend:{position:'top'}},
+                    scales:{y:{beginAtZero:true,ticks:{callback:(v)=>'¥'+v}}, x:{ticks:{autoSkip:false,maxRotation:0,minRotation:0}}}
+                }
+            });
+        }
+
+        // 初始化（默认近30日）
+        renderTaskCategoryTable('d30');
+        renderCategoryAmountChart('d30');
+
+        // 切换按钮事件（仅作用于“任务分类统计”卡片内的按钮）
+        document.querySelectorAll('.dashboard-card .btn-group [data-range]').forEach(btn=>{
+            btn.addEventListener('click',()=>{
+                const siblings = btn.parentElement.querySelectorAll('button');
+                siblings.forEach(b=>b.classList.remove('active'));
+                btn.classList.add('active');
+                const range = btn.getAttribute('data-range');
+                renderTaskCategoryTable(range);
+                renderCategoryAmountChart(range);
+            });
+        });
+
+        // =============== 全局数据卡片：数值范围切换（静态映射示例） ===============
+        const rangeData = {
+            tasksPublished:{d1:'185',d7:'1,340',d30:'5,920',y1:'68,430'},
+            gmv:{d1:'¥ 128,560',d7:'¥ 956,420',d30:'¥ 3,562,894',y1:'¥ 39,845,220'},
+            serviceFee:{d1:'¥ 9,620',d7:'¥ 56,380',d30:'¥ 256,320',y1:'¥ 2,985,700'},
+            income:{d1:'¥ 12,450',d7:'¥ 86,730',d30:'¥ 312,400',y1:'¥ 3,752,600'},
+            expense:{d1:'¥ 8,200',d7:'¥ 54,600',d30:'¥ 210,000',y1:'¥ 2,480,000'}
+        };
+        document.querySelectorAll('.mini-tabs .btn').forEach(btn=>{
+            btn.addEventListener('click',()=>{
+                const group = btn.parentElement;
+                group.querySelectorAll('.btn').forEach(b=>b.classList.remove('active'));
+                btn.classList.add('active');
+                const key = btn.getAttribute('data-target');
+                const range = btn.getAttribute('data-range');
+                const el = document.querySelector('[data-metric="'+key+'"]');
+                const val = rangeData[key]?.[range];
+                if(el && val){ el.textContent = val; }
+            });
+        });
+    </script>
+<script>
+    // 退出登录：清理本地状态并跳转登录页（仅作用于顶部栏#btnLogout）
+    document.getElementById('btnLogout')?.addEventListener('click', function(e){
+        e.preventDefault();
+        try{
+            // 清理常见的登录态存储键（可按后端约定补充）
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('user_info');
+            sessionStorage.clear();
+            // 根据需求也可以清空所有本地存储
+            // localStorage.clear();
+        }catch(err){ /* 忽略清理异常 */ }
+        // 跳转到登录页（按你的项目路由调整）
+        window.location.href = 'login.html';
+    });
+    </script>
+
+<script>
+(function(){
+  // ============== 公共：本地存储键 ==============
+  const KEY_DRAFT = 'hq_sys_settings_v1_2_1d_draft';
+  const KEY_PUBLISHED = 'hq_sys_settings_v1_2_1d_published';
+  const $ = (s)=>document.querySelector(s);
+  const $$ = (s)=>Array.from(document.querySelectorAll(s));
+
+  // ============== 侧边栏：插入“系统设置”，并隐藏指定项 ==============
+  try{
+    const aside = document.querySelector('aside.sidebar');
+    if(aside){
+      const links = aside.querySelectorAll('a');
+      let apiLink = null;
+      links.forEach(a=>{ if(a.textContent && a.textContent.includes('接口管理与监控')) apiLink = a; });
+      if(apiLink){
+        const li = document.createElement('li'); li.className = 'nav-item';
+        const a = document.createElement('a'); a.className='nav-link active'; a.textContent='系统设置';
+        a.href = 'hq-admin-settings-system_v1.2.1d_tabs.html';
+        li.appendChild(a);
+        const parentUl = apiLink.closest('ul') || aside.querySelector('ul');
+        parentUl.insertBefore(li, apiLink.parentElement.nextSibling);
+      }
+      // 隐藏团队“数据概览”“团队投诉反馈”
+      links.forEach(a=>{
+        const t = a.textContent||'';
+        if(t.includes('数据概览') || t.includes('团队投诉反馈')){
+          const li = a.closest('li'); if(li) li.style.display='none';
+        }
+      });
+    }
+  }catch(e){ console.warn('侧边栏调整失败', e); }
+
+  // ============== 账户管理（线下） ==============
+  const displayBody = $('#tbl-display-accounts');
+  const payoutBody = $('#tbl-payout-accounts');
+  const displayAccounts = [
+    {name:'对公-招商银行', type:'银行对公', owner:'XX科技有限公司', no:'1234 5678 9012 3456', bank:'招商银行上海分行XX支行', qr:'', visible:true, sort:1},
+    {name:'微信收款', type:'微信', owner:'XX科技有限公司', no:'service_wechat_001', bank:'微信收款码', qr:'https://example.com/qr1.png', visible:true, sort:2},
+  ];
+  const payoutAccounts = [
+    {name:'公司-对公A', type:'银行对公', owner:'XX科技有限公司', no:'6214 **** **** 8888', bank:'招商银行浦东支行', def:true, enabled:true},
+    {name:'公司-私人B', type:'银行卡', owner:'张三', no:'6222 **** **** 6666', bank:'中国银行北京分行', def:false, enabled:true},
+  ];
+
+  function rowDisplay(a, idx){
+    return `
+      <tr>
+        <td><input class="form-control form-control-sm" value="${a.name}" data-t="d" data-i="${idx}" data-k="name"></td>
+        <td>
+          <select class="form-select form-select-sm" data-t="d" data-i="${idx}" data-k="type">
+            <option ${a.type==='银行对公'?'selected':''}>银行对公</option>
+            <option ${a.type==='银行卡'?'selected':''}>银行卡</option>
+            <option ${a.type==='支付宝'?'selected':''}>支付宝</option>
+            <option ${a.type==='微信'?'selected':''}>微信</option>
+          </select>
+        </td>
+        <td><input class="form-control form-control-sm" value="${a.owner}" data-t="d" data-i="${idx}" data-k="owner"></td>
+        <td><input class="form-control form-control-sm" value="${a.no}" data-t="d" data-i="${idx}" data-k="no"></td>
+        <td><input class="form-control form-control-sm" value="${a.bank}" data-t="d" data-i="${idx}" data-k="bank"></td>
+        <td><input class="form-control form-control-sm" value="${a.qr}" placeholder="二维码图片URL" data-t="d" data-i="${idx}" data-k="qr"></td>
+        <td>
+          <div class="form-check form-switch m-0">
+            <input class="form-check-input" type="checkbox" ${a.visible?'checked':''} data-t="d" data-i="${idx}" data-k="visible">
+          </div>
+        </td>
+        <td style="width:80px;"><input type="number" class="form-control form-control-sm" value="${a.sort}" data-t="d" data-i="${idx}" data-k="sort"></td>
+        <td><button class="btn btn-sm btn-outline-danger" data-remove="d" data-i="${idx}">删除</button></td>
+      </tr>
+    `;
+  }
+  function rowPayout(a, idx){
+    return `
+      <tr>
+        <td><input class="form-control form-control-sm" value="${a.name}" data-t="p" data-i="${idx}" data-k="name"></td>
+        <td>
+          <select class="form-select form-select-sm" data-t="p" data-i="${idx}" data-k="type">
+            <option ${a.type==='银行对公'?'selected':''}>银行对公</option>
+            <option ${a.type==='银行卡'?'selected':''}>银行卡</option>
+            <option ${a.type==='支付宝'?'selected':''}>支付宝</option>
+            <option ${a.type==='微信'?'selected':''}>微信</option>
+          </select>
+        </td>
+        <td><input class="form-control form-control-sm" value="${a.owner}" data-t="p" data-i="${idx}" data-k="owner"></td>
+        <td><input class="form-control form-control-sm" value="${a.no}" data-t="p" data-i="${idx}" data-k="no"></td>
+        <td><input class="form-control form-control-sm" value="${a.bank}" data-t="p" data-i="${idx}" data-k="bank"></td>
+        <td>
+          <div class="form-check m-0">
+            <input class="form-check-input" type="radio" name="payout-def" ${a.def?'checked':''} data-def="${idx}">
+            <label class="form-check-label small">默认</label>
+          </div>
+        </td>
+        <td>
+          <div class="form-check form-switch m-0">
+            <input class="form-check-input" type="checkbox" ${a.enabled?'checked':''} data-t="p" data-i="${idx}" data-k="enabled">
+          </div>
+        </td>
+        <td><button class="btn btn-sm btn-outline-danger" data-remove="p" data-i="${idx}">删除</button></td>
+      </tr>
+    `;
+  }
+  function renderAccounts(){
+    displayBody.innerHTML = displayAccounts.map(rowDisplay).join('');
+    payoutBody.innerHTML = payoutAccounts.map(rowPayout).join('');
+  }
+  renderAccounts();
+
+  document.body.addEventListener('change', (e)=>{
+    const t = e.target;
+    if(t.matches('[data-t]')){
+      const list = t.getAttribute('data-t')==='d'?displayAccounts:payoutAccounts;
+      const i = +t.getAttribute('data-i'); const k = t.getAttribute('data-k');
+      if(!isNaN(i) && k) list[i][k] = (t.type==='checkbox') ? t.checked : t.value;
+    }
+    if(t.matches('[data-def]')){ const idx = +t.getAttribute('data-def'); payoutAccounts.forEach((x,j)=>x.def = j===idx); renderAccounts(); }
+  });
+  document.body.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-remove]');
+    if(btn){
+      const kind = btn.getAttribute('data-remove');
+      const i = +btn.getAttribute('data-i');
+      const list = (kind==='d')?displayAccounts:payoutAccounts;
+      list.splice(i,1); renderAccounts();
+    }
+  });
+  $('#btn-add-display-acct').addEventListener('click', ()=>{ displayAccounts.push({name:'新账户', type:'银行对公', owner:'', no:'', bank:'', qr:'', visible:true, sort:displayAccounts.length+1}); renderAccounts(); });
+  $('#btn-add-payout-acct').addEventListener('click', ()=>{ payoutAccounts.push({name:'新付款账户', type:'银行对公', owner:'', no:'', bank:'', def:false, enabled:true}); renderAccounts(); });
+
+  // ============== 编号与编码规则 ==============
+  const codeBody = $('#tbl-code-rules');
+  const codeTypes = [
+    {key:'TASK', name:'任务ID（Task）', prefix:'TSK', date:'yyyyMMdd', width:5},
+    {key:'TASK_PUB_AUDIT', name:'任务发布审核单', prefix:'TPA', date:'yyyyMMdd', width:4},
+    {key:'TASK_FIN_AUDIT', name:'任务完成审核单/异议单', prefix:'TFA', date:'yyyyMMdd', width:4},
+    {key:'SUBMISSION', name:'完成凭证提交单', prefix:'SUB', date:'yyyyMMdd', width:4},
+    {key:'RECHARGE', name:'充值单', prefix:'RCG', date:'yyyyMMdd', width:5},
+    {key:'WITHDRAW_USER', name:'用户提现单', prefix:'WDU', date:'yyyyMMdd', width:5},
+    {key:'WITHDRAW_TEAM', name:'团队提现单', prefix:'WDT', date:'yyyyMMdd', width:5},
+    {key:'FLOW_PLATFORM', name:'平台资金流水', prefix:'TF', date:'yyyyMMdd', width:5},
+    {key:'FLOW_USER', name:'用户资金流水', prefix:'UF', date:'yyyyMMdd', width:5},
+    {key:'FLOW_TEAM', name:'团队资金流水', prefix:'GF', date:'yyyyMMdd', width:5},
+    {key:'USER', name:'用户ID', prefix:'U', date:'yyyy', width:6},
+    {key:'TEAM', name:'团队ID', prefix:'G', date:'yyyy', width:6},
+    {key:'CATEGORY', name:'任务分类ID', prefix:'CAT', date:'yyyy', width:4},
+    {key:'FORM_DEF', name:'表单定义ID', prefix:'FRM', date:'yyyy', width:4},
+    {key:'API_APP', name:'接口应用ID', prefix:'APP', date:'yyyyMM', width:4},
+    {key:'NOTIFY_MSG', name:'站内信消息ID', prefix:'MSG', date:'yyyyMMdd', width:6},
+    {key:'AUDIT_LOG', name:'操作审计ID', prefix:'LOG', date:'yyyyMMdd', width:6},
+    {key:'FEEDBACK', name:'用户反馈单', prefix:'FBK', date:'yyyyMMdd', width:4},
+  ];
+  const dateFormats = ['yyyyMMdd','yyyyMM','yyyy','none'];
+  function formatToday(fmt){
+    const d = new Date();
+    const pad = (n,w)=>String(n).padStart(w,'0');
+    if(fmt==='yyyyMMdd') return d.getFullYear()+pad(d.getMonth()+1,2)+pad(d.getDate(),2);
+    if(fmt==='yyyyMM') return d.getFullYear()+pad(d.getMonth()+1,2);
+    if(fmt==='yyyy') return ''+d.getFullYear();
+    return '';
+  }
+  function example(prefix, date, width){ return prefix + formatToday(date) + String(1).padStart(parseInt(width||'4'), '0'); }
+  function renderCodes(){
+    codeBody.innerHTML = codeTypes.map((c,i)=>`
+      <tr>
+        <td><input class="form-control form-control-sm" value="${c.name}" data-i="${i}" data-k="name"></td>
+        <td style="width:140px;"><input class="form-control form-control-sm" value="${c.prefix}" data-i="${i}" data-k="prefix"></td>
+        <td style="width:160px;">
+          <select class="form-select form-select-sm" data-i="${i}" data-k="date">
+            ${dateFormats.map(f => `<option ${c.date===f?'selected':''}>${f}</option>`).join('')}
+          </select>
+        </td>
+        <td style="width:140px;">
+          <select class="form-select form-select-sm" data-i="${i}" data-k="width">
+            ${[3,4,5,6,7].map(w=>`<option ${c.width==w?'selected':''}>${w}</option>`).join('')}
+          </select>
+        </td>
+        <td class="text-monospace">${example(c.prefix, c.date, c.width)}</td>
+        <td><button class="btn btn-sm btn-outline-danger" data-del-code="${i}">删除</button></td>
+      </tr>
+    `).join('');
+  }
+  renderCodes();
+  codeBody.addEventListener('change', (e)=>{
+    const t = e.target;
+    const i = +t.getAttribute('data-i'); const k = t.getAttribute('data-k');
+    if(!isNaN(i) && k) { codeTypes[i][k] = t.value; renderCodes(); }
+  });
+  document.body.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-del-code]');
+    if(btn) { codeTypes.splice(+btn.getAttribute('data-del-code'),1); renderCodes(); }
+  });
+  $('#btn-add-code-type').addEventListener('click', ()=>{ codeTypes.push({key:'CUSTOM_'+Date.now(), name:'自定义类型', prefix:'CST', date:'yyyyMMdd', width:4}); renderCodes(); });
+
+  // ============== 通知（站内信） ==============
+  const userEvents = [
+    {key:'task_publish_approved', name:'任务发布审核通过', example:"{taskId:'TSK00001'}"},
+    {key:'task_publish_rejected', name:'任务发布审核拒绝', example:"{taskId:'TSK00001', reason:'不合规'}"},
+    {key:'task_forced_stop', name:'任务被强制停止', example:"{taskId:'TSK00001'}"},
+    {key:'task_completion_passed', name:'任务完成审核通过', example:"{taskId:'TSK00001'}"},
+    {key:'task_completion_rejected', name:'任务完成被打回', example:"{taskId:'TSK00001', reason:'凭证不清晰'}"},
+    {key:'dispute_created', name:'异议已提交', example:"{taskId:'TSK00001', disputeId:'TFA0001'}"},
+    {key:'dispute_resolved', name:'异议处理结果', example:"{result:'通过/驳回'}"},
+    {key:'recharge_confirmed', name:'充值到账（人工登记）', example:"{amount:100}"}, 
+    {key:'withdrawal_rejected', name:'提现打回', example:"{amount:100, reason:'实名不符'}"},
+    {key:'withdrawal_paid', name:'提现已转账', example:"{amount:100, channel:'公司-对公A'}"},
+  ];
+  const teamEvents = [
+    {key:'team_invited', name:'团队邀请/授权变更', example:"{teamId:'G000123'}"},
+    {key:'task_receive_assigned', name:'任务指派/权限变更', example:"{taskId:'TSK00001'}"},
+    {key:'team_withdrawal_rejected', name:'团队提现打回', example:"{amount:1000}"},
+    {key:'team_withdrawal_paid', name:'团队提现已转账', example:"{amount:1000, channel:'公司-对公A'}"},
+  ];
+  const hqInbox = [
+    {time:'2025-09-13 09:10', type:'提现', summary:'用户提现单 WDU2025091300001 待处理', read:false},
+    {time:'2025-09-13 09:05', type:'任务', summary:'任务发布审核 TPA202509130021 提交', read:true},
+    {time:'2025-09-13 08:59', type:'风控', summary:'大额充值人工确认 RCG202509130005', read:false},
+  ];
+  function renderNotifyTable(tbody, items, prefix){
+    tbody.innerHTML = items.map((it,i)=>`
+      <tr>
+        <td>${it.name}</td>
+        <td><div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" data-${prefix}-on="${i}" checked></div></td>
+        <td class="text-muted small"><code>${it.example}</code></td>
+      </tr>
+    `).join('');
+  }
+  renderNotifyTable($('#tbl-user-notify'), userEvents, 'user');
+  renderNotifyTable($('#tbl-team-notify'), teamEvents, 'team');
+  function fillBypass(selId, events){ const sel = document.querySelector(selId); sel.innerHTML = events.map(e=>`<option value="${e.key}">${e.name}</option>`).join(''); }
+  fillBypass('#user-bypass', userEvents);
+  fillBypass('#team-bypass', teamEvents);
+  const hqBody = $('#tbl-hq-inbox');
+  function renderHQ(){
+    hqBody.innerHTML = hqInbox.map((m,i)=>`
+      <tr>
+        <td>${m.time}</td><td>${m.type}</td><td>${m.summary}</td>
+        <td>${m.read?'已读':'未读'}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-secondary" data-read="${i}">${m.read?'设为未读':'设为已读'}</button>
+          <button class="btn btn-sm btn-outline-danger ms-1" data-del-msg="${i}">删除</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+  renderHQ();
+  hqBody.addEventListener('click', (e)=>{
+    const r = e.target.getAttribute('data-read');
+    const d = e.target.getAttribute('data-del-msg');
+    if(r!==null){ const i=+r; hqInbox[i].read=!hqInbox[i].read; renderHQ(); }
+    if(d!==null){ hqInbox.splice(+d,1); renderHQ(); }
+  });
+
+  // ============== 短信（阿里云验证码） ==============
+  function collectSmsTemplates(){
+    const rows = $$('#tbl-sms-templates input[data-key]');
+    const map = {}; rows.forEach(inp=> map[inp.getAttribute('data-key')] = inp.value);
+    return map;
+  }
+  function applySmsTemplates(map){
+    if(!map) return;
+    $$('#tbl-sms-templates input[data-key]').forEach(inp=>{ const k=inp.getAttribute('data-key'); if(map[k]) inp.value=map[k]; });
+  }
+
+  // ============== 登录与安全 ==============
+  // 本账号数据（模拟，无邮箱）
+  const myAccount = { username:'admin', phone:'', phoneBound:false };
+  $('#me-username').value = myAccount.username;
+
+  $('#btn-send-bind-code').addEventListener('click', ()=>{
+    const p = $('#me-phone').value.trim();
+    if(!/^1\\d{10}$/.test(p)) { alert('请输入正确的11位手机号'); return; }
+    alert('验证码已发送（模拟）');
+  });
+  $('#btn-bind-phone').addEventListener('click', ()=>{
+    const code = $('#me-sms-code').value.trim();
+    if(code.length < 4){ alert('请输入验证码'); return; }
+    myAccount.phone = $('#me-phone').value.trim();
+    myAccount.phoneBound = true;
+    alert('手机号已绑定（模拟）');
+  });
+  $('#btn-save-me').addEventListener('click', ()=>{
+    const oldp = $('#me-pwd-old').value, np = $('#me-pwd-new').value, np2 = $('#me-pwd-new2').value;
+    if(np || np2){
+      if(np.length < 6) { $('#me-save-tip').textContent = '新密码至少6位'; return; }
+      if(np !== np2) { $('#me-save-tip').textContent = '两次新密码不一致'; return; }
+    }
+    $('#me-save-tip').textContent = '已保存（本地模拟）';
+    setTimeout(()=> $('#me-save-tip').textContent = '', 2500);
+  });
+
+  // 页面清单（18页 + 设置页）
+  const pagesAll = [
+    {key:'dashboard', name:'仪表盘'},
+    {key:'tasks_global', name:'任务全局管理'},
+    {key:'task_detail', name:'任务详情'},
+    {key:'form_design', name:'表单设计'},
+    {key:'form_design_completion', name:'表单设计（完成凭证）'},
+    {key:'settings_categories', name:'分类设置'},
+    {key:'system_api', name:'接口管理与监控'},
+    {key:'users_list', name:'用户列表'},
+    {key:'users_feedback', name:'用户反馈'},
+    {key:'team_list', name:'团队列表'},
+    {key:'finance_recharge_review', name:'财务-充值审核'},
+    {key:'finance_withdraw_user', name:'财务-提现审核（个人）'},
+    {key:'finance_withdraw_team', name:'财务-提现审核（团队）'},
+    {key:'finance_platform_flow', name:'财务-平台资金流水'},
+    {key:'finance_user_flow', name:'财务-用户资金流水'},
+    {key:'finance_team_flow', name:'财务-团队资金流水'},
+    {key:'audit_task_publish', name:'审核-任务发布'},
+    {key:'audit_task_completion', name:'审核-任务完成'},
+    {key:'settings_system', name:'系统设置（本页）'}
+  ];
+
+  // 管理员列表示例（无邮箱字段）
+  const admins = [
+    {id:1, name:'超级管理员', phone:'', enabled:true, pages:new Set(pagesAll.map(p=>p.key))},
+    {id:2, name:'财务执行员', phone:'', enabled:true, pages:new Set(['dashboard','finance_recharge_review','finance_withdraw_user','finance_withdraw_team','finance_platform_flow','finance_user_flow','finance_team_flow','users_list'])},
+  ];
+  const adminBody = $('#tbl-admins');
+
+  function renderAdminRow(a){
+    const visibleCount = a.pages ? a.pages.size : 0;
+    return `
+      <tr>
+        <td>${a.name}</td>
+        <td>${a.phone||''}</td>
+        <td>${a.enabled?'启用':'禁用'}</td>
+        <td>${visibleCount}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-secondary" data-edit-admin="${a.id}">编辑</button>
+          <button class="btn btn-sm btn-outline-${a.enabled?'warning':'success'} ms-1" data-toggle-admin="${a.id}">${a.enabled?'禁用':'启用'}</button>
+          <button class="btn btn-sm btn-outline-primary ms-1" data-change-pwd="${a.id}">改密码</button>
+        </td>
+      </tr>
+    `;
+  }
+  function renderAdmins(){ adminBody.innerHTML = admins.map(renderAdminRow).join(''); }
+  renderAdmins();
+
+  // 抽屉编辑器
+  let editingId = null;
+  const drawer = document.getElementById('drawer-admin');
+  let drawerBS = null;
+  function ensureDrawer(){ if(!drawerBS){ drawerBS = new bootstrap.Offcanvas(drawer); } return drawerBS; }
+  function openEditor(id){
+    editingId = id;
+    const a = id ? admins.find(x=>x.id===id) : {id:Date.now(), name:'', phone:'', enabled:true, pages:new Set()};
+    $('#ed-name').value = a.name||'';
+    $('#ed-phone').value = a.phone||'';
+    $('#ed-enabled').checked = !!a.enabled;
+    $('#ed-pwd1').value = ''; $('#ed-pwd2').value='';
+    renderPagesList(a.pages);
+    ensureDrawer().show();
+  }
+  function renderPagesList(selectedSet){
+    const wrap = $('#pages-list');
+    const q = ($('#pages-search').value||'').trim().toLowerCase();
+    const list = pagesAll.filter(p=>p.name.toLowerCase().includes(q));
+    wrap.innerHTML = list.map(p=>{
+      const checked = selectedSet && selectedSet.has(p.key) ? 'checked' : '';
+      return `<div class="form-check mb-1">
+        <input class="form-check-input" type="checkbox" data-page-key="${p.key}" ${checked} id="pg_${p.key}">
+        <label class="form-check-label" for="pg_${p.key}">${p.name}</label>
+      </div>`;
+    }).join('');
+  }
+  $('#pages-search').addEventListener('input', ()=>{
+    const a = editingId ? admins.find(x=>x.id===editingId) : {pages:new Set()};
+    renderPagesList(a.pages);
+  });
+  $('#btn-pages-all').addEventListener('click', ()=>{ $$('#pages-list input[type="checkbox"]').forEach(c=> c.checked = true); });
+  $('#btn-pages-none').addEventListener('click', ()=>{ $$('#pages-list input[type="checkbox"]').forEach(c=> c.checked = false); });
+  $('#btn-add-admin').addEventListener('click', ()=> openEditor(null));
+  adminBody.addEventListener('click', (e)=>{
+    const ed = e.target.getAttribute('data-edit-admin');
+    const tg = e.target.getAttribute('data-toggle-admin');
+    const ch = e.target.getAttribute('data-change-pwd');
+    if(ed){ openEditor(+ed); }
+    if(tg){ const a = admins.find(x=>x.id===+tg); a.enabled = !a.enabled; renderAdmins(); }
+    if(ch){
+      // 打开改密模态框
+      selectedPwdId = +ch;
+      $('#pwd1').value=''; $('#pwd2').value='';
+      new bootstrap.Modal(document.getElementById('modalPwd')).show();
+    }
+  });
+  $('#btn-save-admin').addEventListener('click', ()=>{
+    const name = $('#ed-name').value.trim();
+    if(!name){ alert('请填写姓名'); return; }
+    const phone = $('#ed-phone').value.trim();
+    if(phone && !/^1\\d{10}$/.test(phone)){ alert('手机号格式不正确'); return; }
+    const enabled = $('#ed-enabled').checked;
+    const pwd1 = $('#ed-pwd1').value, pwd2 = $('#ed-pwd2').value;
+    if(pwd1 || pwd2){
+      if(pwd1.length < 6){ alert('新密码至少6位'); return; }
+      if(pwd1 !== pwd2){ alert('两次密码不一致'); return; }
+      // 注：演示环境不保存明文，仅标记已设置
+    }
+    const pages = new Set($$('#pages-list input[type="checkbox"]').filter(c=>c.checked).map(c=>c.getAttribute('data-page-key')));
+    if(editingId){
+      const a = admins.find(x=>x.id===editingId);
+      a.name = name; a.phone=phone; a.enabled=enabled; a.pages = pages;
+    }else{
+      admins.push({id:Date.now(), name, phone, enabled, pages});
+    }
+    renderAdmins();
+    ensureDrawer().hide();
+  });
+
+  // 直接改密码（模态框）
+  let selectedPwdId = null;
+  $('#btn-confirm-pwd').addEventListener('click', ()=>{
+    const p1 = $('#pwd1').value, p2 = $('#pwd2').value;
+    if(p1.length < 6){ alert('新密码至少6位'); return; }
+    if(p1 !== p2){ alert('两次密码不一致'); return; }
+    // 演示：不保存明文，提示成功
+    bootstrap.Modal.getInstance(document.getElementById('modalPwd')).hide();
+    alert('密码已更新（模拟）');
+  });
+
+  // ============== 日志与合规 ==============
+  // 无额外 JS
+
+  // ============== 数据与备份：备份记录 ==============
+  const backupBody = $('#tbl-backup-history');
+  const backupHistory = [
+    {time:'2025-09-12 03:00', file:'backup_20250912_0300.tar.gz', size:'128 MB', status:'成功'},
+    {time:'2025-09-11 03:01', file:'backup_20250911_0300.tar.gz', size:'127 MB', status:'成功'},
+    {time:'2025-09-10 03:00', file:'backup_20250910_0300.tar.gz', size:'126 MB', status:'成功'},
+  ];
+  function renderBackups(){
+    backupBody.innerHTML = backupHistory.map((b,i)=>`
+      <tr>
+        <td>${b.time}</td>
+        <td>${b.file}</td>
+        <td>${b.size}</td>
+        <td>${b.status}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-primary" data-bk-dl="${i}">下载</button>
+          <button class="btn btn-sm btn-outline-secondary ms-1" data-bk-restore="${i}">恢复</button>
+          <button class="btn btn-sm btn-outline-danger ms-1" data-bk-del="${i}">删除</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+  renderBackups();
+  document.body.addEventListener('click', (e)=>{
+    const dl = e.target.getAttribute('data-bk-dl');
+    const rs = e.target.getAttribute('data-bk-restore');
+    const de = e.target.getAttribute('data-bk-del');
+    if(dl){ alert('开始下载：'+backupHistory[+dl].file+'（模拟）'); }
+    if(rs){ if(confirm('确认用 '+backupHistory[+rs].file+' 进行恢复？（模拟）')) alert('恢复已启动（模拟）'); }
+    if(de){ if(confirm('确认删除该备份？')) { backupHistory.splice(+de,1); renderBackups(); } }
+  });
+  $('#btn-backup-now').addEventListener('click', ()=>{
+    const now = new Date();
+    const pad = (n)=>String(n).padStart(2,'0');
+    const ts = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
+    backupHistory.unshift({time:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`, file:`backup_${ts}.tar.gz`, size:'—', status:'进行中'});
+    renderBackups();
+    setTimeout(()=>{
+      if(backupHistory[0] && backupHistory[0].status==='进行中'){ backupHistory[0].status='成功'; backupHistory[0].size='129 MB'; renderBackups(); }
+    }, 1200);
+  });
+  $('#btn-backup-refresh').addEventListener('click', renderBackups);
+
+  // ============== 分区保存/发布 ==============
+  function saveSection(key){
+    const draft = JSON.parse(localStorage.getItem(KEY_DRAFT) || '{}');
+    const all = collectForm();
+    draft[key] = all[key];
+    localStorage.setItem(KEY_DRAFT, JSON.stringify(draft));
+    setStatus(key, 'draft');
+  }
+  function publishSection(key){
+    if(!confirm('发布生效：仅发布当前选项卡配置。确认继续？')) return;
+    const pub = JSON.parse(localStorage.getItem(KEY_PUBLISHED) || '{}');
+    const all = collectForm();
+    pub[key] = all[key];
+    localStorage.setItem(KEY_PUBLISHED, JSON.stringify(pub));
+    setStatus(key, 'published');
+  }
+  function setStatus(key, state){
+    const map = {
+      'accounts':'#status-accounts',
+      'numbering':'#status-numbering',
+      'notifySite':'#status-notifySite',
+      'sms':'#status-sms',
+      'security':'#status-security',
+      'audit':'#status-audit',
+      'backup':'#status-backup',
+      'locale':'#status-locale',
+      'support':'#status-support',
+    };
+    const sel = map[key]; if(!sel) return;
+    const el = document.querySelector(sel); if(!el) return;
+    if(state==='published'){ el.className='badge bg-primary'; el.textContent='已发布'; }
+    else if(state==='draft'){ el.className='badge bg-warning text-dark'; el.textContent='草稿已保存'; }
+  }
+  document.body.addEventListener('click', (e)=>{
+    const sbtn = e.target.closest('[data-save]'); if(sbtn){ saveSection(sbtn.getAttribute('data-save')); }
+    const pbtn = e.target.closest('[data-publish]'); if(pbtn){ publishSection(pbtn.getAttribute('data-publish')); }
+  });
+
+  // ============== 草稿/发布/导出（整包） ==============
+  function collectForm(){
+    return {
+      accounts: { display: displayAccounts, payout: payoutAccounts },
+      numbering: codeTypes,
+      notifySite: {
+        user: {
+          enabled: userEvents.map((e,i)=> document.querySelector(`[data-user-on="${i}"]`).checked ),
+          cooldown: document.querySelector('#user-cooldown').value,
+          bypass: Array.from(document.querySelector('#user-bypass').selectedOptions).map(o=>o.value)
+        },
+        team: {
+          enabled: teamEvents.map((e,i)=> document.querySelector(`[data-team-on="${i}"]`).checked ),
+          cooldown: document.querySelector('#team-cooldown').value,
+          bypass: Array.from(document.querySelector('#team-bypass').selectedOptions).map(o=>o.value)
+        },
+        hq: { retainDays: document.querySelector('#hq-retain').value, inbox: hqInbox }
+      },
+      sms: {
+        region: document.querySelector('#aliyun-region').value,
+        sign: document.querySelector('#aliyun-sign').value,
+        rate: document.querySelector('#aliyun-rate').value,
+        codeLen: document.querySelector('#sms-code-len').value,
+        ttl: document.querySelector('#sms-ttl').value,
+        cooldown: document.querySelector('#sms-cooldown').value,
+        templates: collectSmsTemplates()
+      },
+      security: {
+        my: myAccount,
+        admins: admins.map(a=>({id:a.id, name:a.name, phone:a.phone, enabled:a.enabled, pages:[...a.pages]})),
+      },
+      audit: { opRetain: document.querySelector('#log-retain').value, apiRetain: document.querySelector('#api-log-retain').value, exportRole: document.querySelector('#log-export-role').value, notes: document.querySelector('#compliance-notes').value },
+      backup: { enabled: document.querySelector('#backup-enabled').value, window: document.querySelector('#backup-window').value, keep: document.querySelector('#backup-keep').value, history: backupHistory },
+      locale: { lang: document.querySelector('#i18n-lang').value, tz: document.querySelector('#i18n-tz').value, currency: document.querySelector('#currency').value, precision: document.querySelector('#amount-precision').value, rounding: document.querySelector('#rounding-rule').value },
+      support: { wechatId: document.querySelector('#support-wechat-id').value, wechatQr: document.querySelector('#support-wechat-qr').value }
+    };
+  }
+  function applyData(d){
+    if(!d) return;
+    // 账户
+    if(Array.isArray(d.accounts?.display)){ displayAccounts.splice(0, displayAccounts.length, ...d.accounts.display); }
+    if(Array.isArray(d.accounts?.payout)){ payoutAccounts.splice(0, payoutAccounts.length, ...d.accounts.payout); }
+    renderAccounts();
+
+    // 编号
+    if(Array.isArray(d.numbering)){ codeTypes.splice(0, codeTypes.length, ...d.numbering); }
+    renderCodes();
+
+    // 站内信
+    if(d.notifySite?.user?.cooldown) document.querySelector('#user-cooldown').value = d.notifySite.user.cooldown;
+    if(Array.isArray(d.notifySite?.user?.bypass)) { const set=new Set(d.notifySite.user.bypass); Array.from(document.querySelector('#user-bypass').options).forEach(o=>o.selected=set.has(o.value)); }
+    if(Array.isArray(d.notifySite?.user?.enabled)) { d.notifySite.user.enabled.forEach((v,i)=>{ const el=document.querySelector(`[data-user-on="${i}"]`); if(el) el.checked=!!v; }); }
+
+    if(d.notifySite?.team?.cooldown) document.querySelector('#team-cooldown').value = d.notifySite.team.cooldown;
+    if(Array.isArray(d.notifySite?.team?.bypass)) { const set=new Set(d.notifySite.team.bypass); Array.from(document.querySelector('#team-bypass').options).forEach(o=>o.selected=set.has(o.value)); }
+    if(Array.isArray(d.notifySite?.team?.enabled)) { d.notifySite.team.enabled.forEach((v,i)=>{ const el=document.querySelector(`[data-team-on="${i}"]`); if(el) el.checked=!!v; }); }
+
+    if(d.notifySite?.hq?.retainDays) document.querySelector('#hq-retain').value = d.notifySite.hq.retainDays;
+    if(Array.isArray(d.notifySite?.hq?.inbox)) { hqInbox.splice(0, hqInbox.length, ...d.notifySite.hq.inbox); renderHQ(); }
+
+    // 短信
+    document.querySelector('#aliyun-region').value = d.sms?.region || '';
+    document.querySelector('#aliyun-sign').value = d.sms?.sign || '';
+    document.querySelector('#aliyun-rate').value = d.sms?.rate || 30;
+    document.querySelector('#sms-code-len').value = d.sms?.codeLen || 6;
+    document.querySelector('#sms-ttl').value = d.sms?.ttl || 10;
+    document.querySelector('#sms-cooldown').value = d.sms?.cooldown || 60;
+    applySmsTemplates(d.sms?.templates);
+
+    // 安全：本账号与管理员
+    if(d.security?.my){ $('#me-phone').value = d.security.my.phone || ''; }
+    if(Array.isArray(d.security?.admins)){
+      const restored = d.security.admins.map(a=>({...a, pages:new Set(a.pages||[])}));
+      admins.splice(0, admins.length, ...restored);
+      renderAdmins();
+    }
+
+    // 审计
+    document.querySelector('#log-retain').value = d.audit?.opRetain || 180;
+    document.querySelector('#api-log-retain').value = d.audit?.apiRetain || 90;
+    document.querySelector('#log-export-role').value = d.audit?.exportRole || 'system_admin';
+    document.querySelector('#compliance-notes').value = d.audit?.notes || '';
+
+    // 备份（含历史）
+    document.querySelector('#backup-enabled').value = d.backup?.enabled || 'on';
+    document.querySelector('#backup-window').value = d.backup?.window || '';
+    document.querySelector('#backup-keep').value = d.backup?.keep || 7;
+    if(Array.isArray(d.backup?.history)){ backupHistory.splice(0, backupHistory.length, ...d.backup.history); }
+    renderBackups();
+
+    // 区域
+    document.querySelector('#i18n-lang').value = d.locale?.lang || 'zh-CN';
+    document.querySelector('#i18n-tz').value = d.locale?.tz || 'Asia/Shanghai';
+    document.querySelector('#currency').value = d.locale?.currency || 'CNY';
+    document.querySelector('#amount-precision').value = d.locale?.precision || '2';
+    document.querySelector('#rounding-rule').value = d.locale?.rounding || 'bankers';
+
+    // 客服
+    document.querySelector('#support-wechat-id').value = d.support?.wechatId || '';
+    document.querySelector('#support-wechat-qr').value = d.support?.wechatQr || '';
+  }
+
+  // 导出/恢复草稿按钮
+  document.querySelector('#btn-export-config').addEventListener('click', ()=>{
+    const blob = new Blob([JSON.stringify(collectForm(), null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob); const a=document.createElement('a');
+    a.href=url; a.download='hq-admin-settings-system_v1_2_1d.json'; a.click(); URL.revokeObjectURL(url);
+  });
+  document.querySelector('#btn-reset-draft').addEventListener('click', ()=>{
+    const d = localStorage.getItem(KEY_DRAFT); if(!d) return alert('尚无草稿');
+    applyData(JSON.parse(d));
+    const b = document.querySelector('#settings-status'); b.className='badge bg-info'; b.textContent='草稿已恢复';
+  });
+
+  // 初始化：优先载入已发布，其次草稿
+  try{
+    const pub = localStorage.getItem(KEY_PUBLISHED);
+    const draft = localStorage.getItem(KEY_DRAFT);
+    applyData(pub ? JSON.parse(pub) : (draft ? JSON.parse(draft) : null));
+  }catch(e){ console.warn(e); }
+})();
+</script>
+
+
+<script>
+(function(){
+  // ========== 权限模板定义 ==========
+  const roleTemplates = {
+    finance_exec: ['dashboard','finance_recharge_review','finance_withdraw_user','finance_withdraw_team','finance_platform_flow','finance_user_flow','finance_team_flow','users_list','users_feedback'],
+    read_only: ['dashboard','tasks_global','task_detail','users_list','team_list','finance_platform_flow','finance_user_flow','finance_team_flow','users_feedback','audit_task_publish','audit_task_completion','system_api','settings_categories','form_design','form_design_completion'],
+    ops: ['dashboard','tasks_global','task_detail','audit_task_publish','audit_task_completion','settings_categories','form_design','form_design_completion','users_list','users_feedback','team_list']
+  };
+  function applyTemplateToUI(keys){
+    const set = new Set(keys);
+    document.querySelectorAll('#pages-list input[type="checkbox"][data-page-key]').forEach(c=>{
+      c.checked = set.has(c.getAttribute('data-page-key'));
+    });
+  }
+  document.addEventListener('click', (e)=>{
+    if(e.target && e.target.id==='btn-apply-template'){
+      const sel = document.getElementById('perm-template');
+      const v = sel ? sel.value : '';
+      if(!v || !roleTemplates[v]){ alert('请选择一个模板'); return; }
+      applyTemplateToUI(roleTemplates[v]);
+    }
+  });
+
+  // ========== 总部收件箱：监听 storage 变更，实时刷新 ==========
+  const PUB_KEY = 'hq_sys_settings_v1_2_1d_published';
+  window.addEventListener('storage', (ev)=>{
+    if(ev.key === PUB_KEY){
+      try{
+        const cfg = JSON.parse(ev.newValue||'{}');
+        const inbox = cfg?.notifySite?.hq?.inbox;
+        if(Array.isArray(inbox)){
+          // 复用页面已有的渲染函数（如果存在）
+          if(typeof renderHQ === 'function'){
+            // 覆盖内存数组并重渲染
+            if(Array.isArray(window.hqInbox)){
+              window.hqInbox.splice(0, window.hqInbox.length, ...inbox);
+            }
+            renderHQ();
+          }else{
+            // 简单刷新页面
+            location.reload();
+          }
+        }
+      }catch(e){ console.warn(e); }
+    }
+  });
+})();
+</script>
+
+
+    <!-- 用户覆盖：新增/编辑（模拟） -->
+    <div class="modal fade" id="modalAddOverride" tabindex="-1" aria-labelledby="modalAddOverrideLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="modalAddOverrideLabel">添加用户覆盖</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+          </div>
+          <div class="modal-body">
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label">用户编号</label>
+                <input class="form-control" id="ovUid" placeholder="例如 UF20240001">
+              </div>
+              <div class="col-6">
+                <label class="form-label">手机号</label>
+                <input class="form-control" id="ovPhone" placeholder="例如 13800000001">
+              </div>
+              <div class="col-6">
+                <label class="form-label">并发上限</label>
+                <input type="number" min="0" class="form-control" id="ovConcurrent" placeholder="0 表示不限制">
+              </div>
+              <div class="col-6">
+                <label class="form-label">每日上限</label>
+                <input type="number" min="0" class="form-control" id="ovDaily" placeholder="0 表示不限制">
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+            <button type="button" class="btn btn-primary" id="btnSaveOverride">保存</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <script>
+    (function(){
+      const KEY = 'hq_sys_order_limit_overrides';
+      const $tbody = document.getElementById('ol-user-overrides');
+      function load(){ try{ return JSON.parse(localStorage.getItem(KEY)||''); }catch(e){ return null; } }
+      function save(list){ localStorage.setItem(KEY, JSON.stringify(list||[])); }
+      function ensureSeed(){
+        let list = load();
+        if(!Array.isArray(list) || list.length===0){
+          list = [
+            {uid:'UF20240001', phone:'13800000001', concurrent:3, daily:10, source:'用户覆盖'},
+            {uid:'UF20240002', phone:'13800000002', concurrent:2, daily:8, source:'用户覆盖'}
+          ];
+          save(list);
+        }
+      }
+      function render(){
+        ensureSeed();
+        const list = load() || [];
+        if(!$tbody) return;
+        if(list.length===0){
+          $tbody.innerHTML = '<tr><td colspan="6" class="text-muted text-center">暂无覆盖</td></tr>'; return;
+        }
+        $tbody.innerHTML = '';
+        list.forEach((r,idx)=>{
+          const tr = document.createElement('tr');
+          tr.innerHTML = '<td>'+ (r.uid||'') +'</td>'
+            +'<td>'+ (r.phone||'') +'</td>'
+            +'<td>'+ (r.concurrent ?? '') +'</td>'
+            +'<td>'+ (r.daily ?? '') +'</td>'
+            +'<td>用户覆盖</td>'
+            +'<td><button class="btn btn-sm btn-outline-danger" data-del="'+idx+'">删除</button></td>';
+          $tbody.appendChild(tr);
+        });
+      }
+      document.addEventListener('click', function(e){
+        const btn = e.target.closest('button[data-del]');
+        if(btn){
+          const idx = +btn.getAttribute('data-del');
+          const list = load() || [];
+          list.splice(idx,1); save(list); render();
+        }
+      });
+      // Add override
+      const addBtn = document.getElementById('btnAddOverride');
+      const saveBtn = document.getElementById('btnSaveOverride');
+      if(addBtn){
+        addBtn.addEventListener('click', function(){
+          // reset
+          document.getElementById('ovUid').value='';
+          document.getElementById('ovPhone').value='';
+          document.getElementById('ovConcurrent').value='';
+          document.getElementById('ovDaily').value='';
+          const m = new bootstrap.Modal(document.getElementById('modalAddOverride'));
+          m.show();
+        });
+      }
+      if(saveBtn){
+        saveBtn.addEventListener('click', function(){
+          const rec = {
+            uid: document.getElementById('ovUid').value.trim(),
+            phone: document.getElementById('ovPhone').value.trim(),
+            concurrent: Number(document.getElementById('ovConcurrent').value||0),
+            daily: Number(document.getElementById('ovDaily').value||0),
+            source: '用户覆盖'
+          };
+          if(!rec.uid){ alert('请填写用户编号'); return; }
+          const list = load() || [];
+          list.unshift(rec); save(list); render();
+          bootstrap.Modal.getInstance(document.getElementById('modalAddOverride')).hide();
+        });
+      }
+      render();
+    })();
+    </script>
+    
+</body>
+</html>

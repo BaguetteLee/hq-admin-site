@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>总部管理系统 - 业务分类（仅卡片视图）</title>
+    <!-- 保持与原页面一致的依赖 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary: #3b7ddd;
+            --primary-light: #e8f0fe;
+            --secondary: #6c757d;
+            --red: #dc3545;
+            --red-light: #fde8ea;
+            --white: #ffffff;
+            --light: #f5f6f8;
+            --dark: #343a40;
+            --border: #e2e8f0;
+            --green: #28a745;
+            --green-light: #e8f5e9;
+            --orange: #fd7e14;
+            --orange-light: #ffe5d0;
+            --dot-platform: #3b7ddd;
+            --dot-user: #2fb67b;
+            --dot-team: #f6a035;
+            --dot-system: #7a5af8;
+            --text: #2d3748;
+        }
+        body {
+            background-color: var(--light);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text);
+        }
+
+        /* ================== 侧边栏/顶部栏：保持与原站一致 ================== */
+        .sidebar {
+            background-color: var(--white);
+            color: #4a5568;
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 260px;
+            padding-top: 60px;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.05);
+            border-right: 1px solid var(--border);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        .sidebar .nav-link {
+            color: #4a5568;
+            padding: 0.8rem 1rem;
+            margin: 0.1rem 0.5rem;
+            border-radius: 6px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+        }
+        .sidebar .nav-link i { color: #718096; }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active {
+            color: var(--primary);
+            background-color: var(--primary-light);
+        }
+        .sidebar .nav-link.active i, .sidebar .nav-link:hover i { color: var(--primary); }
+        .sidebar .menu-section {
+            padding: 0.75rem 1rem 0.25rem;
+            color: #94a3b8;
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.06em;
+        }
+        .cat-dot { display: inline-block; width: 0.6rem; height: 0.6rem; border-radius: 2px; flex: 0 0 auto; }
+        .dot-platform { background-color: var(--dot-platform); }
+        .dot-user { background-color: var(--dot-user); }
+        .dot-team { background-color: var(--dot-team); }
+        .dot-system { background-color: var(--dot-system); }
+
+        .main-content { margin-left: 260px; padding: 20px; padding-top: 80px; transition: margin-left 0.3s; }
+        .navbar {
+            background-color: var(--white);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            border-bottom: 1px solid var(--border);
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1030;
+            padding-left: 260px; transition: padding-left 0.3s;
+        }
+        .navbar-toggler { display: none; border: none; font-size: 1.25rem; }
+        .navbar-toggler:focus { box-shadow: none; }
+
+        @media (max-width: 992px) {
+            .sidebar { width: 84px; padding-top: 70px; }
+            .sidebar .nav-link span.text { display: none; }
+            .sidebar .menu-section { display: none; }
+            .main-content { margin-left: 84px; }
+            .navbar { padding-left: 84px; }
+        }
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); width: 260px; }
+            .sidebar.show { transform: translateX(0); }
+            .main-content { margin-left: 0; }
+            .navbar { padding-left: 15px; }
+            .navbar-toggler { display: block; }
+        }
+
+        /* ================== 页面卡片、统计等样式 ================== */
+        .dashboard-card {
+            background: var(--white);
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.04);
+            margin-bottom: 24px;
+            border: none;
+        }
+        .card-header { background-color: var(--white); border-bottom: 1px solid var(--border); font-weight: 600; padding: 1rem 1.5rem; }
+        .card-body { padding: 1.5rem; }
+
+        .btn { border-radius: 6px; font-weight: 500; padding: 0.5rem 1rem; transition: all 0.2s; }
+        .btn-sm { padding: 0.25rem 0.75rem; font-size: 0.875rem; }
+        .btn-primary { background-color: var(--primary); border-color: var(--primary); }
+        .btn-primary:hover { background-color: #2c6ac8; border-color: #2c6ac8; }
+        .btn-outline-primary { color: var(--primary); border-color: var(--primary); }
+        .btn-outline-primary:hover { background-color: var(--primary); color: white; }
+        .btn-danger { background-color: var(--red); border-color: var(--red); }
+
+        .navbar-brand { color: var(--primary); font-weight: 700; }
+        h4, h6 { color: #2d3748; font-weight: 600; }
+
+        /* ============== 分类卡片 ============== */
+        .category-card {
+            border-radius: 8px;
+            padding: 0.9rem;              /* 文案略缩小 -> 适当缩小内边距 */
+            margin-bottom: 0.9rem;
+            border-left: 4px solid var(--primary);
+            background-color: var(--white);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+            transition: transform 0.2s;
+        }
+        .category-card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08); }
+        .category-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.4rem; }
+
+        /* —— 按要求：卡片文字与大小略微缩小，保持美观 —— */
+        .category-title { font-weight: 600; color: #2d3748; margin-bottom: 0.2rem; font-size: 1rem; }         /* 略缩 */
+        .category-desc { color: var(--secondary); font-size: 0.85rem; margin-bottom: 0.35rem; }               /* 略缩 */
+        .category-stats { display: flex; gap: 0.8rem; color: var(--secondary); font-size: 0.8rem; margin-bottom: 0.35rem; }
+        .stat-value { color: var(--primary); font-weight: 600; }
+
+        /* 图标上传区 */
+        .icon-upload-container {
+            border: 2px dashed #dee2e6;
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .icon-upload-container:hover { border-color: var(--primary); background-color: var(--primary-light); }
+        .icon-preview { width: 60px; height: 60px; object-fit: contain; margin: 0 auto; display: block; }
+
+        .team-tag { display: inline-flex; align-items: center; background-color: #e9ecef; border-radius: 16px; padding: 0.25rem 0.75rem; margin: 0.25rem; font-size: 0.875rem; }
+
+        /* 筛选小表单：保留（未要求删除） */
+        .filter-form {
+            background-color: var(--white);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.2rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+        }
+    </style>
+
+<style>
+  /* 统一新增/编辑模态框内的块级样式与间距 */
+  .modal .section-block{ background: var(--bs-light-bg-subtle, #f8f9fa); border-radius: 10px; }
+  .modal .section-block .form-label{ font-weight: 600; }
+</style>
+</head>
+<body>
+    <!-- 顶部导航：保持一致 -->
+    <nav class="navbar navbar-expand-lg navbar-light">
+        <div class="container-fluid">
+            <button class="navbar-toggler" type="button" id="sidebarToggle">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <a class="navbar-brand" href="#"><strong><i class="bi bi-building me-2"></i>总部管理系统</strong></a>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto me-5">
+                    <li class="nav-item dropdown ms-2">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle me-2"></i> 管理员
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="#" id="btnLogout"><i class="bi bi-box-arrow-right me-2"></i>退出</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 侧边栏：保持一致 -->
+    <aside class="sidebar">
+        <div class="position-sticky">
+            <ul class="nav flex-column">
+                <!-- 平台 -->
+                <li class="menu-section">平台</li>
+                <li class="nav-item"><a class="nav-link" href="hq-admin-dashboard.html"><span class="cat-dot dot-platform"></span><i class="bi bi-speedometer2"></i><span class="text">平台总仪表盘</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="hq-admin-finance-platform-fund-flow.html"><span class="cat-dot dot-platform"></span><i class="bi bi-currency-exchange"></i><span class="text">平台资金流水</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="hq-admin-tasks-global-management.html"><span class="cat-dot dot-platform"></span><i class="bi bi-list-task"></i><span class="text">任务全局管理</span></a></li>
+                <!-- 用户 -->
+                <li class="menu-section">用户</li>
+                <li class="nav-item"><a class="nav-link" href="hq-admin-users-list.html"><span class="cat-dot dot-user"></span><i class="bi bi-people"></i><span class="text">平台用户列表</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="hq-admin-finance-recharge-review.html"><span class="cat-dot dot-user"></span><i class="bi bi-wallet2"></i><span class="text">用户充值审核</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="hq-admin-finance-withdrawal-review.html"><span class="cat-dot dot-user"></span><i class="bi bi-cash-coin"></i><span class="text">用户提现审核</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="hq-admin-finance-user-fund-flow.html"><span class="cat-dot dot-user"></span><i class="bi bi-currency-exchange"></i><span class="text">用户资金流水</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="hq-admin-users-feedback.html"><span class="cat-dot dot-user"></span><i class="bi bi-chat-left-text"></i><span class="text">用户投诉反馈</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="hq-admin-audit-task-publish.html"><span class="cat-dot dot-user"></span><i class="bi bi-send-check"></i><span class="text">用户发布审核</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="hq-admin-audit-task-completion.html"><span class="cat-dot dot-user"></span><i class="bi bi-check2-circle"></i><span class="text">任务完成审核</span></a></li>
+                <!-- 团队 -->
+                <li class="menu-section">团队</li>
+                <li class="nav-item"><a class="nav-link" href="hq-admin-team-dashboard.html"><span class="cat-dot dot-team"></span><i class="bi bi-graph-up"></i><span class="text">团队数据概览</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="hq-admin-team-list.html"><span class="cat-dot dot-team"></span><i class="bi bi-building"></i><span class="text">平台团队列表</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="hq-admin-finance-team-withdrawal-review.html"><span class="cat-dot dot-team"></span><i class="bi bi-bank"></i><span class="text">团队提现审核</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="hq-admin-finance-team-fund-flow.html"><span class="cat-dot dot-team"></span><i class="bi bi-currency-exchange"></i><span class="text">团队资金流水</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="hq-admin-team-feedback.html"><span class="cat-dot dot-team"></span><i class="bi bi-chat-left-text"></i><span class="text">团队投诉反馈</span></a></li>
+                <!-- 系统 -->
+                <li class="menu-section">系统</li>
+                <li class="nav-item"><a class="nav-link active" href="hq-admin-settings-categories.html"><span class="cat-dot dot-system"></span><i class="bi bi-tags"></i><span class="text">业务分类管理</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="hq-admin-system-api-management-monitoring.html"><span class="cat-dot dot-system"></span><i class="bi bi-hdd-network"></i><span class="text">接口管理监控</span></a></li>
+                <li class="nav-item"><a class="nav-link" href="hq-admin-settings-system.html"><span class="cat-dot dot-system"></span><i class="bi bi-gear-fill"></i><span class="text">系统设置</span></a></li>
+            </ul>
+        </div>
+    </aside>
+
+    <!-- 主内容 -->
+    <main class="main-content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4>业务分类管理</h4>
+            <!-- 只保留“新增分类”按钮 -->
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+                <i class="bi bi-plus-circle me-1"></i> 新增分类
+            </button>
+        </div>
+
+        <!-- 顶部统计（保留） -->
+        <div class="row mb-4">
+            <div class="col-md-3 col-6">
+                <div class="dashboard-card card"><div class="card-body text-center">
+                    <div class="text-primary mb-2"><i class="bi bi-tags" style="font-size: 2rem;"></i></div>
+                    <h3 class="card-title">15</h3>
+                    <p class="card-text">分类总数</p>
+                </div></div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="dashboard-card card"><div class="card-body text-center">
+                    <div class="text-success mb-2"><i class="bi bi-check-circle" style="font-size: 2rem;"></i></div>
+                    <h3 class="card-title">12</h3>
+                    <p class="card-text">启用中</p>
+                </div></div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="dashboard-card card"><div class="card-body text-center">
+                    <div class="text-secondary mb-2"><i class="bi bi-pause-circle" style="font-size: 2rem;"></i></div>
+                    <h3 class="card-title">3</h3>
+                    <p class="card-text">已停用</p>
+                </div></div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="dashboard-card card"><div class="card-body text-center">
+                    <div class="text-info mb-2"><i class="bi bi-list-task" style="font-size: 2rem;"></i></div>
+                    <h3 class="card-title">1,258</h3>
+                    <p class="card-text">关联任务数</p>
+                </div></div>
+            </div>
+        </div>
+
+        <!-- 筛选（保留） -->
+        <div class="filter-form">
+            <form class="row g-3" id="filterForm">
+                <div class="col-md-4">
+                    <label for="statusFilter" class="form-label">状态</label>
+                    <select class="form-select" id="statusFilter">
+                        <option value="" selected>全部</option>
+                        <option value="active">启用中</option>
+                        <option value="inactive">已停用</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="searchInput" class="form-label">搜索</label>
+                    <input type="text" class="form-control" id="searchInput" placeholder="输入分类名称或描述">
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">筛选</button>
+                    <button type="reset" class="btn btn-outline-secondary">重置</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- 仅保留：卡片分类视图（列表与导出按钮已删除） -->
+        <div class="row" id="cardView">
+            <!-- 示例：原有两张卡片 -->
+            <div class="col-12 mb-4">
+                <div class="category-card" data-status="active" data-name="社交媒体推广" data-id="cat001" data-auto-audit="false" data-limit-concurrent="3" data-limit-daily="15">
+                    <div class="category-header">
+                        <div>
+                            <div class="category-title">社交媒体推广 <span class="badge bg-success ms-2">启用中</span></div>
+                            <div class="category-desc">在社交媒体平台上推广产品或服务，增加品牌曝光和用户互动</div>
+                            <div class="category-stats">
+                                <div>关联任务：<span class="stat-value">356</span></div>
+                                <div>进行中：<span class="stat-value">28</span></div>
+                                <div>完成率：<span class="stat-value">85%</span></div>
+                            </div>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a href="hq-admin-form-design.html?category=社交媒体推广" class="btn btn-outline-primary"><i class="bi bi-pencil-square me-1"></i> 发布表单设计</a>
+                            <a href="hq-admin-form-design-completion.html?category=社交媒体推广" class="btn btn-outline-primary"><i class="bi bi-clipboard-check me-1"></i> 完成凭证设计</a>
+                            <a href="hq-admin-task-detail.html?category=社交媒体推广" class="btn btn-outline-primary"><i class="bi bi-info-square me-1"></i> 任务详情设计</a>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#editCategoryModal">
+                            <i class="bi bi-gear me-1"></i> 编辑
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm delete-category">
+                            <i class="bi bi-trash me-1"></i> 删除
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 mb-4">
+                <div class="category-card" data-status="active" data-name="内容创作" data-id="cat002" data-auto-audit="true" data-limit-concurrent="2" data-limit-daily="8">
+                    <div class="category-header">
+                        <div>
+                            <div class="category-title">内容创作 <span class="badge bg-success ms-2">启用中</span></div>
+                            <div class="category-desc">撰写文章、制作视频等内容创作任务，提供高质量原创内容</div>
+                            <div class="category-stats">
+                                <div>关联任务：<span class="stat-value">218</span></div>
+                                <div>进行中：<span class="stat-value">15</span></div>
+                                <div>完成率：<span class="stat-value">92%</span></div>
+                            </div>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a href="hq-admin-form-design.html?category=内容创作" class="btn btn-outline-primary"><i class="bi bi-pencil-square me-1"></i> 发布表单设计</a>
+                            <a href="hq-admin-form-design-completion.html?category=内容创作" class="btn btn-outline-primary"><i class="bi bi-clipboard-check me-1"></i> 完成凭证设计</a>
+                            <a href="hq-admin-task-detail.html?category=内容创作" class="btn btn-outline-primary"><i class="bi bi-info-square me-1"></i> 任务详情设计</a>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#editCategoryModal">
+                            <i class="bi bi-gear me-1"></i> 编辑
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm delete-category">
+                            <i class="bi bi-trash me-1"></i> 删除
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <!-- 其他卡片可继续... -->
+        </div>
+    </main>
+
+    <!-- ============== 新增分类模态框：新增“自动审核发布”开关（其他不变） ============== -->
+    <div class="modal fade" id="addCategoryModal" tabindex="-1" aria-labelledby="addCategoryModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addCategoryModalLabel">添加业务分类</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addCategoryForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="categoryName" class="form-label">分类名称</label>
+                                    <input type="text" class="form-control" id="categoryName" placeholder="输入分类名称" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <!-- 同一列中放置“状态”与“自动审核发布”两个开关，保证最小改动 -->
+                                <div class="mb-3">
+                                    <label class="form-label d-block">状态与审核</label>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="categoryStatus" checked>
+                                        <label class="form-check-label" for="categoryStatus">启用此分类</label>
+                                    </div>
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input" type="checkbox" id="categoryAutoAudit">
+                                        <label class="form-check-label" for="categoryAutoAudit">自动审核发布</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="categoryDescription" class="form-label">分类描述</label>
+                            <textarea class="form-control" id="categoryDescription" rows="3" placeholder="输入分类描述" required></textarea>
+                        </div>
+                        <!-- 平台信息费抽佣（新增） -->
+                        <div class="mb-3 border rounded p-3 bg-light-subtle section-block" id="addCommissionBlock">
+                            <label class="form-label">平台信息费抽佣（%）</label>
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">发布团队抽佣</span>
+                                        <input type="number" class="form-control" id="addCommissionPub" min="0" max="100" step="0.01" placeholder="例如 3.5">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">接单团队抽佣</span>
+                                        <input type="number" class="form-control" id="addCommissionRec" min="0" max="100" step="0.01" placeholder="例如 5">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <small class="text-muted">此为任务归属分类的默认抽佣，创建任务时可覆盖。</small>
+                        
+                        </div>
+
+                        <!-- 接单限制（新增） -->
+                        <div class="mb-3 border rounded p-3 bg-light-subtle section-block" id="addOrderLimitBlock">
+                            <label class="form-label">接单限制（默认）</label>
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">同时接单上限</span>
+                                        <input type="number" class="form-control" id="addLimitConcurrent" min="0" step="1" placeholder="0 表示不限制">
+                                        <span class="input-group-text">个</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">每日接单上限</span>
+                                        <input type="number" class="form-control" id="addLimitDaily" min="0" step="1" placeholder="0 表示不限制">
+                                        <span class="input-group-text">个/日</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <small class="text-muted">最终生效值 = min(用户覆盖, 分类默认, 全局默认)。</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">分类图标</label>
+                            <div class="icon-upload-container" id="iconUploadContainer">
+                                <input type="file" id="iconUpload" accept="image/*" class="d-none">
+                                <div id="iconPreview" class="mb-2">
+                                    <i class="bi bi-cloud-upload" style="font-size: 2rem;"></i>
+                                </div>
+                                <p class="mb-0">点击上传图标或拖放图像到这里</p>
+                                <small class="text-muted">支持JPG, PNG格式，最大2MB</small>
+                            </div>
+                        </div>
+
+                        <!-- 团队授权：保持一致 -->
+                        <div class="mb-3">
+                            <label class="form-label">团队授权</label>
+                            <div class="border rounded p-3">
+                                <!-- 开关1：限制任务发布团队 -->
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="addPublishRestriction">
+                                    <label class="form-check-label" for="addPublishRestriction">限制任务发布团队</label>
+                                </div>
+                                <!-- 发布团队选择列表 -->
+                                <div id="addPublishTeamSelection" class="d-none">
+                                    <label class="form-label">选择可发布此分类任务的团队</label>
+                                    <div class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
+                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="addPubTeamA"><label class="form-check-label" for="addPubTeamA">运营团队A</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="addPubTeamB"><label class="form-check-label" for="addPubTeamB">市场团队B</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="addPubTeamC"><label class="form-check-label" for="addPubTeamC">内容团队C</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="addPubTeamD"><label class="form-check-label" for="addPubTeamD">创作团队D</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="addPubTeamE"><label class="form-check-label" for="addPubTeamE">测试团队E</label></div>
+                                    </div>
+                                </div>
+
+                                <hr class="text-muted my-3">
+
+                                <!-- 开关2：限制任务接单团队 -->
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="addReceiveRestriction">
+                                    <label class="form-check-label" for="addReceiveRestriction">限制任务接单团队</label>
+                                </div>
+                                <!-- 接单团队选择列表 -->
+                                <div id="addReceiveTeamSelection" class="d-none">
+                                    <label class="form-label">选择可接单此分类任务的团队</label>
+                                    <div class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
+                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="addRecTeamA"><label class="form-check-label" for="addRecTeamA">运营团队A</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="addRecTeamB"><label class="form-check-label" for="addRecTeamB">市场团队B</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="addRecTeamC"><label class="form-check-label" for="addRecTeamC">内容团队C</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="addRecTeamD"><label class="form-check-label" for="addRecTeamD">创作团队D</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="addRecTeamE"><label class="form-check-label" for="addRecTeamE">测试团队E</label></div>
+                                    </div>
+                                </div>
+
+                                <small class="text-muted d-block mt-2">未勾选即表示不做限制。</small>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="saveCategoryBtn">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============== 编辑分类模态框：新增“自动审核发布”开关（其他不变） ============== -->
+    <div class="modal fade" id="editCategoryModal" tabindex="-1" aria-labelledby="editCategoryModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editCategoryModalLabel">编辑业务分类</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editCategoryForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="editCategoryName" class="form-label">分类名称</label>
+                                    <input type="text" class="form-control" id="editCategoryName" value="社交媒体推广" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <!-- 同一列中放置“状态”与“自动审核发布”两个开关，保证最小改动 -->
+                                <div class="mb-3">
+                                    <label class="form-label d-block">状态与审核</label>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="editCategoryStatus" checked>
+                                        <label class="form-check-label" for="editCategoryStatus">启用此分类</label>
+                                    </div>
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input" type="checkbox" id="editCategoryAutoAudit">
+                                        <label class="form-check-label" for="editCategoryAutoAudit">自动审核发布</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="editCategoryDescription" class="form-label">分类描述</label>
+                            <textarea class="form-control" id="editCategoryDescription" rows="3" required>在社交媒体平台上推广产品或服务，增加品牌曝光和用户互动</textarea>
+                        </div>
+                        <!-- 平台信息费抽佣（新增） -->
+                        <div class="mb-3 border rounded p-3 bg-light-subtle section-block" id="editCommissionBlock">
+                        </div>
+                        <!-- 接单限制（编辑） -->
+                        <div class="mb-3 border rounded p-3 bg-light-subtle section-block" id="editOrderLimitBlock">
+                            <label class="form-label">接单限制（默认）</label>
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">同时接单上限</span>
+                                        <input type="number" class="form-control" id="editLimitConcurrent" min="0" step="1" placeholder="0 表示不限制">
+                                        <span class="input-group-text">个</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">每日接单上限</span>
+                                        <input type="number" class="form-control" id="editLimitDaily" min="0" step="1" placeholder="0 表示不限制">
+                                        <span class="input-group-text">个/日</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <small class="text-muted">仅对单一用户生效; 0 或留空 = 不限制；最终生效 = min(用户覆盖, 分类默认, 全局默认)。</small>
+                        </div>
+                        <div class="mb-3 border rounded p-3 bg-light-subtle section-block" id="editCommissionBlock">
+        
+                            <label class="form-label">平台信息费抽佣（%）</label>
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">发布团队抽佣</span>
+                                        <input type="number" class="form-control" id="editCommissionPub" min="0" max="100" step="0.01" placeholder="例如 3.5">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">接单团队抽佣</span>
+                                        <input type="number" class="form-control" id="editCommissionRec" min="0" max="100" step="0.01" placeholder="例如 5">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <small class="text-muted">此为任务归属分类的默认抽佣，任务编辑可覆盖。</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">分类图标</label>
+                            <div class="icon-upload-container" id="editIconUploadContainer">
+                                <input type="file" id="editIconUpload" accept="image/*" class="d-none">
+                                <div id="editIconPreview" class="mb-2">
+                                    <img src="https://via.placeholder.com/60" class="icon-preview" alt="当前图标">
+                                </div>
+                                <p class="mb-0">点击更换图标或拖放图像到这里</p>
+                                <small class="text-muted">支持JPG, PNG格式，最大2MB</small>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">团队授权</label>
+                            <div class="border rounded p-3">
+                                <!-- 开关1：限制任务发布团队 -->
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="editPublishRestriction" checked>
+                                    <label class="form-check-label" for="editPublishRestriction">限制任务发布团队</label>
+                                </div>
+                                <!-- 发布团队选择列表 -->
+                                <div id="editPublishTeamSelection">
+                                    <label class="form-label">选择可发布此分类任务的团队</label>
+                                    <div class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
+                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="editPubTeamA" checked><label class="form-check-label" for="editPubTeamA">运营团队A</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="editPubTeamB" checked><label class="form-check-label" for="editPubTeamB">市场团队B</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="editPubTeamC"><label class="form-check-label" for="editPubTeamC">内容团队C</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="editPubTeamD"><label class="form-check-label" for="editPubTeamD">创作团队D</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="editPubTeamE"><label class="form-check-label" for="editPubTeamE">测试团队E</label></div>
+                                    </div>
+                                </div>
+
+                                <hr class="text-muted my-3">
+
+                                <!-- 开关2：限制任务接单团队 -->
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="editReceiveRestriction">
+                                    <label class="form-check-label" for="editReceiveRestriction">限制任务接单团队</label>
+                                </div>
+                                <!-- 接单团队选择列表 -->
+                                <div id="editReceiveTeamSelection" class="d-none">
+                                    <label class="form-label">选择可接单此分类任务的团队</label>
+                                    <div class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
+                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="editRecTeamA"><label class="form-check-label" for="editRecTeamA">运营团队A</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="editRecTeamB"><label class="form-check-label" for="editRecTeamB">市场团队B</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="editRecTeamC"><label class="form-check-label" for="editRecTeamC">内容团队C</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="editRecTeamD"><label class="form-check-label" for="editRecTeamD">创作团队D</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox" id="editRecTeamE"><label class="form-check-label" for="editRecTeamE">测试团队E</label></div>
+                                    </div>
+                                </div>
+                                <small class="text-muted d-block mt-2">未勾选即表示不做限制。</small>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="saveEditCategoryBtn">保存更改</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 依赖脚本 -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // ========== 基础交互：侧边栏在移动端的展开/收起 ==========
+        document.getElementById('sidebarToggle').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.toggle('show');
+        });
+
+        // ========== 筛选表单（前端模拟） ==========
+        document.getElementById('filterForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            // 这里仅做演示：可基于关键字和状态隐藏/显示卡片
+            const kw = document.getElementById('searchInput').value.trim();
+            const st = document.getElementById('statusFilter').value;
+            document.querySelectorAll('#cardView .category-card').forEach(function(card){
+                const name = card.getAttribute('data-name') || '';
+                const status = card.getAttribute('data-status') || '';
+                let show = true;
+                if (kw && name.indexOf(kw) === -1) show = false;
+                if (st && status !== st) show = false;
+                card.closest('.col-12').style.display = show ? '' : 'none';
+            });
+        });
+
+        // ========== 统计模块更新：根据卡片状态更新数量 ==========
+        function updateCategoryStats() {
+            const totalEl = document.querySelector('.row.mb-4 .col-md-3:nth-child(1) h3.card-title');
+            const activeEl = document.querySelector('.row.mb-4 .col-md-3:nth-child(2) h3.card-title');
+            const inactiveEl = document.querySelector('.row.mb-4 .col-md-3:nth-child(3) h3.card-title');
+
+            const cards = document.querySelectorAll('#cardView .category-card');
+            let total = cards.length, active = 0, inactive = 0;
+            cards.forEach(function(card){
+                (card.getAttribute('data-status') === 'active') ? active++ : inactive++;
+            });
+            if (totalEl) totalEl.textContent = String(total);
+            if (activeEl) activeEl.textContent = String(active);
+            if (inactiveEl) inactiveEl.textContent = String(inactive);
+        }
+
+        // ========== 删除按钮：真实删除卡片（前端模拟） ==========
+        function bindDeleteButtons(scope=document) {
+            scope.querySelectorAll('.delete-category').forEach(function(btn){
+                btn.addEventListener('click', function(e){
+                    e.preventDefault();
+                    const col = this.closest('.col-12');
+                    if (!col) return;
+                    if (confirm('确定要删除这个分类吗？此操作不可撤销。')) {
+                        col.remove();
+                        updateCategoryStats();
+                    }
+                });
+            });
+        }
+        bindDeleteButtons(document);
+
+        // ========== 新增分类保存：真实插入卡片（前端模拟） ==========
+        document.getElementById('saveCategoryBtn').addEventListener('click', function() {
+            const form = document.getElementById('addCategoryForm');
+            if (!form.checkValidity()) { alert('请填写所有必填字段'); return; }
+
+            const name = (document.getElementById('categoryName').value || '').trim() || '新分类';
+            const desc = (document.getElementById('categoryDescription').value || '').trim();
+            const enabled = document.getElementById('categoryStatus').checked;
+            const autoAudit = document.getElementById('categoryAutoAudit').checked; // 新增：自动审核发布开关值
+            const rid = 'cat' + Math.floor(Math.random() * 900 + 100);
+            const badge = enabled ? '<span class="badge bg-success ms-2">启用中</span>' : '<span class="badge bg-secondary ms-2">已停用</span>';
+            const dataStatus = enabled ? 'active' : 'inactive';
+
+            // 生成卡片节点（严格复用现有结构，最小改动）
+            const cardHtml = `
+                <div class="col-12 mb-4">
+                    <div class="category-card" data-status="${dataStatus}" data-name="${name}" data-id="${rid}" data-auto-audit="${autoAudit ? 'true' : 'false'}">
+                        <div class="category-header">
+                            <div>
+                                <div class="category-title">${name} ${badge}</div>
+                                <div class="category-desc">${desc || '暂无描述'}</div>
+                                <div class="category-stats">
+                                    <div>关联任务：<span class="stat-value">0</span></div>
+                                    <div>进行中：<span class="stat-value">0</span></div>
+                                    <div>完成率：<span class="stat-value">0%</span></div>
+                                </div>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2">
+                                <a href="hq-admin-form-design.html?category=${name}" class="btn btn-outline-primary"><i class="bi bi-pencil-square me-1"></i> 发布表单设计</a>
+                                <a href="hq-admin-form-design-completion.html?category=${name}" class="btn btn-outline-primary"><i class="bi bi-clipboard-check me-1"></i> 完成凭证设计</a>
+                                <a href="hq-admin-task-detail.html?category=${name}" class="btn btn-outline-primary"><i class="bi bi-info-square me-1"></i> 任务详情设计</a>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#editCategoryModal">
+                                <i class="bi bi-gear me-1"></i> 编辑
+                            </button>
+                            <button class="btn btn-outline-danger btn-sm delete-category">
+                                <i class="bi bi-trash me-1"></i> 删除
+                            </button>
+                        </div>
+                    </div>
+                </div>`;
+
+            const cv = document.getElementById('cardView');
+            const temp = document.createElement('div');
+            temp.innerHTML = cardHtml.trim();
+            const node = temp.firstElementChild;
+            cv.appendChild(node);
+            bindDeleteButtons(node);
+            updateCategoryStats();
+
+            alert('分类已添加');
+            bootstrap.Modal.getInstance(document.getElementById('addCategoryModal')).hide();
+            form.reset();
+            initAddAuthUI();
+        });
+
+        // ========== 编辑保存（前端模拟提示；如需写回可后续微改） ==========
+        document.getElementById('saveEditCategoryBtn').addEventListener('click', function() {
+            const form = document.getElementById('editCategoryForm');
+            if (!form.checkValidity()) { alert('请填写所有必填字段'); return; }
+            alert('分类已更新');
+            bootstrap.Modal.getInstance(document.getElementById('editCategoryModal')).hide();
+        });
+
+        // ========== 新增/编辑模态：团队授权显示控制（保持一致） ==========
+        function initAddAuthUI() {
+            const addPublishRestriction = document.getElementById('addPublishRestriction');
+            const addPublishTeamSelection = document.getElementById('addPublishTeamSelection');
+            const addReceiveRestriction = document.getElementById('addReceiveRestriction');
+            const addReceiveTeamSelection = document.getElementById('addReceiveTeamSelection');
+            if (addPublishRestriction && addPublishTeamSelection) {
+                addPublishTeamSelection.classList.toggle('d-none', !addPublishRestriction.checked);
+                addPublishRestriction.onchange = function(){ addPublishTeamSelection.classList.toggle('d-none', !this.checked); };
+            }
+            if (addReceiveRestriction && addReceiveTeamSelection) {
+                addReceiveTeamSelection.classList.toggle('d-none', !addReceiveRestriction.checked);
+                addReceiveRestriction.onchange = function(){ addReceiveTeamSelection.classList.toggle('d-none', !this.checked); };
+            }
+        }
+        function initEditAuthUI() {
+            const editPublishRestriction = document.getElementById('editPublishRestriction');
+            const editPublishTeamSelection = document.getElementById('editPublishTeamSelection');
+            const editReceiveRestriction = document.getElementById('editReceiveRestriction');
+            const editReceiveTeamSelection = document.getElementById('editReceiveTeamSelection');
+            if (editPublishRestriction && editPublishTeamSelection) {
+                editPublishTeamSelection.classList.toggle('d-none', !editPublishRestriction.checked);
+                editPublishRestriction.onchange = function(){ editPublishTeamSelection.classList.toggle('d-none', !this.checked); };
+            }
+            if (editReceiveRestriction && editReceiveTeamSelection) {
+                editReceiveTeamSelection.classList.toggle('d-none', !editReceiveRestriction.checked);
+                editReceiveRestriction.onchange = function(){ editReceiveTeamSelection.classList.toggle('d-none', !this.checked); };
+            }
+        }
+
+        // ========== 页面初始化 ==========
+        document.addEventListener('DOMContentLoaded', function(){
+            initAddAuthUI();
+            initEditAuthUI();
+            updateCategoryStats();
+        });
+    </script>
+
+<script>
+// 侧边栏统一：插入“系统设置”（接口管理与监控下方），隐藏“数据概览/团队投诉反馈”
+(function(){
+  try{
+    const aside = document.querySelector('aside.sidebar');
+    if(aside){
+      const links = aside.querySelectorAll('a');
+      let apiLink = null, settingsLinkExists = false;
+      links.forEach(a=>{
+        if(a.textContent && a.textContent.includes('接口管理与监控')) apiLink = a;
+        if(a.textContent && a.textContent.trim() === '系统设置') settingsLinkExists = true;
+      });
+      if(apiLink && !settingsLinkExists){
+        const li = document.createElement('li'); li.className = 'nav-item';
+        const a = document.createElement('a'); a.className='nav-link'; a.textContent='系统设置';
+        a.href = 'hq-admin-settings-system_v1.2.1d_tabs.html';
+        li.appendChild(a);
+        const parentUl = apiLink.closest('ul') || aside.querySelector('ul');
+        parentUl.insertBefore(li, apiLink.parentElement.nextSibling);
+      }
+      // 隐藏“数据概览”“团队投诉反馈”
+      links.forEach(a=>{
+        const t = (a.textContent||'').trim();
+        if(t.includes('数据概览') || t.includes('团队投诉反馈')){
+          const li = a.closest('li'); if(li) li.style.display='none';
+        }
+      });
+    }
+  }catch(e){ console.warn('侧边栏统一失败', e); }
+})();
+</script>
+
+
+<script>
+// 将表格中的编号（TSK/TPA/TFA/RCG/WDU/WDT/TF/UF/GF/FBK...）自动变为可点击链接
+(function(){
+  const map = {
+    TSK: 'hq-admin-task-detail.html',
+    TPA: 'hq-admin-audit-task-publish.html',
+    TFA: 'hq-admin-audit-task-completion.html',
+    RCG: 'hq-admin-finance-recharge-review.html',
+    WDU: 'hq-admin-finance-withdrawal-review.html',
+    WDT: 'hq-admin-finance-team-withdrawal-review.html',
+    TF:  'hq-admin-finance-platform-fund-flow.html',
+    UF:  'hq-admin-finance-user-fund-flow.html',
+    GF:  'hq-admin-finance-team-fund-flow.html',
+    FBK: 'hq-admin-users-feedback.html',
+    CAT: 'hq-admin-settings-categories.html',
+    FRM: 'hq-admin-form-design.html',
+    APP: 'hq-admin-system-api-management-monitoring.html',
+    MSG: 'hq-admin-users-feedback.html',
+    LOG: 'hq-admin-audit-task-completion.html',
+    U:   'hq-admin-users-list.html',
+    G:   'hq-admin-team-list.html'
+  };
+  const re = /\b(TSK|TPA|TFA|RCG|WDU|WDT|TF|UF|GF|FBK|CAT|FRM|APP|MSG|LOG|U|G)\d{4,}(?:\s*\d{3,})?\b/g;
+  function linkifyNode(node){
+    if(node.children && node.children.length) return;
+    const text = node.textContent;
+    if(!text || !re.test(text)) return;
+    const html = text.replace(re, (m)=>{
+      const pref = m.match(/^[A-Z]+/)[0];
+      const href = map[pref] || '#';
+      const q = encodeURIComponent(m.replace(/\s+/g,''));
+      return `<a href="${href}?id=${q}" class="text-decoration-underline">${m}</a>`;
+    });
+    const span = document.createElement('span'); span.innerHTML = html;
+    node.replaceWith(span);
+  }
+  const targets = Array.from(document.querySelectorAll('td, span, div, p, li'));
+  targets.forEach(linkifyNode);
+})();
+</script>
+
+
+<style>
+/* 统一状态样式 */
+.unified-empty { text-align:center; padding:28px 12px; color:#6c757d; }
+.unified-empty .icon { display:inline-block; width:36px; height:36px; border-radius:50%; border:2px dashed #ced4da; margin-bottom:6px; }
+.unified-loading { position:relative; min-height:80px; }
+.unified-loading:after {
+  content:""; position:absolute; inset:0; background:
+    linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.04) 50%, rgba(0,0,0,0) 100%);
+  animation: shimmer 1.2s infinite;
+}
+@keyframes shimmer { 0%{background-position:-200% 0;} 100%{background-position:200% 0;} }
+.unified-error { color:#dc3545; padding:8px 0; }
+
+/* 统一筛选浮层 */
+#unifiedFilterPanel {
+  position: fixed; right: 16px; top: 84px; width: 360px; z-index: 1080;
+  background: #fff; border: 1px solid #dee2e6; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.12);
+  display:none;
+}
+#unifiedFilterPanel .hdr { padding: 10px 12px; border-bottom:1px solid #eee; display:flex; align-items:center; justify-content:space-between; }
+#unifiedFilterPanel .bd { padding: 12px; }
+#btnUnifiedFilter { margin-left: 8px; }
+
+/* 按钮意图颜色统一（基于文本） */
+button, .btn { transition: filter .2s ease; }
+.btn-intent-approve { background:#198754; color:#fff; border-color:#198754; }
+.btn-intent-reject { background:#dc3545; color:#fff; border-color:#dc3545; }
+.btn-intent-return { background:#ffc107; color:#212529; border-color:#ffc107; }
+.btn-intent-pay { background:#0d6efd; color:#fff; border-color:#0d6efd; }
+
+/* 可点击编号统一下划线（若页面未设置） */
+a.id-link { text-decoration: underline; }
+</style>
+
+<script>
+(function(){
+  // ===== 读取系统设置（货币/精度/时区） =====
+  const PUB_KEY = 'hq_sys_settings_v1_2_1d_published';
+  let locale = { lang:'zh-CN', tz:'Asia/Shanghai', currency:'CNY', precision:2 };
+  try{
+    const cfg = JSON.parse(localStorage.getItem(PUB_KEY)||'{}');
+    if(cfg.locale){
+      locale.lang = cfg.locale.lang || locale.lang;
+      locale.tz = cfg.locale.tz || locale.tz;
+      locale.currency = cfg.locale.currency || locale.currency;
+      locale.precision = parseInt(cfg.locale.precision||locale.precision,10);
+    }
+  }catch(e){}
+
+  // ===== 统一筛选：在首个 .card-header 右侧添加“筛选”按钮 + 浮层 =====
+  function ensureFilterUI(){
+    if(document.getElementById('unifiedFilterPanel')) return;
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-outline-secondary btn-sm';
+    btn.id = 'btnUnifiedFilter';
+    btn.innerHTML = '<i class="bi bi-funnel me-1"></i>筛选';
+    // 尝试挂到第一个 card-header 右侧
+    const hdr = document.querySelector('.card .card-header') || document.querySelector('.d-flex.align-items-center.justify-content-between');
+    if(hdr){ hdr.appendChild(btn); }
+    else {
+      // 顶部右上角浮动按钮（兜底）
+      const fbtn = btn.cloneNode(true);
+      fbtn.style.position='fixed'; fbtn.style.right='16px'; fbtn.style.top='20px'; fbtn.style.zIndex='1080';
+      document.body.appendChild(fbtn);
+    }
+
+    const panel = document.createElement('div');
+    panel.id = 'unifiedFilterPanel';
+    panel.innerHTML = `
+      <div class="hdr">
+        <strong>通用筛选</strong>
+        <button type="button" class="btn-close" id="btnUFclose"></button>
+      </div>
+      <div class="bd">
+        <div class="mb-2">
+          <label class="form-label">关键字</label>
+          <input class="form-control" id="uf-key" placeholder="编号/手机号/名称">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">状态</label>
+          <select class="form-select" id="uf-status">
+            <option value="">全部</option>
+            <option>待处理</option>
+            <option>处理中</option>
+            <option>已通过</option>
+            <option>已驳回</option>
+            <option>已完成</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">时间范围</label>
+          <div class="d-flex gap-2">
+            <input type="date" class="form-control" id="uf-from">
+            <input type="date" class="form-control" id="uf-to">
+          </div>
+        </div>
+        <div class="d-flex justify-content-end gap-2">
+          <button class="btn btn-outline-secondary btn-sm" id="uf-reset">重置</button>
+          <button class="btn btn-primary btn-sm" id="uf-apply">应用</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(panel);
+
+    document.body.addEventListener('click', function(e){
+      if(e.target && (e.target.id==='btnUnifiedFilter')){
+        const p = document.getElementById('unifiedFilterPanel');
+        p.style.display = (p.style.display==='none' || !p.style.display) ? 'block' : 'none';
+      }
+      if(e.target && (e.target.id==='btnUFclose')){
+        document.getElementById('unifiedFilterPanel').style.display = 'none';
+      }
+      if(e.target && (e.target.id==='uf-reset')){
+        document.getElementById('uf-key').value='';
+        document.getElementById('uf-status').value='';
+        document.getElementById('uf-from').value='';
+        document.getElementById('uf-to').value='';
+        // 客户端演示：移除高亮
+        document.querySelectorAll('.uf-hl').forEach(n=>n.classList.remove('uf-hl'));
+      }
+      if(e.target && (e.target.id==='uf-apply')){
+        // Demo：仅做关键字高亮；实际项目应触发具体表格筛选逻辑
+        const key = (document.getElementById('uf-key').value||'').trim();
+        document.querySelectorAll('.uf-hl').forEach(n=>n.classList.remove('uf-hl'));
+        if(key){
+          const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+          const re = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+          let node; while(node = walker.nextNode()){
+            if(re.test(node.nodeValue) && node.parentElement && node.parentElement.closest('table')){
+              node.parentElement.classList.add('uf-hl');
+            }
+          }
+        }
+        document.getElementById('unifiedFilterPanel').style.display = 'none';
+      }
+    });
+
+    const style = document.createElement('style');
+    style.textContent = `.uf-hl{ background: rgba(255, 230, 0, .45); outline: 1px dashed #ffbf00; }`;
+    document.head.appendChild(style);
+  }
+
+  // ===== 统一金额格式（根据表头关键字判列） =====
+  function unifyAmountFormat(){
+    const tables = Array.from(document.querySelectorAll('table'));
+    const nf = new Intl.NumberFormat(locale.lang, { style:'currency', currency: locale.currency, minimumFractionDigits: locale.precision, maximumFractionDigits: locale.precision });
+    tables.forEach(tb=>{
+      const ths = Array.from(tb.querySelectorAll('thead th, thead td')).map(th => (th.textContent||'').trim());
+      if(!ths.length) return;
+      ths.forEach((txt, idx)=>{
+        if(/金额|价|费|收款|打款|入账|出账/.test(txt)){
+          Array.from(tb.querySelectorAll(`tbody tr`)).forEach(tr=>{
+            const td = tr.children[idx]; if(!td) return;
+            const raw = (td.textContent||'').replace(/[,￥$]/g,'').trim();
+            const num = parseFloat(raw);
+            if(!isNaN(num)){
+              td.setAttribute('data-raw-amount', num);
+              td.textContent = nf.format(num);
+              td.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace';
+              td.style.textAlign = 'right';
+            }
+          });
+        }
+      });
+    });
+  }
+
+  // ===== 统一时间格式 =====
+  function unifyTimeFormat(){
+    const tables = Array.from(document.querySelectorAll('table'));
+    const fmt = new Intl.DateTimeFormat(locale.lang, { timeZone: locale.tz, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    tables.forEach(tb=>{
+      const ths = Array.from(tb.querySelectorAll('thead th, thead td')).map(th => (th.textContent||'').trim());
+      if(!ths.length) return;
+      ths.forEach((txt, idx)=>{
+        if(/时间|日期|创建|更新/.test(txt)){
+          Array.from(tb.querySelectorAll(`tbody tr`)).forEach(tr=>{
+            const td = tr.children[idx]; if(!td) return;
+            const s = (td.textContent||'').trim();
+            // 常见格式 "YYYY-MM-DD HH:mm[:ss]"
+            const iso = s.replace(/(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(:\d{2})?)/, '$1T$2');
+            const d = new Date(iso);
+            if(!isNaN(+d)){
+              td.title = d.toISOString();
+              td.textContent = fmt.format(d);
+              td.style.whiteSpace = 'nowrap';
+            }
+          });
+        }
+      });
+    });
+  }
+
+  // ===== 空态填充（无数据时） =====
+  function fillEmptyStates(){
+    Array.from(document.querySelectorAll('table')).forEach(tb=>{
+      const body = tb.querySelector('tbody'); if(!body) return;
+      const hasRow = body.querySelector('tr');
+      if(!hasRow){
+        const colSpan = (tb.querySelectorAll('thead th').length || 1);
+        const tr = document.createElement('tr');
+        const td = document.createElement('td'); td.colSpan = colSpan; td.className='unified-empty';
+        td.innerHTML = '<div class="icon"></div><div>暂无数据</div>';
+        tr.appendChild(td); body.appendChild(tr);
+      }
+    });
+  }
+
+  // ===== 动作按钮意图着色（基于文本内容） =====
+  function colorizeActionButtons(){
+    const btns = Array.from(document.querySelectorAll('button, a.btn'));
+    btns.forEach(b=>{
+      const t = (b.textContent||'').trim();
+      if(/通过|同意|Approve/i.test(t)) b.classList.add('btn-intent-approve');
+      if(/驳回|拒绝|Reject/i.test(t)) b.classList.add('btn-intent-reject');
+      if(/打回|退回|Return/i.test(t)) b.classList.add('btn-intent-return');
+      if(/打款|已转账|Pay/i.test(t)) b.classList.add('btn-intent-pay');
+    });
+  }
+
+  // ===== 启动顺序 =====
+  document.addEventListener('DOMContentLoaded', function(){
+    ensureFilterUI();
+    unifyAmountFormat();
+    unifyTimeFormat();
+    fillEmptyStates();
+    colorizeActionButtons();
+  });
+})();
+</script>
+
+
+<script>
+(function(){
+  const KEY = 'hq_category_commission_defaults';
+  function getMap(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } }
+  function setMap(m){ localStorage.setItem(KEY, JSON.stringify(m||{})); }
+  function readNum(id){ const el=document.getElementById(id); if(!el) return null; const v=parseFloat(el.value); return isNaN(v)?null:v; }
+  function writeNum(id,val){ const el=document.getElementById(id); if(el && val!=null){ el.value = String(val); } }
+
+  function loadDefaultsForName(name, prefix){ // prefix: add/edit
+    const map = getMap();
+    const key = name ? ('name:'+name.trim()) : 'global';
+    const d = map[key] || map['global'] || {};
+    writeNum(prefix+'CommissionPub', d.pub ?? '');
+    writeNum(prefix+'CommissionRec', d.rec ?? '');
+  }
+
+  const addModal = document.getElementById('addCategoryModal');
+  if(addModal){
+    addModal.addEventListener('shown.bs.modal', function(){
+      loadDefaultsForName('', 'add');
+      const nameInput = document.getElementById('categoryName');
+      if(nameInput){
+        nameInput.addEventListener('input', function(){ loadDefaultsForName(this.value, 'add'); });
+      }
+    });
+  }
+
+  const editModal = document.getElementById('editCategoryModal');
+  if(editModal){
+    editModal.addEventListener('shown.bs.modal', function(){
+      const nameInput = document.getElementById('editCategoryName');
+      const name = nameInput ? nameInput.value : '';
+      loadDefaultsForName(name, 'edit');
+    });
+  }
+
+  document.addEventListener('click', function(e){
+    if(e.target && e.target.id === 'saveCategoryBtn'){
+      const name = (document.getElementById('categoryName')?.value||'').trim();
+      const pub = readNum('addCommissionPub');
+      const rec = readNum('addCommissionRec');
+      if(name && pub!=null && rec!=null){
+        const map = getMap(); map['name:'+name] = {pub, rec, ts: Date.now()}; setMap(map);
+      }
+    }
+    if(e.target && e.target.id === 'saveEditCategoryBtn'){
+      const name = (document.getElementById('editCategoryName')?.value||'').trim();
+      const pub = readNum('editCommissionPub');
+      const rec = readNum('editCommissionRec');
+      if(name && pub!=null && rec!=null){
+        const map = getMap(); map['name:'+name] = {pub, rec, ts: Date.now()}; setMap(map);
+      }
+    }
+  });
+})();
+</script>
+
+
+<style>
+/* 统一页面标题区域布局，保证“新增分类”位于右侧对齐 */
+.page-titlebar{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:12px; margin-bottom:12px;
+}
+.page-titlebar h2{ margin:0; }
+.page-titlebar .actions{ display:flex; align-items:center; gap:8px; }
+@media (max-width: 575.98px){
+  .page-titlebar{ flex-direction:column; align-items:flex-start; }
+  .page-titlebar .actions{ width:100%; justify-content:flex-start; flex-wrap:wrap; }
+}
+</style>
+
+<script>
+(function(){
+  document.addEventListener('DOMContentLoaded', function(){
+    // 1) 定位页面标题（含“业务分类管理”字样）
+    let h2 = Array.from(document.querySelectorAll('h1,h2,h3')).find(h=>/业务分类管理/.test((h.textContent||'')));
+    if(!h2){
+      // 兜底：找包含“分类管理”的标题
+      h2 = Array.from(document.querySelectorAll('h1,h2,h3')).find(h=>/分类管理/.test((h.textContent||'')));
+    }
+    if(!h2) return;
+
+    // 2) 包裹为统一的标题栏容器
+    let bar = h2.closest('.page-titlebar');
+    if(!bar){
+      bar = document.createElement('div');
+      bar.className = 'page-titlebar';
+      h2.parentNode.insertBefore(bar, h2);
+      bar.appendChild(h2);
+      const actions = document.createElement('div');
+      actions.className = 'actions';
+      actions.id = 'page-actions';
+      bar.appendChild(actions);
+    }
+    const actions = bar.querySelector('.actions') || bar.appendChild(Object.assign(document.createElement('div'), {className:'actions'}));
+
+    // 3) 寻找“新增分类”按钮：文本匹配 + 常见 class
+    let addBtn = Array.from(document.querySelectorAll('a.btn,button.btn,.btn')).find(b=>/新增分类|新建分类|添加分类/.test((b.textContent||'').trim()));
+    if(addBtn){
+      // 清理多余的布局类，避免被栅格/卡片头左右推挤
+      addBtn.classList.remove('ms-auto','float-end');
+      // 统一成轮廓主按钮
+      if(!/btn-primary|btn-success/.test(addBtn.className)) addBtn.classList.add('btn-primary');
+      // 移动到标题栏右侧 actions 容器
+      actions.appendChild(addBtn);
+    }
+
+    // 4) 如标题栏附近存在孤立的“筛选”按钮，顺便移到 actions 右侧
+    const filterBtn = Array.from(document.querySelectorAll('button, a.btn')).find(b=>/筛选/.test((b.textContent||'')));
+    if(filterBtn && filterBtn !== addBtn){
+      actions.appendChild(filterBtn);
+    }
+  });
+})();
+</script>
+
+
+<style>
+/* 禁用统一筛选入口在本页的显示 */
+#btnUnifiedFilter, #unifiedFilterPanel { display: none !important; }
+</style>
+
+<script>
+(function(){
+  document.addEventListener('DOMContentLoaded', function(){
+    // 移除已经被注入的筛选按钮/面板（若存在）
+    var ufBtn = document.getElementById('btnUnifiedFilter');
+    if(ufBtn && ufBtn.parentNode) ufBtn.parentNode.removeChild(ufBtn);
+    var ufPanel = document.getElementById('unifiedFilterPanel');
+    if(ufPanel && ufPanel.parentNode) ufPanel.parentNode.removeChild(ufPanel);
+
+    // 仅保留“新增分类”按钮在标题右侧
+    var header = Array.from(document.querySelectorAll('h1,h2,h3')).find(h=>/业务分类管理/.test((h.textContent||'')));
+    if(header){
+      var bar = header.closest('.page-titlebar');
+      if(!bar){
+        bar = document.createElement('div');
+        bar.className = 'page-titlebar';
+        header.parentNode.insertBefore(bar, header);
+        bar.appendChild(header);
+        var actions = document.createElement('div');
+        actions.className = 'actions'; actions.id = 'page-actions';
+        bar.appendChild(actions);
+      }
+      var actions = bar.querySelector('.actions');
+      // 找“新增分类”按钮
+      var addBtn = Array.from(document.querySelectorAll('a.btn,button.btn,.btn')).find(b=>/新增分类|新建分类|添加分类/.test((b.textContent||'').trim()));
+      if(addBtn){
+        // 移除可能的定位类
+        addBtn.classList.remove('ms-auto','float-end');
+        // 统一样式
+        if(!/btn-primary|btn-success/.test(addBtn.className)) addBtn.classList.add('btn-primary');
+        // 放入 actions
+        actions.appendChild(addBtn);
+      }
+    }
+  });
+})();
+</script>
+
+
+    <script>
+    function renderLimitBadge() {
+      document.querySelectorAll('.category-card').forEach(function(card){
+        const c = card.getAttribute('data-limit-concurrent');
+        const d = card.getAttribute('data-limit-daily');
+        if(!c && !d) return;
+        const header = card.querySelector('.category-title');
+        if(!header) return;
+        const existed = header.querySelector('.limit-badge');
+        if(existed) return;
+        let text = '默认接单限制：';
+        const segs = [];
+        if(c) segs.push(`并发 ${c}`);
+        if(d) segs.push(`日上限 ${d}`);
+        text += segs.join(' / ');
+        const span = document.createElement('span');
+        span.className = 'badge bg-secondary ms-2 limit-badge';
+        span.textContent = text;
+        header.appendChild(span);
+      });
+    }
+    document.addEventListener('DOMContentLoaded', renderLimitBadge);
+    </script>
+        
+
+    <script>
+    /* order limit sync */
+    (function(){
+      // 1) 新增分类：保存后把接单限制写入最新卡片的数据属性并更新徽章
+      document.getElementById('saveCategoryBtn')?.addEventListener('click', function(){
+        setTimeout(function(){
+          const c = (document.getElementById('addLimitConcurrent')?.value||'').trim();
+          const d = (document.getElementById('addLimitDaily')?.value||'').trim();
+          const cards = document.querySelectorAll('#cardView .category-card');
+          const card = cards[cards.length-1];
+          if(card){
+            if(c) card.setAttribute('data-limit-concurrent', c); else card.removeAttribute('data-limit-concurrent');
+            if(d) card.setAttribute('data-limit-daily', d); else card.removeAttribute('data-limit-daily');
+            if(typeof renderLimitBadge==='function') renderLimitBadge();
+          }
+        }, 0);
+      });
+      // 2) 编辑分类：打开时填充，保存时写回
+      let __currentCard = null;
+      document.addEventListener('click', function(e){
+        const btn = e.target.closest('button[data-bs-target="#editCategoryModal"]');
+        if(btn){ __currentCard = btn.closest('.category-card'); }
+      });
+      document.getElementById('editCategoryModal')?.addEventListener('show.bs.modal', function(){
+        const c = __currentCard?.getAttribute('data-limit-concurrent') || '';
+        const d = __currentCard?.getAttribute('data-limit-daily') || '';
+        const ci = document.getElementById('editLimitConcurrent'); if(ci) ci.value = c;
+        const di = document.getElementById('editLimitDaily'); if(di) di.value = d;
+      });
+      document.getElementById('saveEditCategoryBtn')?.addEventListener('click', function(){
+        const c = (document.getElementById('editLimitConcurrent')?.value||'').trim();
+        const d = (document.getElementById('editLimitDaily')?.value||'').trim();
+        if(__currentCard){
+          if(c) __currentCard.setAttribute('data-limit-concurrent', c); else __currentCard.removeAttribute('data-limit-concurrent');
+          if(d) __currentCard.setAttribute('data-limit-daily', d); else __currentCard.removeAttribute('data-limit-daily');
+          if(typeof renderLimitBadge==='function') renderLimitBadge();
+        }
+      });
+    })();
+    </script>
+    
+</body>
+</html>

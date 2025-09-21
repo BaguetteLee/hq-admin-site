@@ -1,0 +1,1780 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>总部管理系统 - 表单设计（发布表单专用版）</title>
+  <!-- 依赖：Bootstrap、Bootstrap Icons（与全站一致） -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+  <style>
+    /* ============== 主题变量（与 dashboard 一致） ============== */
+    :root{
+      --primary:#3b7ddd;
+      --primary-light:#e8f0fe;
+      --red:#dc3545;
+      --white:#ffffff;
+      --light:#f5f6f8;
+      --border:#e2e8f0;
+      --text:#2d3748;
+      --dot-platform:#3b7ddd;
+      --dot-user:#2fb67b;
+      --dot-team:#f6a035;
+      --dot-system:#7a5af8;
+    }
+    body{background-color:var(--light);font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:var(--text);}
+    /* 侧边栏/顶部栏（与 dashboard 对齐） */
+    .sidebar{background-color:var(--white);color:#4a5568;height:100vh;position:fixed;left:0;top:0;width:260px;padding-top:60px;box-shadow:2px 0 10px rgba(0,0,0,0.05);border-right:1px solid var(--border);z-index:1000;overflow-y:auto;}
+    .sidebar .nav-link{color:#4a5568;padding:.8rem 1rem;margin:.1rem .5rem;border-radius:6px;transition:all .2s;display:flex;align-items:center;gap:.55rem;}
+    .sidebar .nav-link i{color:#718096;}
+    .sidebar .nav-link:hover,.sidebar .nav-link.active{color:var(--primary);background-color:var(--primary-light);}
+    .sidebar .nav-link.active i,.sidebar .nav-link:hover i{color:var(--primary);}
+    .sidebar .menu-section{padding:.75rem 1rem .25rem;color:#94a3b8;font-weight:700;text-transform:uppercase;font-size:.75rem;letter-spacing:.06em;}
+    .cat-dot{display:inline-block;width:.6rem;height:.6rem;border-radius:2px;flex:0 0 auto;}
+    .dot-platform{background-color:var(--dot-platform);} .dot-user{background-color:var(--dot-user);} .dot-team{background-color:var(--dot-team);} .dot-system{background-color:var(--dot-system);}
+    .main-content{margin-left:260px;padding:20px;padding-top:80px;transition:margin-left .3s;}
+    .navbar{background-color:var(--white);box-shadow:0 2px 10px rgba(0,0,0,.05);border-bottom:1px solid var(--border);position:fixed;top:0;left:0;right:0;z-index:1030;padding-left:260px;transition:padding-left .3s;}
+    .navbar-toggler{display:none;border:none;font-size:1.25rem;}
+    .navbar-toggler:focus{box-shadow:none;}
+    @media (max-width: 992px){
+      .sidebar{width:84px;padding-top:70px;}
+      .sidebar .nav-link span.text{display:none;}
+      .sidebar .menu-section{display:none;}
+      .main-content{margin-left:84px;}
+      .navbar{padding-left:84px;}
+    }
+    @media (max-width: 768px){
+      .sidebar{transform:translateX(-100%);width:260px;}
+      .sidebar.show{transform:translateX(0);}
+      .main-content{margin-left:0;}
+      .navbar{padding-left:15px;}
+      .navbar-toggler{display:block;}
+    }
+
+    /* ============== 左编辑 / 右预览 基础样式 ============== */
+    .section-title{font-weight:700;color:#4a5568;margin-bottom:.5rem;}
+    .subtle{color:#6c757d;font-size:.9rem;}
+    .editor-card{border:none;border-radius:10px;box-shadow:0 4px 10px rgba(0,0,0,.04);}
+    .preview-card{border:none;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.06);overflow:hidden;}
+    .preview-pane{position:sticky;top:88px;}
+    .phone-frame{background:#111;color:#fff;border-radius:24px;padding:12px;border:10px solid #000;box-shadow:0 10px 30px rgba(0,0,0,.2);}
+    .phone-header{background:linear-gradient(135deg,#ff7e00,#ff5f00);padding:.6rem;color:#fff;border-radius:.6rem;margin-bottom:.6rem;display:flex;align-items:center;justify-content:space-between;}
+    .pill{display:inline-flex;align-items:center;gap:.25rem;border:1px solid #ffd8b8;background:#fff9f2;color:#ff7e00;border-radius:999px;padding:.1rem .5rem;font-size:.8rem;}
+    .pub-card,.task-card,.info-block,.submit-block{background:#fff;border-radius:.6rem;padding:.8rem;margin-bottom:.6rem;border:1px solid #eee;color:#333;}
+    .pub-row{display:flex;gap:.5rem;margin-bottom:.4rem;}
+    .pub-label{width:5.5rem;color:#666;flex-shrink:0;}
+    .pub-value{flex:1;color:#333;}
+    .pub-total{font-weight:700;color:#e33333;}
+    .step-list{list-style:none;padding-left:0;counter-reset:step;}
+    .step-list li{counter-increment:step;position:relative;padding-left:2rem;margin:.4rem 0;}
+    .step-list li::before{content:counter(step);position:absolute;left:0;top:0;width:1.4rem;height:1.4rem;background:#ff7e00;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;}
+    .file-drop{border:1px dashed #e0e0e0;border-radius:.4rem;padding:1rem;text-align:center;color:#666;background:#fff;}
+    .palette .btn{width:100%;margin-bottom:.5rem;text-align:left;}
+    .canvas{border:1px dashed var(--border);border-radius:8px;min-height:200px;background:#fff;padding:12px;}
+    .field-item{border:1px solid var(--border);border-radius:6px;padding:.6rem .75rem;margin-bottom:.6rem;background:#fff;}
+    .field-item .actions .btn{padding:.15rem .4rem;font-size:.8rem;}
+
+    /* ============== 计价与规则 ============== */
+    .service-fee-card{background-color:#f8f9fa;border-radius:8px;padding:1rem;margin-top:1rem;}
+    .calculation-rule{background-color:#f8f9fa;border-radius:6px;padding:.75rem;margin-top:.75rem;}
+    .formula-builder{background-color:#fff;border-radius:6px;padding:1rem;border:1px solid var(--border);}
+    .option-mapping-table{width:100%;border-collapse:collapse;}
+    .option-mapping-table th,.option-mapping-table td{border:1px solid #dee2e6;padding:.5rem;}
+    .option-mapping-table th{background-color:#e9ecef;}
+    .token-badge{display:inline-block;border:1px dashed #ddd;border-radius:6px;padding:.2rem .5rem;margin:.2rem;cursor:pointer;font-size:.8rem;}
+    .pricing-hint{font-size:.85rem;color:#6c757d;}
+    .right-sticky-gap{margin-top:.5rem;}
+    
+    /* 自定义选项卡样式 */
+    .custom-tab-content {
+      border: 1px solid #dee2e6;
+      border-top: none;
+      padding: 1rem;
+      border-radius: 0 0 0.375rem 0.375rem;
+    }
+  </style>
+</head>
+<body>
+  <!-- 顶部导航栏（与dashboard一致） -->
+  <nav class="navbar navbar-expand-lg navbar-light">
+        <div class="container-fluid">
+            <button class="navbar-toggler" type="button" id="sidebarToggle">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <a class="navbar-brand" href="#"><strong><i class="bi bi-building me-2"></i>总部管理系统</strong></a>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto me-5">
+                    <li class="nav-item dropdown ms-2">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle me-2"></i> 管理员
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="#" id="btnLogout"><i class="bi bi-box-arrow-right me-2"></i>退出</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+  </nav>
+
+  <!-- 侧边栏（与dashboard一致） -->
+  <aside class="sidebar">
+        <div class="position-sticky">
+            <ul class="nav flex-column">
+                <!-- 平台层面 -->
+                <li class="menu-section">平台</li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-dashboard.html">
+                        <span class="cat-dot dot-platform"></span><i class="bi bi-speedometer2"></i><span class="text">平台总仪表盘</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-finance-platform-fund-flow.html">
+                        <span class="cat-dot dot-platform"></span><i class="bi bi-currency-exchange"></i><span class="text">平台资金流水</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-tasks-global-management.html">
+                        <span class="cat-dot dot-platform"></span><i class="bi bi-list-task"></i><span class="text">任务全局管理</span>
+                    </a>
+                </li>
+
+                <!-- 用户层面 -->
+                <li class="menu-section">用户</li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-users-list.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-people"></i><span class="text">平台用户列表</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-finance-recharge-review.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-wallet2"></i><span class="text">用户充值审核</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-finance-withdrawal-review.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-cash-coin"></i><span class="text">用户提现审核</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-finance-user-fund-flow.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-currency-exchange"></i><span class="text">用户资金流水</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-users-feedback.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-chat-left-text"></i><span class="text">用户投诉反馈</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-audit-task-publish.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-send-check"></i><span class="text">用户发布审核</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-audit-task-completion.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-check2-circle"></i><span class="text">任务完成审核</span>
+                    </a>
+                </li>
+
+                <!-- 团队层面 -->
+                <li class="menu-section">团队</li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-team-dashboard.html">
+                        <span class="cat-dot dot-team"></span><i class="bi bi-graph-up"></i><span class="text">团队数据概览</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-team-list.html">
+                        <span class="cat-dot dot-team"></span><i class="bi bi-building"></i><span class="text">平台团队列表</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-finance-team-withdrawal-review.html">
+                        <span class="cat-dot dot-team"></span><i class="bi bi-bank"></i><span class="text">团队提现审核</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-finance-team-fund-flow.html">
+                        <span class="cat-dot dot-team"></span><i class="bi bi-currency-exchange"></i><span class="text">团队资金流水</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-team-feedback.html">
+                        <span class="cat-dot dot-team"></span><i class="bi bi-chat-left-text"></i><span class="text">团队投诉反馈</span>
+                    </a>
+                </li>
+
+                <!-- 系统设置层面 -->
+                <li class="menu-section">系统</li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="hq-admin-settings-categories.html">
+                        <span class="cat-dot dot-system"></span><i class="bi bi-tags"></i><span class="text">业务分类管理</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-system-api-management-monitoring.html">
+                        <span class="cat-dot dot-system"></span><i class="bi bi-hdd-network"></i><span class="text">接口管理监控</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-settings-system.html">
+                        <span class="cat-dot dot-system"></span><i class="bi bi-gear-fill"></i><span class="text">系统设置</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+  </aside>
+
+  <!-- 主内容 -->
+  <main class="main-content">
+    <!-- 页面抬头 -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div>
+        <h4 class="mb-0">表单设计 <small id="categoryName" class="text-muted"></small></h4>
+        <div class="subtle">专注于发布表单设计，布局采用"左编辑 / 右预览"模式。</div>
+      </div>
+      <div class="d-flex gap-2">
+        <button id="btnBack" class="btn btn-outline-secondary" type="button"><i class="bi bi-arrow-left"></i> 返回</button>
+        <button id="btnSave" class="btn btn-primary" type="button"><i class="bi bi-save"></i> 保存</button>
+      </div>
+    </div>
+
+    <!-- ====== 仅保留发布表单（左编辑 / 右预览） ====== -->
+    <div class="row g-3 mb-3">
+      <!-- 左：字段编辑 + 计价规则 -->
+      <div class="col-12 col-lg-7">
+        <div class="card editor-card">
+          <div class="card-header bg-white">
+            <strong>发布表单设计</strong>
+            <span class="text-muted ms-2">点击左侧"字段库"添加到"表单画布"，可上移/下移/删除；点击"齿轮"编辑字段属性与选项。</span>
+          </div>
+          <div class="card-body">
+            <div class="row g-3">
+              <!-- 字段库 -->
+              <div class="col-lg-5">
+                <div class="section-title mb-2">字段库</div>
+                <!-- 说明：按钮 data-type 定义字段类型，data-canvas 指向目标画布 -->
+                <div id="palette-publish" class="palette" data-canvas="#canvas-publish">
+                  <button class="btn btn-outline-primary" type="button" data-type="text"><i class="bi bi-input-cursor-text me-1"></i> 文本输入</button>
+                  <button class="btn btn-outline-primary" type="button" data-type="number" inputmode="numeric" pattern="\d*"><i class="bi bi-123 me-1"></i> 数字输入</button>
+                  <button class="btn btn-outline-primary" type="button" data-type="select"><i class="bi bi-caret-down-square me-1"></i> 下拉选择</button>
+                  <button class="btn btn-outline-primary" type="button" data-type="radio"><i class="bi bi-record-circle me-1"></i> 单选按钮</button>
+                  <button class="btn btn-outline-primary" type="button" data-type="checkbox"><i class="bi bi-check2-square me-1"></i> 多选框</button>
+                  <button class="btn btn-outline-primary" type="button" data-type="file"><i class="bi bi-upload me-1"></i> 文件上传</button>
+                  <button class="btn btn-outline-primary" type="button" data-type="image"><i class="bi bi-image me-1"></i> 图片上传</button>
+                  <button class="btn btn-outline-primary" type="button" data-type="datetime"><i class="bi bi-calendar-date me-1"></i> 日期时间</button>
+                  <button class="btn btn-outline-primary" type="button" data-type="url"><i class="bi bi-link-45deg me-1"></i> 链接</button>
+                  <button class="btn btn-outline-primary" type="button" data-type="richtext"><i class="bi bi-text-paragraph me-1"></i> 富文本</button>
+                  <button class="btn btn-outline-primary" type="button" data-type="stepper"><i class="bi bi-plus-slash-minus me-1"></i> 数字增减</button>
+                  <button class="btn btn-outline-primary" type="button" data-type="timewindow"><i class="bi bi-clock-history me-1"></i> 开始/截止时间</button>
+                  <button class="btn btn-outline-primary" type="button" data-type="customtab"><i class="bi bi-ui-radios-grid me-1"></i> 自定义选项卡</button>
+                </div>
+              </div>
+              <!-- 表单画布 -->
+              <div class="col-lg-7">
+                <div class="section-title mb-2">表单画布</div>
+                <div id="canvas-publish" class="canvas">
+                  <!-- 初始示例字段（便于直接看到预览效果） -->
+                  <div class="field-item" data-type="text" data-key="title">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <div><strong>任务标题</strong></div>
+                      <div class="actions">
+                        <button class="btn btn-sm btn-outline-secondary me-1" type="button" data-action="up">上移</button>
+                        <button class="btn btn-sm btn-outline-secondary me-1" type="button" data-action="down">下移</button>
+                        <button class="btn btn-sm btn-outline-secondary me-1" type="button" data-action="edit"><i class="bi bi-gear"></i></button>
+                        <button class="btn btn-sm btn-outline-danger" type="button" data-action="del">删除</button>
+                      </div>
+                    </div>
+                    <div class="text-muted small mt-1">用于展示与搜索</div>
+                  </div>
+                  <div class="field-item" data-type="number" inputmode="numeric" pattern="\d*" data-key="quantity" data-pricing="1">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <div><strong>总数量</strong></div>
+                      <div class="actions">
+                        <button class="btn btn-sm btn-outline-secondary me-1" type="button" data-action="up">上移</button>
+                        <button class="btn btn-sm btn-outline-secondary me-1" type="button" data-action="down">下移</button>
+                        <button class="btn btn-sm btn-outline-secondary me-1" type="button" data-action="edit"><i class="bi bi-gear"></i></button>
+                        <button class="btn btn-sm btn-outline-danger" type="button" data-action="del">删除</button>
+                      </div>
+                    </div>
+                    <div class="text-muted small mt-1">用于库存与价格计算</div>
+                  </div>
+                </div>
+
+                <!-- 价格与费用（可选映射 + 公式） -->
+                <div class="mt-3">
+                  <div class="section-title mb-2">价格与费用</div>
+                  <div class="service-fee-card">
+                    <!-- 服务费率设置 -->
+                    <h6>信息服务费</h6>
+                    <div class="mb-3">
+                      <label for="feeRate" class="form-label">服务费率</label>
+                      <div class="input-group" style="max-width:260px;">
+                        <input type="number" inputmode="numeric" pattern="\d*" class="form-control" id="feeRate" value="10" min="0" max="100">
+                        <span class="input-group-text">%</span>
+                      </div>
+                      <div class="form-text">
+                        任务发布时按总额加收的信息服务费比例。示例：单价10元 × 数量10 = 100元，服务费10% = 10元，应付总额=110元。
+                      </div>
+                    </div>
+
+                    <!-- 选项映射表（针对下拉/单选/多选） -->
+                    <div class="mb-3">
+                      <label class="form-label">字段选项数值映射</label>
+                      <p class="text-muted mb-2">给"下拉/单选/多选"字段的各个选项配置一个数值，用于公式中参与计算（如平台费用系数、套餐价等）。</p>
+                      <div id="optionMappingContainer"></div>
+                    </div>
+
+                    <!-- 公式配置 -->
+                    <div class="mb-2">
+                      <label class="form-label">单价公式</label>
+                      <div class="formula-builder">
+                        <div class="row g-2 align-items-center">
+                          <div class="col-12">
+                            <input id="unitFormula" class="form-control" placeholder="示例：基础价 + 平台选择 + 额外项（可使用字段名与 + - * / 运算）">
+                          </div>
+                          <div class="col-12">
+                            <div class="pricing-hint">可用变量（点击插入）：</div>
+                            <div id="tokenList" class="mb-2"></div>
+                            <div class="pricing-hint">系统内置：<span class="token-badge" data-token="数量">数量</span>、<span class="token-badge" data-token="服务费率">服务费率</span></div>
+                            <div class="form-text">支持使用字段名称和基本数学运算符(+, -, *, /)。</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="mb-2">
+                      <label class="form-label">总价公式（可选）</label>
+                      <div class="formula-builder">
+                        <input id="totalFormula" class="form-control" placeholder="默认 = 单价 × 数量；如需覆盖，请在此定义">
+                        <div class="form-text">留空则按 单价×数量 计算。</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div> <!-- /col-lg-7 -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右：发布端预览 -->
+      <div class="col-12 col-lg-5">
+        <div class="preview-pane">
+          <div class="card preview-card">
+            <div class="card-header d-flex align-items-center justify-content-between">
+              <div>发布端预览</div>
+              <span class="pill"><i class="bi bi-lightning-charge"></i> 实时</span>
+            </div>
+            <div class="card-body">
+              <div class="phone-frame">
+                <div class="phone-header">
+                  <div class="d-flex align-items-center gap-2">
+                    <strong>任务发布平台</strong>
+                  </div>
+                  <span class="pill">预览</span>
+                </div>
+                <div id="preview-publish"></div>
+
+                <!-- 价格预览汇总 -->
+                <div class="pub-card right-sticky-gap">
+                  <div class="d-flex justify-content-between"><span>单价(元)</span><span id="pv-unit">0.00</span></div>
+                  <div class="d-flex justify-content-between"><span>数量</span><span id="pv-qty">1</span></div>
+                  <div class="d-flex justify-content-between"><span>小计(元)</span><span id="pv-subtotal">0.00</span></div>
+                  <div class="d-flex justify-content-between"><span>信息服务费(<span id="pv-fee-rate">10</span>%)</span><span id="pv-fee">0.00</span></div>
+                  <hr class="my-2"/>
+                  <div class="d-flex justify-content-between fw-bold"><span>应付总额(元)</span><span id="pv-total" class="pub-total">0.00</span></div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- 字段编辑模态框（用于配置字段属性与可选项、参与计价等） -->
+  <div class="modal fade" id="fieldEditModal" tabindex="-1" aria-labelledby="fieldEditLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="fieldEditLabel">编辑字段</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+        </div>
+        <div class="modal-body">
+          <form id="fieldEditForm">
+            <!-- 基本属性 -->
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">字段名称</label>
+                <input type="text" class="form-control" id="fe-label" placeholder="例如：平台选择/套餐类型">
+              </div>
+              <div class="col-md-3 mb-3">
+                <label class="form-label">是否必填</label>
+                <select class="form-select" id="fe-required">
+                  <option value="true">是</option>
+                  <option value="false" selected>否</option>
+                </select>
+              </div>
+              <div class="col-md-3 mb-3">
+                <label class="form-label">参与计价</label>
+                <select class="form-select" id="fe-pricing">
+                  <option value="true">是</option>
+                  <option value="false" selected>否</option>
+                </select>
+              </div>
+            </div>
+            <!-- 针对不同类型的设置 -->
+            <div id="fe-options-box" class="mb-2" style="display:none;">
+              <label class="form-label">可选项</label>
+              <div id="fe-option-list"></div>
+              <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="fe-add-option"><i class="bi bi-plus-lg me-1"></i>添加选项</button>
+              <div class="form-text">此处仅定义可选项；数值映射请在"价格与费用"中设置。</div>
+            </div>
+            <div id="fe-placeholder-box" class="mb-2" style="display:none;">
+              <label class="form-label">占位提示</label>
+              <input type="text" id="fe-placeholder" class="form-control" placeholder="请输入...">
+            </div>
+            
+            <!-- ========== 数字增减配置 ========= -->
+            <div id="fe-stepper-box" class="row mb-2" style="display:none;">
+              <div class="col-md-6">
+                <label class="form-label">最小值</label>
+                <input type="number" inputmode="numeric" pattern="\d*" class="form-control" id="fe-min" value="0">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">固定增减值</label>
+                <input type="number" inputmode="numeric" pattern="\d*" class="form-control" id="fe-step" value="1">
+              </div>
+              <div class="form-text">该字段为"数字增减"类型：左边减号、右边加号，遵循最小值与步长。</div>
+            </div>
+
+            <!-- ========== 开始/截止时间配置 ========= -->
+            
+<div id="fe-timewindow-box" class="mb-2" style="display:none;">
+  <label class="form-label">开始时间设置</label>
+  <div class="form-check">
+    <input class="form-check-input" type="radio" name="fe-start-mode" id="fe-start-immediate" value="immediate" checked>
+    <label class="form-check-label" for="fe-start-immediate">立即开始</label>
+  </div>
+  <div class="form-check">
+    <input class="form-check-input" type="radio" name="fe-start-mode" id="fe-start-custom" value="custom">
+    <label class="form-check-label" for="fe-start-custom">自定义开始时间</label>
+  </div>
+
+  <div id="fe-start-custom-container" style="display:none;margin-top:.5rem;">
+    <label class="form-label">选择开始时间（仅提供未来 24 小时范围，30 分钟步进）</label>
+    <select id="fe-start-custom-select" class="form-select form-select-sm"></select>
+    <div class="form-text">请选择未来 24 小时内的时间，间隔 30 分钟。</div>
+  </div>
+</div>
+
+
+            <!-- ========== 自定义选项卡配置 ========= -->
+            <div id="fe-customtab-box" class="mb-2" style="display:none;">
+              <label class="form-label">选项卡选项配置</label>
+              <div id="fe-customtab-options"></div>
+              <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="fe-add-customtab-option"><i class="bi bi-plus-lg me-1"></i>添加选项卡选项</button>
+              
+              <div class="mt-3">
+                <label class="form-label">为每个选项指定"子内容控件类型</label>
+                <div id="fe-customtab-list"></div>
+              </div>
+              <div class="form-text">控件类型可选：文本、链接、图片上传、文件上传。</div>
+            </div>
+
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-primary" id="fe-save">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 必要脚本：即使 CDN 失败，核心交互也能工作 -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // =========================
+    // 工具函数
+    // =========================
+    // 将任意字符串转为 key（用于变量名/映射键）
+    function slugify(str){
+      return String(str || '').trim()
+        .replace(/\s+/g, '_')               // 规范空白
+        .replace(/[（(].*?[）)]/g,'')        // 去掉括号内容
+        .replace(/[^a-zA-Z0-9_\u4e00-\u9fa5]/g, '') // 允许中英文、数字与下划线
+        .toLowerCase();
+    }
+    // 从 URL 读取参数
+    function getQueryParam(key){
+      const params = new URLSearchParams(window.location.search);
+      return params.get(key) || '';
+    }
+
+    // 全局设计状态（模拟持久化）
+    const designState = {
+      publish: [],     // 发布表单字段
+      pricing: {
+        feeRate: 10,           // 服务费率（%）
+        optionMaps: {},        // { fieldKey: {optionText: number} }
+        unitFormula: '',       // 单价公式
+        totalFormula: ''       // 总价公式（可选）
+      }
+    };
+
+    // =========================
+    // 页面初始化
+    // =========================
+    document.addEventListener('DOMContentLoaded', function(){
+      const cat = getQueryParam('category');
+      if(cat) document.getElementById('categoryName').textContent = '（' + cat + '）';
+
+      // 返回
+      document.getElementById('btnBack').addEventListener('click', function(e){
+        e.preventDefault();
+        window.location.href = 'hq-admin-settings-categories.html';
+      });
+
+      // 载入历史草稿（如果存在）
+      try{
+        const draft = JSON.parse(localStorage.getItem('formDesignDraft'));
+        if(draft){ Object.assign(designState, draft); }
+      }catch(e){ console.warn('读取草稿失败', e); }
+
+      // 初始化默认 feeRate/公式
+      document.getElementById('feeRate').value = designState.pricing.feeRate ?? 10;
+      document.getElementById('unitFormula').value = designState.pricing.unitFormula || '';
+      document.getElementById('totalFormula').value = designState.pricing.totalFormula || '';
+
+      // palette（字段库）点击：采用事件委托，保证后续动态节点也生效
+      document.body.addEventListener('click', function(evt){
+        const btn = evt.target.closest('.palette .btn[data-type]');
+        if(!btn) return;
+        evt.preventDefault();
+        const type = btn.getAttribute('data-type');
+        const palette = btn.closest('.palette');
+        const canvasSel = palette && palette.getAttribute('data-canvas');
+        const canvas = canvasSel ? document.querySelector(canvasSel) : null;
+        if(!canvas) return;
+        // 创建字段并挂载
+        const item = createFieldItem(type);
+        canvas.appendChild(item);
+        // 新增字段后立即同步状态与预览
+        snapshotCanvas('publish');
+        rebuildOptionMappingUI();
+        rebuildTokenList();
+        refreshAll();
+      });
+
+      // 绑定画布（发布）——使用委托，点击上移/下移/删除/编辑
+      bindCanvas(document.getElementById('canvas-publish'), 'publish');
+
+      // 初始字段同步（把初始示例同步到状态）
+      snapshotCanvas('publish');
+
+      // 价格与费用输入监听
+      document.getElementById('feeRate').addEventListener('input', ()=>{
+        designState.pricing.feeRate = Number(document.getElementById('feeRate').value)||0;
+        document.getElementById('pv-fee-rate').textContent = designState.pricing.feeRate;
+        refreshAll();
+      });
+      document.getElementById('unitFormula').addEventListener('input', ()=>{
+        designState.pricing.unitFormula = document.getElementById('unitFormula').value.trim();
+        refreshAll();
+      });
+      document.getElementById('totalFormula').addEventListener('input', ()=>{
+        designState.pricing.totalFormula = document.getElementById('totalFormula').value.trim();
+        refreshAll();
+      });
+
+      // 初始化选项映射 UI & 令牌区
+      rebuildOptionMappingUI();
+      rebuildTokenList();
+
+      // 保存按钮（写入 localStorage 并返回）
+      document.getElementById('btnSave').addEventListener('click', function(e){
+        e.preventDefault();
+        const data = JSON.parse(JSON.stringify(designState));
+        try{ localStorage.setItem('formDesignDraft', JSON.stringify(data)); }catch(err){ console.warn('保存草稿失败', err); }
+        alert('表单配置已保存（模拟）。即将返回业务分类管理。');
+        window.location.href = 'hq-admin-settings-categories.html';
+      });
+
+      // 首次渲染预览
+      refreshAll();
+    });
+
+    // =========================
+    // 画布/字段：创建、绑定、序列化
+    // =========================
+    function createFieldItem(type){
+      // 创建字段 DOM（含操作按钮）
+      const wrap = document.createElement('div');
+      wrap.className = 'field-item';
+      wrap.setAttribute('data-type', type);
+
+      // 默认标题映射
+      const titleMap = {
+        text:'文本输入',
+        number:'数字输入',
+        select:'下拉选择',
+        radio:'单选按钮',
+        checkbox:'多选框',
+        file:'文件上传',
+        image:'图片上传',
+        datetime:'日期时间',
+        url:'链接',
+        richtext:'富文本',
+        screenshot:'截图上传',
+        stepper:'数字增减',
+        timewindow:'开始/截止时间',
+        customtab:'自定义选项卡'
+      };
+
+      // 初始 label
+      const label = titleMap[type] || '字段';
+      // 默认 key
+      const key = slugify(label) + '_' + Date.now().toString().slice(-4);
+      wrap.setAttribute('data-key', key);
+      // 默认不参与计价（可通过可编辑字段开启，仅对支持的字段类型有效）
+      wrap.setAttribute('data-pricing','false');
+
+      // 针对新增类型设置默认属性
+      if(type==='stepper'){ 
+        wrap.setAttribute('data-min','0'); 
+        wrap.setAttribute('data-step','1'); 
+      }
+      if(type==='timewindow'){ 
+        wrap.setAttribute('data-xhours','24'); 
+      }
+      if(type==='customtab'){ 
+        // 默认不添加任何选项，所有数据由管理员手动添加
+        wrap.setAttribute('data-options', JSON.stringify([]));
+        wrap.setAttribute('data-subtypes', JSON.stringify({}));
+      }
+      
+      // 生成 HTML（按钮显式 type="button"，避免默认提交）
+      wrap.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center">
+          <div><strong>${label}</strong></div>
+          <div class="actions">
+            <button class="btn btn-sm btn-outline-secondary me-1" type="button" data-action="up">上移</button>
+            <button class="btn btn-sm btn-outline-secondary me-1" type="button" data-action="down">下移</button>
+            <button class="btn btn-sm btn-outline-secondary me-1" type="button" data-action="edit"><i class="bi bi-gear"></i></button>
+            <button class="btn btn-sm btn-outline-danger" type="button" data-action="del">删除</button>
+          </div>
+        </div>
+        <div class="text-muted small mt-1"></div>
+      `;
+      return wrap;
+    }
+
+    function bindCanvas(canvasEl, channel){
+      if(!canvasEl) return;
+      // 使用事件委托，确保动态插入的字段也可响应
+      canvasEl.addEventListener('click', function(e){
+        const btn = e.target.closest('button[data-action]');
+        if(!btn || !canvasEl.contains(btn)) return;
+        e.preventDefault();
+        const item = btn.closest('.field-item');
+        const action = btn.getAttribute('data-action');
+
+        try{
+          if(action==='up' && item.previousElementSibling){
+            item.parentNode.insertBefore(item, item.previousElementSibling);
+            snapshotCanvas(channel); refreshAll();
+          }else if(action==='down' && item.nextElementSibling){
+            item.parentNode.insertBefore(item.nextElementSibling, item);
+            snapshotCanvas(channel); refreshAll();
+          }else if(action==='del'){
+            item.remove();
+            snapshotCanvas(channel); rebuildOptionMappingUI(); rebuildTokenList(); refreshAll();
+          }else if(action==='edit'){
+            openFieldEdit(item, channel);
+          }
+        }catch(err){
+          console.error('画布按钮处理异常：', err);
+        }
+      });
+    }
+
+    function snapshotCanvas(channel){
+      // 将当前画布 DOM 转为状态结构
+      const canvas = document.getElementById(channel==='publish'?'canvas-publish':'canvas-proof');
+      const arr = [];
+      canvas.querySelectorAll('.field-item').forEach(el=>{
+        arr.push({
+          key: el.getAttribute('data-key')||slugify(el.querySelector('strong')?.textContent||''),
+          type: el.getAttribute('data-type'),
+          label: el.querySelector('strong')?.textContent || '',
+          required: (el.getAttribute('data-required')==='true'),
+          pricing: (el.getAttribute('data-pricing')==='true' || el.getAttribute('data-pricing')==='1'),
+          options: JSON.parse(el.getAttribute('data-options')||'[]'),
+          placeholder: el.getAttribute('data-placeholder')||'',
+          min: (el.getAttribute('data-min')||''),
+          step: (el.getAttribute('data-step')||''),
+          xhours: (el.getAttribute('data-xhours')||''),
+          subtypes: (function(){ try{return JSON.parse(el.getAttribute('data-subtypes')||'{}')}catch(e){return {}} })()
+        });
+      });
+      designState[channel] = arr;
+      if(channel==='publish'){ rebuildOptionMappingUI(); rebuildTokenList(); }
+    }
+
+    // =========================
+    // 字段编辑模态框（含无 Bootstrap 后备）
+    // =========================
+    let currentEditingEl = null;
+    function openFieldEdit(itemEl, channel){
+      currentEditingEl = itemEl;
+      const type = itemEl.getAttribute('data-type')||'text';
+      const label = itemEl.querySelector('strong')?.textContent||'';
+      const required = itemEl.getAttribute('data-required')==='true';
+      const pricing = (itemEl.getAttribute('data-pricing')==='true' || itemEl.getAttribute('data-pricing')==='1');
+      const placeholder = itemEl.getAttribute('data-placeholder')||'';
+      const options = JSON.parse(itemEl.getAttribute('data-options')||'[]');
+      const min = itemEl.getAttribute('data-min') || '0';
+      const step = itemEl.getAttribute('data-step') || '1';
+      const xhours = itemEl.getAttribute('data-xhours') || '24';
+      const subtypes = JSON.parse(itemEl.getAttribute('data-subtypes')||'{}');
+
+      // 如果 bootstrap 不可用，使用简易 prompt 作为后备，保证"设置"可用
+      if(!(window.bootstrap && window.bootstrap.Modal)){
+        const newLabel = prompt('字段名称：', label) || label;
+        const req = confirm('是否必填？"确定"为是，"取消"为否');
+        // 只有下拉/单选/多选/数字增减 类型允许参与计价，其他类型强制不参与
+        const _allowedPricing = ['select','radio','checkbox','stepper','number'] // 新增: 允许 number(数字输入)参与计价;
+        const price = _allowedPricing.includes(type) ? confirm('是否参与计价？"确定"为是，"取消"为否') : false;
+        itemEl.querySelector('strong').textContent = newLabel;
+        itemEl.setAttribute('data-required', String(req));
+        itemEl.setAttribute('data-pricing', String(price));
+        if(type==='text' || type==='number'){
+          const ph = prompt('占位提示：', placeholder) || placeholder;
+          itemEl.setAttribute('data-placeholder', ph);
+        }
+        // 选择类字段的选项编辑（简化为逗号分隔）
+        if(['select','radio','checkbox'].includes(type)){
+          const raw = prompt('编辑可选项（用中文逗号或英文逗号分隔）：', (options||[]).join('，')) || '';
+          const list = raw.split(/,|，/).map(s=>s.trim()).filter(Boolean);
+          itemEl.setAttribute('data-options', JSON.stringify(list));
+        }
+        snapshotCanvas(channel); rebuildOptionMappingUI(); rebuildTokenList(); refreshAll();
+        return;
+      }
+
+      // 使用 Bootstrap 模态框编辑（在线）
+      document.getElementById('fe-label').value = label;
+      document.getElementById('fe-required').value = String(required);
+      // 控制参与计价控件显示：仅下拉/单选/多选/数字增减允许参与计价
+      (function(){
+        const pricingSel = document.getElementById('fe-pricing');
+        const pricingCol = pricingSel && pricingSel.parentElement;
+        const allowed = ['select','radio','checkbox','stepper','number'] // 新增: 允许 number(数字输入)参与计价;
+        if(allowed.includes(type)){
+          if(pricingCol) pricingCol.style.display = '';
+          if(pricingSel){ pricingSel.disabled = false; pricingSel.value = String(pricing); }
+        }else{
+          if(pricingCol) pricingCol.style.display = 'none';
+          if(pricingSel){ pricingSel.disabled = true; pricingSel.value = 'false'; }
+        }
+      })();
+      const phBox = document.getElementById('fe-placeholder-box');
+      const optBox = document.getElementById('fe-options-box');
+      const optList = document.getElementById('fe-option-list');
+      const stepperBox = document.getElementById('fe-stepper-box');
+      const timewinBox = document.getElementById('fe-timewindow-box');
+      const customtabBox = document.getElementById('fe-customtab-box');
+      const customtabOptions = document.getElementById('fe-customtab-options');
+      const ctList = document.getElementById('fe-customtab-list');
+      
+      optList.innerHTML = '';
+      customtabOptions.innerHTML = '';
+      ctList.innerHTML = '';
+
+      // 文本与数字支持占位符
+      if(type==='text' || type==='number'){
+        phBox.style.display='block';
+        document.getElementById('fe-placeholder').value = placeholder;
+      }else{
+        phBox.style.display='none';
+      }
+
+      // 选择型字段支持选项
+      if(type==='select' || type==='radio' || type==='checkbox'){
+        optBox.style.display = 'block';
+        (options.length?options:['选项A','选项B']).forEach(op=> addOptionRow(optList, op));
+      }else{
+        optBox.style.display = 'none';
+      }
+
+      // 数字增减类型设置
+      if(type==='stepper'){
+        stepperBox.style.display='block';
+        document.getElementById('fe-min').value = min;
+        document.getElementById('fe-step').value = step;
+      }else{
+        stepperBox.style.display='none';
+      }
+
+      // 开始/截止时间类型设置
+      if(type==='timewindow'){
+        timewinBox.style.display='block';
+        document.getElementById('fe-xhours').value = xhours;
+      }else{
+        timewinBox.style.display='none';
+      }
+
+      // 自定义选项卡类型设置
+      if(type==='customtab'){
+        customtabBox.style.display='block';
+        // 对于自定义选项卡，不再显示通用的"可选项"编辑（避免重复），仅显示每行包含选项名和子控件类型的编辑器
+        optBox.style.display='none';
+
+        // 使用 options 初始化每一行（优先使用 subtypes 中的子类型）
+        (options || []).forEach(op=> {
+          const _st = (subtypes && subtypes[op]) ? subtypes[op] : 'text';
+          addCustomTabOptionRow(ctList, op, _st);
+        });
+        // 若没有 options，但存在 subtypes（老数据结构），也将其初始化到列表中
+        Object.entries(subtypes || {}).forEach(([option, subtype]) => {
+          var exists = Array.from(ctList.querySelectorAll('.ct-option-name')).some(i=>i.value===option);
+          if(!exists) addCustomTabOptionRow(ctList, option, subtype || 'text');
+        });
+
+        // 添加选项卡选项按钮：仅向 ctList 添加行（不再向通用 optList 添加）
+        document.getElementById('fe-add-customtab-option').onclick = () => {
+          const newOption = prompt('请输入新选项名称:', '新选项');
+          if(newOption && newOption.trim()){
+            addCustomTabOptionRow(ctList, newOption.trim(), 'text');
+          }
+        };
+      }else{
+        customtabBox.style.display='none';
+      }
+
+      // 绑定添加选项
+      document.getElementById('fe-add-option').onclick = ()=> addOptionRow(optList, '');
+
+      // 保存
+      document.getElementById('fe-save').onclick = function(){
+        const newLabel = document.getElementById('fe-label').value || label;
+        const newRequired = document.getElementById('fe-required').value==='true';
+        const newPricing = document.getElementById('fe-pricing').value==='true';
+        const newPh = (type==='text' || type==='number') ? (document.getElementById('fe-placeholder').value||'') : '';
+        let newOptions = (type==='select' || type==='radio' || type==='checkbox')
+          ? Array.from(optList.querySelectorAll('input')).map(i=>i.value).filter(Boolean)
+          : [];
+        // 如果是自定义选项卡，则从专用的 ctList 中读取选项名称（第一栏）以保持和编辑器一致
+        if(type==='customtab'){
+          newOptions = Array.from(ctList.querySelectorAll('.ct-option-name')).map(i=>i.value.trim()).filter(Boolean);
+        }
+
+        // 写回 DOM 属性
+        itemEl.querySelector('strong').textContent = newLabel;
+        itemEl.setAttribute('data-required', String(newRequired));
+        itemEl.setAttribute('data-pricing', String(newPricing));
+        itemEl.setAttribute('data-placeholder', newPh);
+        itemEl.setAttribute('data-options', JSON.stringify(newOptions));
+
+        // 处理数字增减类型的额外属性
+        if(type==='stepper'){
+          itemEl.setAttribute('data-min', String(document.getElementById('fe-min').value||'0'));
+          itemEl.setAttribute('data-step', String(document.getElementById('fe-step').value||'1'));
+        }
+
+        // 处理开始/截止时间类型的额外属性
+        if(type==='timewindow'){
+          itemEl.setAttribute('data-xhours', String(document.getElementById('fe-xhours').value||'24'));
+        }
+
+        // 处理自定义选项卡类型的额外属性
+        if(type==='customtab'){
+          const mapping = {};
+          ctList.querySelectorAll('.ct-option-row').forEach(row => {
+            const option = row.querySelector('.ct-option-name').value;
+            const subtype = row.querySelector('.ct-subtype').value;
+            if(option) mapping[option] = subtype;
+          });
+          itemEl.setAttribute('data-subtypes', JSON.stringify(mapping));
+        }
+
+        // 同步状态并刷新
+        snapshotCanvas(channel);
+        rebuildOptionMappingUI();
+        rebuildTokenList();
+        refreshAll();
+
+        bootstrap.Modal.getInstance(document.getElementById('fieldEditModal')).hide();
+      };
+
+      // 打开模态框
+      const m = new bootstrap.Modal(document.getElementById('fieldEditModal'));
+      m.show();
+    }
+
+    function addOptionRow(container, val){
+      const row = document.createElement('div');
+      row.className = 'input-group mb-2';
+      row.innerHTML = `
+        <input type="text" class="form-control form-control-sm" placeholder="选项文本" value="${val||''}">
+        <button class="btn btn-sm btn-outline-danger" type="button"><i class="bi bi-trash"></i></button>
+      `;
+      row.querySelector('button').onclick = ()=> row.remove();
+      container.appendChild(row);
+    }
+
+    function addCustomTabOptionRow(container, option, subtype){
+      const row = document.createElement('div');
+      row.className = 'ct-option-row input-group mb-2';
+      row.innerHTML = `
+        <input type="text" class="form-control form-control-sm ct-option-name" placeholder="选项名称" value="${option}">
+        <select class="form-select ct-subtype">
+          <option value="text" ${subtype==='text'?'selected':''}>文本</option>
+          <option value="url" ${subtype==='url'?'selected':''}>链接</option>
+          <option value="image" ${subtype==='image'?'selected':''}>图片上传</option>
+          <option value="file" ${subtype==='file'?'selected':''}>文件上传</option>
+        </select>
+        <button class="btn btn-sm btn-outline-danger" type="button"><i class="bi bi-trash"></i></button>
+      `;
+      row.querySelector('button').onclick = ()=> row.remove();
+      container.appendChild(row);
+    }
+
+    // =========================
+    // 选项映射 UI 与 公式可用变量
+    // =========================
+    function rebuildOptionMappingUI(){
+      const host = document.getElementById('optionMappingContainer');
+      host.innerHTML = '';
+
+      // 遍历发布表单字段，挑出选择型
+      designState.publish.forEach(f=>{
+        if(['select','radio','checkbox'].includes(f.type) && f.pricing){
+          const fKey = f.key || slugify(f.label);
+          const map = designState.pricing.optionMaps[fKey] || {};
+          // 构建表
+          const card = document.createElement('div');
+          card.className = 'card mb-2';
+          card.innerHTML = `
+            <div class="card-header py-2"><strong>${f.label}</strong> - 选项映射</div>
+            <div class="card-body p-2">
+              <div class="table-responsive">
+                <table class="option-mapping-table mb-2">
+                  <thead><tr><th width="55%">选项</th><th>数值</th></tr></thead>
+                  <tbody>
+                    ${(f.options&&f.options.length?f.options:['选项A','选项B']).map(op=>{
+                      const v = (map && (op in map)) ? map[op] : 0;
+                      return `<tr>
+                        <td>${op}</td>
+                        <td><input type="number" inputmode="numeric" pattern="\d*" class="form-control form-control-sm map-input" data-fkey="${fKey}" data-op="${op}" value="${v}" step="0.01"></td>
+                      </tr>`;
+                    }).join('')}
+                  </tbody>
+                </table>
+                <div class="pricing-hint">说明：映射值将作为变量 <code>${f.label}</code> 在公式中参与计算。</div>
+              </div>
+            </div>
+          `;
+          host.appendChild(card);
+        }
+      });
+
+      // 绑定输入事件，写回 designState
+      host.querySelectorAll('.map-input').forEach(inp=>{
+        inp.addEventListener('input', function(){
+          const fkey = this.getAttribute('data-fkey');
+          const op = this.getAttribute('data-op');
+          const num = Number(this.value)||0;
+          designState.pricing.optionMaps[fkey] = designState.pricing.optionMaps[fkey] || {};
+          designState.pricing.optionMaps[fkey][op] = num;
+          refreshAll();
+        });
+      });
+    }
+
+    function rebuildTokenList(){
+      const box = document.getElementById('tokenList');
+      box.innerHTML = '';
+      // 将发布表单字段名称作为变量令牌
+      designState.publish.forEach(f=>{
+        // 仅展示已标记参与计价的字段作为公式可用变量
+        if(!f.pricing) return;
+        const token = document.createElement('span');
+        token.className = 'token-badge';
+        token.textContent = f.label;
+        token.dataset.token = f.label;
+        token.title = '点击插入到公式';
+        token.onclick = ()=> insertTokenToFormula(f.label);
+        box.appendChild(token);
+      });
+    }
+
+    function insertTokenToFormula(txt){
+      const el = document.getElementById('unitFormula');
+      const start = el.selectionStart||0;
+      el.value = el.value.slice(0,start) + txt + el.value.slice(start);
+      el.focus();
+      el.setSelectionRange(start+txt.length, start+txt.length);
+      designState.pricing.unitFormula = el.value;
+      refreshAll();
+    }
+
+    // =========================
+    // 预览渲染与计价
+    // =========================
+    function refreshAll(){
+      renderPublishPreview();
+      updatePricingPreview();
+    }
+
+    // 发布端预览控件渲染
+    function renderPublishPreview(){
+      const host = document.getElementById('preview-publish');
+      host.innerHTML = '';
+      designState.publish.forEach(f=>{
+        const key = f.key || slugify(f.label);
+        let block = document.createElement('div');
+        block.className = 'pub-card';
+
+        let ctrl = '';
+        const requiredStar = f.required ? '<span class="text-danger">*</span>' : '';
+        const ph = f.placeholder || '';
+        if(f.type==='text'){
+          ctrl = `<input class="form-control form-control-sm pv-input" data-key="${key}" data-label="${f.label}" placeholder="${ph}">`;
+        }else if(f.type==='number'){
+          ctrl = `<input class="form-control text-center pv-input" data-key="${key}" data-label="${f.label}" type="number" inputmode="numeric" pattern="\\d*" step="1" min="0" placeholder="${ph}">`;
+        }else if(f.type==='stepper'){
+          const min = (f.min!==''?Number(f.min):0);
+          const step = (f.step!==''?Number(f.step):1);
+          ctrl = `
+            <div class="input-group input-group-sm">
+              <button class="btn btn-outline-secondary btn-stepper-minus" type="button" data-key="${key}">－</button>
+              <input class="form-control text-center pv-input" data-key="${key}" data-label="${f.label}" type="number" inputmode="numeric" pattern="\\d*" step="${step}" min="${min}" value="${min}">
+              <button class="btn btn-outline-secondary btn-stepper-plus" type="button" data-key="${key}">＋</button>
+            </div>`;
+        }else if(f.type==='select'){
+          const options = (f.options&&f.options.length?f.options:['选项A','选项B']).map(op=>`<option value="${op}">${op}</option>`).join('');
+          ctrl = `<select class="form-select form-select-sm pv-input" data-key="${key}" data-label="${f.label}">${options}</select>`;
+        }else if(f.type==='radio'){
+          const options = (f.options&&f.options.length?f.options:['选项A','选项B']).map((op,i)=>`
+            <div class="form-check form-check-inline">
+              <input class="form-check-input pv-input" name="${key}" id="${key}_${i}" type="radio" value="${op}" data-key="${key}" data-label="${f.label}" ${i===0?'checked':''}>
+              <label class="form-check-label" for="${key}_${i}">${op}</label>
+            </div>
+          `).join('');
+          ctrl = options;
+        }else if(f.type==='checkbox'){
+          const options = (f.options&&f.options.length?f.options:['选项A','选项B']).map((op,i)=>`
+            <div class="form-check">
+              <input class="form-check-input pv-input" id="${key}_${i}" type="checkbox" value="${op}" data-key="${key}" data-label="${f.label}">
+              <label class="form-check-label" for="${key}_${i}">${op}</label>
+            </div>
+          `).join('');
+          ctrl = options;
+        }else if(f.type==='file' || f.type==='image'){
+          ctrl = `<div class="file-drop">拖拽或点击上传（模拟）</div>`;
+        }else if(f.type==='datetime'){
+          ctrl = `<input class="form-control form-control-sm pv-input" data-key="${key}" data-label="${f.label}" type="datetime-local">`;
+        }else if(f.type==='url'){
+          ctrl = `<input class="form-control form-control-sm pv-input" data-key="${key}" data-label="${f.label}" type="url" placeholder="https://">`;
+        }else if(f.type==='richtext'){
+          ctrl = `<textarea class="form-control form-control-sm pv-input" data-key="${key}" data-label="${f.label}" rows="3" placeholder="请输入..."></textarea>`;
+        }else if(f.type==='timewindow'){
+          // 开始/截止时间复合控件
+          const xh = (f.xhours!==''?Number(f.xhours):24);
+          ctrl = `
+            <div class="vstack gap-2 pv-timewindow" data-key="${key}">
+              <div>
+                <div class="small text-muted mb-1">开始时间</div>
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input tw-start-immediate" type="radio" name="${key}_start" value="immediate" checked>
+                  <label class="form-check-label">立即开始</label>
+                </div>
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input tw-start-custom" type="radio" name="${key}_start" value="custom">
+                  <label class="form-check-label">自定义</label>
+                </div>
+                <select class="form-select form-select-sm mt-2 tw-start-select" style="display:none;"></select>
+              </div>
+              <div>
+                <div class="small text-muted mb-1">领取截止时间</div>
+                <div class="form-check">
+                  <input class="form-check-input tw-deadline-x" type="radio" name="${key}_deadline" value="xhours" checked>
+                  <label class="form-check-label">任务开始后 <input type="number" inputmode="numeric" pattern="\d*" class="form-control form-control-sm d-inline-block ms-1 me-1 tw-xhours" style="width:90px;" min="1" step="1" value="${xh}"> 小时内可领取</label>
+                </div>
+              </div>
+            </div>`;
+        }
+        else if(f.type==='customtab'){
+          const opts = (f.options&&f.options.length?f.options:[]);
+          const map = f.subtypes||{};
+          if(opts.length===0){
+            ctrl = `<div class="text-muted small">请先在字段设置中添加选项卡选项</div>`;
+          }else{
+            const radios = opts.map((op,i)=>`
+              <div class="form-check form-check-inline">
+                <input class="form-check-input ct-choice" type="radio" name="${key}_ct" id="${key}_${i}" value="${op}" ${i===0?'checked':''}>
+                <label class="form-check-label" for="${key}_${i}">${op}</label>
+              </div>`).join('');
+            ctrl = `
+              <div class="vstack gap-2 pv-customtab" data-key="${key}">
+                <div>${radios}</div>
+                <div class="ct-slot"></div>
+              </div>`;
+          }
+        }else{
+          ctrl = `<input class="form-control form-control-sm pv-input" data-key="${key}" data-label="${f.label}">`;
+        }
+
+        block.innerHTML = `
+          <div class="pub-row"><div class="pub-label">${f.label}${requiredStar}</div><div class="pub-value">${ctrl}</div></div>
+        `;
+        host.appendChild(block);
+      });
+
+      // 绑定输入变化事件
+      host.querySelectorAll('.pv-input').forEach(el=>{
+        el.addEventListener('input', updatePricingPreview);
+        el.addEventListener('change', updatePricingPreview);
+      });
+
+      // 绑定 stepper 加减按钮事件（遵守最小值与步长）
+      host.querySelectorAll('.btn-stepper-minus, .btn-stepper-plus').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var key = this.getAttribute('data-key');
+          var input = host.querySelector('.pv-input[data-key="'+key+'"]');
+          if(!input) return;
+          // 从设计状态中读取最小值和步长
+          var f = (designState.publish||[]).find(function(x){ return (x.key||'')===key; });
+          var min = 0, step = 1;
+          if(f){
+            min = (f.min!=='' && !isNaN(Number(f.min))) ? Number(f.min) : 0;
+            step = (f.step!=='' && !isNaN(Number(f.step))) ? Number(f.step) : 1;
+          }
+          var cur = Number(input.value||0);
+          if(this.classList.contains('btn-stepper-minus')){
+            cur = Math.max(min, cur - step);
+          }else{
+            cur = cur + step;
+          }
+          input.value = cur;
+          // 触发计算刷新
+          input.dispatchEvent(new Event('input', {bubbles:true}));
+          input.dispatchEvent(new Event('change', {bubbles:true}));
+        });
+      });
+
+      // 开始时间：自定义使用下拉选择（未来 24 小时，30 分钟步进）；取消自定义截止时间选项
+      host.querySelectorAll('.pv-timewindow').forEach(function(wrap){
+        var startImmediate = wrap.querySelector('.tw-start-immediate');
+        var startCustom = wrap.querySelector('.tw-start-custom');
+        var startSelect = wrap.querySelector('.tw-start-select');
+        var ddlX = wrap.querySelector('.tw-deadline-x');
+
+        function syncTimeWin(){
+          if(startCustom && startSelect){
+            startSelect.style.display = startCustom.checked ? '' : 'none';
+            if(startCustom.checked){
+              populateStartCustomOptions(startSelect);
+            }
+          }
+        }
+
+        [startImmediate, startCustom, ddlX].forEach(function(el){
+          if(el){ el.addEventListener('change', syncTimeWin); }
+        });
+        syncTimeWin();
+      });
+
+      // 自定义选项卡：根据映射的子控件类型渲染插槽，并在切换时更新
+      host.querySelectorAll('.pv-customtab').forEach(function(wrap){
+        var key = wrap.getAttribute('data-key');
+        var slot = wrap.querySelector('.ct-slot');
+        function getFieldByKey(k){
+          return (designState.publish||[]).find(function(x){ return (x.key||'')===k; });
+        }
+        function renderSlot(type){
+          if(!slot) return;
+          if(type==='text'){
+            slot.innerHTML = '<input class="form-control form-control-sm" placeholder="请输入文本">';
+          }else if(type==='url'){
+            slot.innerHTML = '<input class="form-control form-control-sm" type="url" placeholder="https://">';
+          }else if(type==='image'){
+            slot.innerHTML = '<div class="file-drop">拖拽或点击上传图片（模拟）</div>';
+          }else if(type==='file'){
+            slot.innerHTML = '<div class="file-drop">拖拽或点击上传文件（模拟）</div>';
+          }else{
+            slot.innerHTML = '<input class="form-control form-control-sm" placeholder="请输入...">';
+          }
+        }
+        
+        function syncCustomTab(){
+          // 自定义选项卡：根据选中项与字段设置的子类型渲染子控件
+          var field = getFieldByKey(key) || {};
+          var subtypes = field.subtypes || {};
+          var checked = wrap.querySelector('.ct-choice:checked');
+          var op = checked ? checked.value : null;
+          var t = (op && subtypes[op]) ? subtypes[op] : 'text';
+          renderSlot(t);
+        }
+        
+        wrap.querySelectorAll('.ct-choice').forEach(function(r){
+          r.addEventListener('change', syncCustomTab);
+        });
+        syncCustomTab();
+      });
+    }
+
+    // 计算并更新价格预览
+    function updatePricingPreview(){
+      // 收集变量值
+      const vars = {}; // { 显示名称: 数值 }
+      const container = document.getElementById('preview-publish');
+      // 遍历所有输入
+      designState.publish.forEach(f=>{
+        const label = f.label;
+        const key = f.key || slugify(label);
+        let val = 0;
+
+        if(f.type==='number' || f.type==='stepper'){
+          const el = container.querySelector('.pv-input[data-key="'+key+'"]');
+          val = Number(el && el.value ? el.value : 0);
+        }else if(f.type==='text' || f.type==='url' || f.type==='datetime' || f.type==='richtext'){
+          val = 0; // 文本型默认不参与数值
+        }else if(f.type==='select'){
+          const sel = container.querySelector('select.pv-input[data-key="'+key+'"]');
+          const choice = sel ? sel.value : '';
+          const map = designState.pricing.optionMaps[key]||{};
+          val = Number(map[choice]||0);
+        }else if(f.type==='radio'){
+          const checked = container.querySelector('input.pv-input[type="radio"][data-key="'+key+'"]:checked');
+          const choice = checked ? checked.value : '';
+          const map = designState.pricing.optionMaps[key]||{};
+          val = Number(map[choice]||0);
+        }else if(f.type==='checkbox'){
+          const els = container.querySelectorAll('input.pv-input[type="checkbox"][data-key="'+key+'"]:checked');
+          let sum = 0;
+          els.forEach(ch=>{
+            const map = designState.pricing.optionMaps[key]||{};
+            sum += Number(map[ch.value]||0);
+          });
+          val = sum;
+        }else{
+          val = 0;
+        }
+
+        // 若字段被标记为参与计价的数字字段，则直接使用数值
+        if(f.type==='number' && f.pricing){
+          // val 已经是数值
+        }
+
+        vars[label] = val;
+      });
+
+      // 数量识别：优先找 label 含"数量"的 number 字段；否则 1
+      let qty = 1;
+      for(const f of designState.publish){
+        if((f.type==='number' || f.type==='stepper') && /数量|份数|件数|人数|时长/.test(f.label||'')){
+          const key = f.key || slugify(f.label);
+          const el = document.querySelector('.pv-input[data-key="'+key+'"]');
+          qty = Math.max(1, Number(el && el.value ? el.value : 0) || 1);
+          break;
+        }
+      }
+
+      // 构建可执行表达式：将"字段名称/数量/服务费率"替换为数值
+      function buildExpr(expr){
+        let s = String(expr||'').trim();
+        // 替换字段名为对应数值（按长度倒序，避免短名误替换长名）
+        Object.keys(vars).sort((a,b)=>b.length-a.length).forEach(name=>{
+          const re = new RegExp(name.replace(/[-\/\\^$*+?.()|[\]{}]/g,'\\$&'), 'g');
+          s = s.replace(re, '('+(Number(vars[name])||0)+')');
+        });
+        // 替换"数量"和"服务费率"
+        s = s.replace(/数量/g, '('+qty+')');
+        s = s.replace(/服务费率/g, '('+(Number(designState.pricing.feeRate)||0)+')');
+        return s;
+      }
+
+      function safeEval(expr){
+        if(!expr) return null;
+        try{
+          // 仅允许数字与 +-*/(). 空格
+          if(!/^[0-9+\-*/().\s]*$/.test(expr)) return null;
+          // 使用 Function 计算
+          // eslint-disable-next-line no-new-func
+          const fn = new Function('return ('+expr+')');
+          const v = fn();
+          return isFinite(v) ? Number(v) : null;
+        }catch(e){ return null; }
+      }
+
+      // 计算单价
+      let unit = 0;
+      if(designState.pricing.unitFormula && designState.pricing.unitFormula.trim()){
+        const expr = buildExpr(designState.pricing.unitFormula);
+        unit = safeEval(expr);
+        if(unit===null) unit = 0;
+      }else{
+        // 无公式时：把所有"参与计价"的数字字段 + 所有选择映射值求和
+        let sum = 0;
+        for(const name in vars){ sum += Number(vars[name])||0; }
+        unit = sum;
+      }
+
+      // 计算总价
+      let subtotal = 0;
+      if(designState.pricing.totalFormula && designState.pricing.totalFormula.trim()){
+        const exprT = buildExpr(designState.pricing.totalFormula);
+        subtotal = safeEval(exprT);
+        if(subtotal===null) subtotal = unit * qty;
+      }else{
+        subtotal = unit * qty;
+      }
+
+      // 服务费
+      const feeRate = Number(designState.pricing.feeRate)||0;
+      const fee = subtotal * feeRate / 100;
+      const total = subtotal + fee;
+
+      // 写入预览
+      document.getElementById('pv-unit').textContent = unit.toFixed(2);
+      document.getElementById('pv-qty').textContent = qty;
+      document.getElementById('pv-subtotal').textContent = subtotal.toFixed(2);
+      document.getElementById('pv-fee-rate').textContent = feeRate;
+      document.getElementById('pv-fee').textContent = fee.toFixed(2);
+      document.getElementById('pv-total').textContent = total.toFixed(2);
+    }
+
+    // =========================
+    // 保存/序列化（写入 localStorage）
+    // =========================
+    function serializeAll(){
+      return {
+        publish: designState.publish,
+        pricing: designState.pricing,
+        category: getQueryParam('category') || ''
+      };
+    }
+  </script>
+
+<!-- 自定义选项卡保存兼容补丁 -->
+<script>
+// 中文注释：在模态框打开后，将旧的 span.input-group-text 升级为 input.ct-option-name，以兼容保存逻辑
+(function(){
+  // 中文注释：尝试监听所有的点击，捕获打开"编辑字段"模态框的时机
+  document.addEventListener('click', function(){
+    // 中文注释：延迟执行，等待模态框 DOM 完成渲染
+    setTimeout(function(){
+      var modal = document.querySelector('.fe-field-edit-modal, .modal.show, .modal'); // 兼容不同命名
+      if(!modal) return;
+      var list = modal.querySelector('.fe-customtab-list');
+      if(!list) return;
+      // 中文注释：将旧的 span 替换成 input，并保留原值
+      Array.from(list.querySelectorAll('.input-group-text')).forEach(function(span){
+        var val = (span.textContent || '').trim();
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'form-control form-control-sm ct-option-name';
+        input.placeholder = '选项名称';
+        input.value = val;
+        span.parentNode.replaceChild(input, span);
+      });
+    }, 50);
+  }, true);
+
+  // 中文注释：保存按钮兜底——读取 .ct-option-name 或回退到 .input-group-text/.ct-option-label 的文本
+  document.addEventListener('click', function(e){
+    var t = e.target;
+    if(!t) return;
+    if(t.matches('.fe-save, .fe-save *')){
+      // 中文注释：短暂延迟，尽量与原有保存逻辑同一事件循环内执行
+      setTimeout(function(){
+        var modal = document.querySelector('.fe-field-edit-modal, .modal.show, .modal');
+        if(!modal) return;
+        var list = modal.querySelector('.fe-customtab-list');
+        if(!list) return;
+        Array.from(list.querySelectorAll('.ct-option-row')).forEach(function(row){
+          var nameEl = row.querySelector('.ct-option-name') || row.querySelector('.input-group-text') || row.querySelector('.ct-option-label');
+          if(nameEl && !row.querySelector('.ct-option-name') && nameEl.classList.contains('input-group-text')){
+            // 中文注释：如果仍是 span，则现场升级为 input，避免后续代码取 .value 报错
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'form-control form-control-sm ct-option-name';
+            input.placeholder = '选项名称';
+            input.value = (nameEl.textContent || '').trim();
+            nameEl.parentNode.replaceChild(input, nameEl);
+          }
+        });
+      }, 0);
+    }
+  }, true);
+})();
+
+// ====== minimal_fix: 自定义开始时间选择器（未来 24 小时，30 分钟步进） ======
+function populateStartCustomOptions(selectEl){
+  selectEl.innerHTML = '';
+  var now = new Date();
+  // round up to next 30-minute slot
+  var mins = now.getMinutes();
+  var add = (mins % 30 === 0) ? 0 : (30 - (mins % 30));
+  now.setMinutes(mins + add);
+  now.setSeconds(0);
+  now.setMilliseconds(0);
+  for(var i=0;i<48;i++){ // 48 * 30min = 24h
+    var d = new Date(now.getTime() + i*30*60*1000);
+    var y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), D = String(d.getDate()).padStart(2,'0');
+    var hh = String(d.getHours()).padStart(2,'0'), mm = String(d.getMinutes()).padStart(2,'0');
+    var label = y+'-'+m+'-'+D+' '+hh+':'+mm;
+    var opt = document.createElement('option');
+    opt.value = d.toISOString();
+    opt.textContent = label;
+    selectEl.appendChild(opt);
+  }
+}
+
+// 在打开字段编辑模态时，绑定显示/隐藏逻辑与 populate（最小侵入）
+document.addEventListener('click', function(e){
+  var t = e.target;
+  // 当打开编辑模态（fe-field-edit-modal 或 fieldEditModal）时，初始化控件显示
+  if(t.closest && t.closest('[data-action="edit"]')){
+    // 延迟到模态 show 后执行（Bootstrap 动画结束）
+    setTimeout(function(){
+      var startModeImmediate = document.getElementById('fe-start-immediate');
+      var startModeCustom = document.getElementById('fe-start-custom');
+      var customContainer = document.getElementById('fe-start-custom-container');
+      var customSelect = document.getElementById('fe-start-custom-select');
+      if(!startModeImmediate || !startModeCustom || !customContainer || !customSelect) return;
+      // 初始化显示
+      function updateStartMode(){
+        if(startModeCustom.checked){
+          customContainer.style.display = '';
+          populateStartCustomOptions(customSelect);
+        }else{
+          customContainer.style.display = 'none';
+        }
+      }
+      startModeImmediate.addEventListener('change', updateStartMode);
+      startModeCustom.addEventListener('change', updateStartMode);
+      // 为保险，调用一次
+      updateStartMode();
+    }, 250);
+  }
+}, true);
+</script>
+
+
+<script>
+// 侧边栏统一：插入“系统设置”（接口管理与监控下方），隐藏“数据概览/团队投诉反馈”
+(function(){
+  try{
+    const aside = document.querySelector('aside.sidebar');
+    if(aside){
+      const links = aside.querySelectorAll('a');
+      let apiLink = null, settingsLinkExists = false;
+      links.forEach(a=>{
+        if(a.textContent && a.textContent.includes('接口管理与监控')) apiLink = a;
+        if(a.textContent && a.textContent.trim() === '系统设置') settingsLinkExists = true;
+      });
+      if(apiLink && !settingsLinkExists){
+        const li = document.createElement('li'); li.className = 'nav-item';
+        const a = document.createElement('a'); a.className='nav-link'; a.textContent='系统设置';
+        a.href = 'hq-admin-settings-system_v1.2.1d_tabs.html';
+        li.appendChild(a);
+        const parentUl = apiLink.closest('ul') || aside.querySelector('ul');
+        parentUl.insertBefore(li, apiLink.parentElement.nextSibling);
+      }
+      // 隐藏“数据概览”“团队投诉反馈”
+      links.forEach(a=>{
+        const t = (a.textContent||'').trim();
+        if(t.includes('数据概览') || t.includes('团队投诉反馈')){
+          const li = a.closest('li'); if(li) li.style.display='none';
+        }
+      });
+    }
+  }catch(e){ console.warn('侧边栏统一失败', e); }
+})();
+</script>
+
+
+<script>
+// 将表格中的编号（TSK/TPA/TFA/RCG/WDU/WDT/TF/UF/GF/FBK...）自动变为可点击链接
+(function(){
+  const map = {
+    TSK: 'hq-admin-task-detail.html',
+    TPA: 'hq-admin-audit-task-publish.html',
+    TFA: 'hq-admin-audit-task-completion.html',
+    RCG: 'hq-admin-finance-recharge-review.html',
+    WDU: 'hq-admin-finance-withdrawal-review.html',
+    WDT: 'hq-admin-finance-team-withdrawal-review.html',
+    TF:  'hq-admin-finance-platform-fund-flow.html',
+    UF:  'hq-admin-finance-user-fund-flow.html',
+    GF:  'hq-admin-finance-team-fund-flow.html',
+    FBK: 'hq-admin-users-feedback.html',
+    CAT: 'hq-admin-settings-categories.html',
+    FRM: 'hq-admin-form-design.html',
+    APP: 'hq-admin-system-api-management-monitoring.html',
+    MSG: 'hq-admin-users-feedback.html',
+    LOG: 'hq-admin-audit-task-completion.html',
+    U:   'hq-admin-users-list.html',
+    G:   'hq-admin-team-list.html'
+  };
+  const re = /\b(TSK|TPA|TFA|RCG|WDU|WDT|TF|UF|GF|FBK|CAT|FRM|APP|MSG|LOG|U|G)\d{4,}(?:\s*\d{3,})?\b/g;
+  function linkifyNode(node){
+    if(node.children && node.children.length) return;
+    const text = node.textContent;
+    if(!text || !re.test(text)) return;
+    const html = text.replace(re, (m)=>{
+      const pref = m.match(/^[A-Z]+/)[0];
+      const href = map[pref] || '#';
+      const q = encodeURIComponent(m.replace(/\s+/g,''));
+      return `<a href="${href}?id=${q}" class="text-decoration-underline">${m}</a>`;
+    });
+    const span = document.createElement('span'); span.innerHTML = html;
+    node.replaceWith(span);
+  }
+  const targets = Array.from(document.querySelectorAll('td, span, div, p, li'));
+  targets.forEach(linkifyNode);
+})();
+</script>
+
+
+<style>
+/* 统一状态样式 */
+.unified-empty { text-align:center; padding:28px 12px; color:#6c757d; }
+.unified-empty .icon { display:inline-block; width:36px; height:36px; border-radius:50%; border:2px dashed #ced4da; margin-bottom:6px; }
+.unified-loading { position:relative; min-height:80px; }
+.unified-loading:after {
+  content:""; position:absolute; inset:0; background:
+    linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.04) 50%, rgba(0,0,0,0) 100%);
+  animation: shimmer 1.2s infinite;
+}
+@keyframes shimmer { 0%{background-position:-200% 0;} 100%{background-position:200% 0;} }
+.unified-error { color:#dc3545; padding:8px 0; }
+
+/* 统一筛选浮层 */
+#unifiedFilterPanel {
+  position: fixed; right: 16px; top: 84px; width: 360px; z-index: 1080;
+  background: #fff; border: 1px solid #dee2e6; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.12);
+  display:none;
+}
+#unifiedFilterPanel .hdr { padding: 10px 12px; border-bottom:1px solid #eee; display:flex; align-items:center; justify-content:space-between; }
+#unifiedFilterPanel .bd { padding: 12px; }
+#btnUnifiedFilter { margin-left: 8px; }
+
+/* 按钮意图颜色统一（基于文本） */
+button, .btn { transition: filter .2s ease; }
+.btn-intent-approve { background:#198754; color:#fff; border-color:#198754; }
+.btn-intent-reject { background:#dc3545; color:#fff; border-color:#dc3545; }
+.btn-intent-return { background:#ffc107; color:#212529; border-color:#ffc107; }
+.btn-intent-pay { background:#0d6efd; color:#fff; border-color:#0d6efd; }
+
+/* 可点击编号统一下划线（若页面未设置） */
+a.id-link { text-decoration: underline; }
+</style>
+
+<script>
+(function(){
+  // ===== 读取系统设置（货币/精度/时区） =====
+  const PUB_KEY = 'hq_sys_settings_v1_2_1d_published';
+  let locale = { lang:'zh-CN', tz:'Asia/Shanghai', currency:'CNY', precision:2 };
+  try{
+    const cfg = JSON.parse(localStorage.getItem(PUB_KEY)||'{}');
+    if(cfg.locale){
+      locale.lang = cfg.locale.lang || locale.lang;
+      locale.tz = cfg.locale.tz || locale.tz;
+      locale.currency = cfg.locale.currency || locale.currency;
+      locale.precision = parseInt(cfg.locale.precision||locale.precision,10);
+    }
+  }catch(e){}
+
+  // ===== 统一筛选：在首个 .card-header 右侧添加“筛选”按钮 + 浮层 =====
+  function ensureFilterUI(){
+    if(document.getElementById('unifiedFilterPanel')) return;
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-outline-secondary btn-sm';
+    btn.id = 'btnUnifiedFilter';
+    btn.innerHTML = '<i class="bi bi-funnel me-1"></i>筛选';
+    // 尝试挂到第一个 card-header 右侧
+    const hdr = document.querySelector('.card .card-header') || document.querySelector('.d-flex.align-items-center.justify-content-between');
+    if(hdr){ hdr.appendChild(btn); }
+    else {
+      // 顶部右上角浮动按钮（兜底）
+      const fbtn = btn.cloneNode(true);
+      fbtn.style.position='fixed'; fbtn.style.right='16px'; fbtn.style.top='20px'; fbtn.style.zIndex='1080';
+      document.body.appendChild(fbtn);
+    }
+
+    const panel = document.createElement('div');
+    panel.id = 'unifiedFilterPanel';
+    panel.innerHTML = `
+      <div class="hdr">
+        <strong>通用筛选</strong>
+        <button type="button" class="btn-close" id="btnUFclose"></button>
+      </div>
+      <div class="bd">
+        <div class="mb-2">
+          <label class="form-label">关键字</label>
+          <input class="form-control" id="uf-key" placeholder="编号/手机号/名称">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">状态</label>
+          <select class="form-select" id="uf-status">
+            <option value="">全部</option>
+            <option>待处理</option>
+            <option>处理中</option>
+            <option>已通过</option>
+            <option>已驳回</option>
+            <option>已完成</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">时间范围</label>
+          <div class="d-flex gap-2">
+            <input type="date" class="form-control" id="uf-from">
+            <input type="date" class="form-control" id="uf-to">
+          </div>
+        </div>
+        <div class="d-flex justify-content-end gap-2">
+          <button class="btn btn-outline-secondary btn-sm" id="uf-reset">重置</button>
+          <button class="btn btn-primary btn-sm" id="uf-apply">应用</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(panel);
+
+    document.body.addEventListener('click', function(e){
+      if(e.target && (e.target.id==='btnUnifiedFilter')){
+        const p = document.getElementById('unifiedFilterPanel');
+        p.style.display = (p.style.display==='none' || !p.style.display) ? 'block' : 'none';
+      }
+      if(e.target && (e.target.id==='btnUFclose')){
+        document.getElementById('unifiedFilterPanel').style.display = 'none';
+      }
+      if(e.target && (e.target.id==='uf-reset')){
+        document.getElementById('uf-key').value='';
+        document.getElementById('uf-status').value='';
+        document.getElementById('uf-from').value='';
+        document.getElementById('uf-to').value='';
+        // 客户端演示：移除高亮
+        document.querySelectorAll('.uf-hl').forEach(n=>n.classList.remove('uf-hl'));
+      }
+      if(e.target && (e.target.id==='uf-apply')){
+        // Demo：仅做关键字高亮；实际项目应触发具体表格筛选逻辑
+        const key = (document.getElementById('uf-key').value||'').trim();
+        document.querySelectorAll('.uf-hl').forEach(n=>n.classList.remove('uf-hl'));
+        if(key){
+          const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+          const re = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+          let node; while(node = walker.nextNode()){
+            if(re.test(node.nodeValue) && node.parentElement && node.parentElement.closest('table')){
+              node.parentElement.classList.add('uf-hl');
+            }
+          }
+        }
+        document.getElementById('unifiedFilterPanel').style.display = 'none';
+      }
+    });
+
+    const style = document.createElement('style');
+    style.textContent = `.uf-hl{ background: rgba(255, 230, 0, .45); outline: 1px dashed #ffbf00; }`;
+    document.head.appendChild(style);
+  }
+
+  // ===== 统一金额格式（根据表头关键字判列） =====
+  function unifyAmountFormat(){
+    const tables = Array.from(document.querySelectorAll('table'));
+    const nf = new Intl.NumberFormat(locale.lang, { style:'currency', currency: locale.currency, minimumFractionDigits: locale.precision, maximumFractionDigits: locale.precision });
+    tables.forEach(tb=>{
+      const ths = Array.from(tb.querySelectorAll('thead th, thead td')).map(th => (th.textContent||'').trim());
+      if(!ths.length) return;
+      ths.forEach((txt, idx)=>{
+        if(/金额|价|费|收款|打款|入账|出账/.test(txt)){
+          Array.from(tb.querySelectorAll(`tbody tr`)).forEach(tr=>{
+            const td = tr.children[idx]; if(!td) return;
+            const raw = (td.textContent||'').replace(/[,￥$]/g,'').trim();
+            const num = parseFloat(raw);
+            if(!isNaN(num)){
+              td.setAttribute('data-raw-amount', num);
+              td.textContent = nf.format(num);
+              td.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace';
+              td.style.textAlign = 'right';
+            }
+          });
+        }
+      });
+    });
+  }
+
+  // ===== 统一时间格式 =====
+  function unifyTimeFormat(){
+    const tables = Array.from(document.querySelectorAll('table'));
+    const fmt = new Intl.DateTimeFormat(locale.lang, { timeZone: locale.tz, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    tables.forEach(tb=>{
+      const ths = Array.from(tb.querySelectorAll('thead th, thead td')).map(th => (th.textContent||'').trim());
+      if(!ths.length) return;
+      ths.forEach((txt, idx)=>{
+        if(/时间|日期|创建|更新/.test(txt)){
+          Array.from(tb.querySelectorAll(`tbody tr`)).forEach(tr=>{
+            const td = tr.children[idx]; if(!td) return;
+            const s = (td.textContent||'').trim();
+            // 常见格式 "YYYY-MM-DD HH:mm[:ss]"
+            const iso = s.replace(/(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(:\d{2})?)/, '$1T$2');
+            const d = new Date(iso);
+            if(!isNaN(+d)){
+              td.title = d.toISOString();
+              td.textContent = fmt.format(d);
+              td.style.whiteSpace = 'nowrap';
+            }
+          });
+        }
+      });
+    });
+  }
+
+  // ===== 空态填充（无数据时） =====
+  function fillEmptyStates(){
+    Array.from(document.querySelectorAll('table')).forEach(tb=>{
+      const body = tb.querySelector('tbody'); if(!body) return;
+      const hasRow = body.querySelector('tr');
+      if(!hasRow){
+        const colSpan = (tb.querySelectorAll('thead th').length || 1);
+        const tr = document.createElement('tr');
+        const td = document.createElement('td'); td.colSpan = colSpan; td.className='unified-empty';
+        td.innerHTML = '<div class="icon"></div><div>暂无数据</div>';
+        tr.appendChild(td); body.appendChild(tr);
+      }
+    });
+  }
+
+  // ===== 动作按钮意图着色（基于文本内容） =====
+  function colorizeActionButtons(){
+    const btns = Array.from(document.querySelectorAll('button, a.btn'));
+    btns.forEach(b=>{
+      const t = (b.textContent||'').trim();
+      if(/通过|同意|Approve/i.test(t)) b.classList.add('btn-intent-approve');
+      if(/驳回|拒绝|Reject/i.test(t)) b.classList.add('btn-intent-reject');
+      if(/打回|退回|Return/i.test(t)) b.classList.add('btn-intent-return');
+      if(/打款|已转账|Pay/i.test(t)) b.classList.add('btn-intent-pay');
+    });
+  }
+
+  // ===== 启动顺序 =====
+  document.addEventListener('DOMContentLoaded', function(){
+    ensureFilterUI();
+    unifyAmountFormat();
+    unifyTimeFormat();
+    fillEmptyStates();
+    colorizeActionButtons();
+  });
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>总部管理系统 - 团队提现审核（Dashboard风格）</title>
+  <!-- 依赖：与 Dashboard 一致 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+
+  <style>
+    /* ================== 主题变量（与 Dashboard 对齐） ================== */
+    :root{
+      --primary:#3b7ddd;
+      --primary-light:#e8f0fe;
+      --red:#dc3545;
+      --white:#ffffff;
+      --light:#f5f6f8;
+      --border:#e2e8f0;
+      --text:#2d3748;
+      --dot-platform:#3b7ddd;
+      --dot-user:#2fb67b;
+      --dot-team:#f6a035;
+      --dot-system:#7a5af8;
+    }
+    body{background-color:var(--light);font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:var(--text);}
+
+    /* ================== 侧边栏（Dashboard 统一） ================== */
+    .sidebar{background-color:var(--white);color:#4a5568;height:100vh;position:fixed;left:0;top:0;width:260px;padding-top:60px;box-shadow:2px 0 10px rgba(0,0,0,0.05);border-right:1px solid var(--border);z-index:1000;overflow-y:auto;}
+    .sidebar .nav-link{color:#4a5568;padding:.8rem 1rem;margin:.1rem .5rem;border-radius:6px;transition:all .2s;display:flex;align-items:center;gap:.55rem;}
+    .sidebar .nav-link i{color:#718096;}
+    .sidebar .nav-link:hover,.sidebar .nav-link.active{color:var(--primary);background-color:var(--primary-light);}
+    .sidebar .nav-link.active i,.sidebar .nav-link:hover i{color:var(--primary);}
+    .sidebar .menu-section{padding:.75rem 1rem .25rem;color:#94a3b8;font-weight:700;text-transform:uppercase;font-size:.75rem;letter-spacing:.06em;}
+    .cat-dot{display:inline-block;width:.6rem;height:.6rem;border-radius:2px;flex:0 0 auto;}
+    .dot-platform{background-color:var(--dot-platform);}
+    .dot-user{background-color:var(--dot-user);}
+    .dot-team{background-color:var(--dot-team);}
+    .dot-system{background-color:var(--dot-system);}
+
+    /* ================== 主内容与顶部导航（Dashboard 统一） ================== */
+    .main-content{margin-left:260px;padding:20px;padding-top:80px;transition:margin-left .3s;}
+    .navbar{background-color:var(--white);box-shadow:0 2px 10px rgba(0,0,0,.05);border-bottom:1px solid var(--border);position:fixed;top:0;left:0;right:0;z-index:1030;padding-left:260px;transition:padding-left .3s;}
+    .navbar-brand{color:var(--primary);font-weight:700;display:flex;align-items:center;gap:.6rem;}
+    .navbar-toggler{display:none;border:none;font-size:1.25rem;}
+    .navbar-toggler:focus{box-shadow:none;}
+
+    /* ================== 卡片与表格 ================== */
+    .dashboard-card{background:var(--white);border-radius:10px;box-shadow:0 4px 6px rgba(0,0,0,.04);margin-bottom:24px;border:none;}
+    .card-header{background-color:var(--white);border-bottom:1px solid var(--border);font-weight:600;padding:1rem 1.5rem;}
+    .card-body{padding:1.5rem;}
+    .stat-card{border-radius:10px;box-shadow:0 4px 6px rgba(0,0,0,.04);border:none;overflow:hidden;transition:transform .2s,box-shadow .2s;}
+    .stat-card:hover{transform:translateY(-4px);box-shadow:0 10px 15px rgba(0,0,0,.08);}
+    .card-border-blue{border-top:4px solid var(--primary);}
+    .card-border-red{border-top:4px solid var(--red);}
+    .metric-value{font-size:1.6rem;font-weight:700;}
+    .metric-sub{font-size:.875rem;color:#6c757d;}
+    .table-sm td,.table-sm th{padding:.45rem .6rem;vertical-align:middle;}
+
+    /* ================== 状态徽章 ================== */
+    .badge-state{font-weight:600;}
+    .badge-state[data-state="待审核"]{background:#fee2e2;color:#991b1b;}
+    .badge-state[data-state="已通过待打款"]{background:#fef3c7;color:#92400e;}
+    .badge-state[data-state="已打款待确认"]{background:#dbeafe;color:#1e3a8a;}
+    .badge-state[data-state="已完成"]{background:#dcfce7;color:#166534;}
+    .badge-state[data-state="已驳回"]{background:#f3e8ff;color:#6b21a8;}
+
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#eef2ff;color:#3730a3;font-size:12px;}
+    .risk-flag.ok{color:#16a34a;}
+    .risk-flag.warn{color:#d97706;}
+    .risk-flag.block{color:#dc2626;}
+    .form-help{font-size:12px;color:#64748b;}
+    .divider{height:1px;background:#e5e7eb;margin:12px 0;}
+
+    /* ================== 详情弹窗 ================== */
+    .modal-xl{--bs-modal-width:1080px;}
+    .timeline{border-left:2px solid #e5e7eb;padding-left:12px;}
+    .timeline .item{position:relative;margin-bottom:12px;}
+    .timeline .item::before{content:"";width:10px;height:10px;border-radius:50%;background:#94a3b8;position:absolute;left:-16px;top:4px;}
+    .timeline .item .time{font-size:12px;color:#64748b;}
+
+    /* ================== 响应式处理 ================== */
+    @media (max-width: 992px){
+      .sidebar{width:84px;padding-top:70px;}
+      .sidebar .nav-link span.text{display:none;}
+      .sidebar .menu-section{display:none;}
+      .main-content{margin-left:84px;}
+      .navbar{padding-left:84px;}
+    }
+    @media (max-width: 768px){
+      .sidebar{transform:translateX(-100%);width:260px;}
+      .sidebar.show{transform:translateX(0);}
+      .main-content{margin-left:0;}
+      .navbar{padding-left:15px;}
+      .navbar-toggler{display:block;}
+    }
+  </style>
+</head>
+<body>
+  <!-- ========== 顶部导航 ========== -->
+  <nav class="navbar navbar-expand-lg navbar-light">
+    <div class="container-fluid">
+      <button class="navbar-toggler" type="button" id="sidebarToggle">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <a class="navbar-brand" href="#"><strong><i class="bi bi-building me-2"></i>总部管理系统</strong></a>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto me-5">
+          <li class="nav-item dropdown ms-2">
+            <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+              <i class="bi bi-person-circle me-2"></i> 管理员
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li><a class="dropdown-item" href="#" id="btnLogout"><i class="bi bi-box-arrow-right me-2"></i>退出</a></li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ========== 左侧菜单（与 Dashboard 保持一致，本页高亮） ========== -->
+  <aside class="sidebar">
+    <div class="position-sticky">
+      <ul class="nav flex-column">
+        <!-- 平台 -->
+        <li class="menu-section">平台</li>
+        <li class="nav-item"><a class="nav-link" href="hq-admin-dashboard.html"><span class="cat-dot dot-platform"></span><i class="bi bi-speedometer2"></i><span class="text">平台总仪表盘</span></a></li>
+        <li class="nav-item"><a class="nav-link" href="hq-admin-finance-platform-fund-flow.html"><span class="cat-dot dot-platform"></span><i class="bi bi-currency-exchange"></i><span class="text">平台资金流水</span></a></li>
+        <li class="nav-item"><a class="nav-link" href="hq-admin-tasks-global-management.html"><span class="cat-dot dot-platform"></span><i class="bi bi-list-task"></i><span class="text">任务全局管理</span></a></li>
+        <!-- 用户 -->
+        <li class="menu-section">用户</li>
+        <li class="nav-item"><a class="nav-link" href="hq-admin-users-list.html"><span class="cat-dot dot-user"></span><i class="bi bi-people"></i><span class="text">平台用户列表</span></a></li>
+        <li class="nav-item"><a class="nav-link" href="hq-admin-finance-recharge-review.html"><span class="cat-dot dot-user"></span><i class="bi bi-wallet2"></i><span class="text">用户充值审核</span></a></li>
+        <li class="nav-item"><a class="nav-link" href="hq-admin-finance-withdrawal-review.html"><span class="cat-dot dot-user"></span><i class="bi bi-cash-coin"></i><span class="text">用户提现审核</span></a></li>
+        <li class="nav-item"><a class="nav-link" href="hq-admin-finance-user-fund-flow.html"><span class="cat-dot dot-user"></span><i class="bi bi-currency-exchange"></i><span class="text">用户资金流水</span></a></li>
+        <li class="nav-item"><a class="nav-link" href="hq-admin-users-feedback.html"><span class="cat-dot dot-user"></span><i class="bi bi-chat-left-text"></i><span class="text">用户投诉反馈</span></a></li>
+        <li class="nav-item"><a class="nav-link" href="hq-admin-audit-task-publish.html"><span class="cat-dot dot-user"></span><i class="bi bi-send-check"></i><span class="text">用户发布审核</span></a></li>
+        <li class="nav-item"><a class="nav-link" href="hq-admin-audit-task-completion.html"><span class="cat-dot dot-user"></span><i class="bi bi-check2-circle"></i><span class="text">任务完成审核</span></a></li>
+        <!-- 团队 -->
+        <li class="menu-section">团队</li>
+        <li class="nav-item"><a class="nav-link" href="hq-admin-team-dashboard.html"><span class="cat-dot dot-team"></span><i class="bi bi-graph-up"></i><span class="text">团队数据概览</span></a></li>
+        <li class="nav-item"><a class="nav-link" href="hq-admin-team-list.html"><span class="cat-dot dot-team"></span><i class="bi bi-building"></i><span class="text">平台团队列表</span></a></li>
+        <li class="nav-item"><a class="nav-link active" active href="hq-admin-finance-team-withdrawal-review.html"><span class="cat-dot dot-team"></span><i class="bi bi-bank"></i><span class="text">团队提现审核</span></a></li>
+        <li class="nav-item"><a class="nav-link" href="hq-admin-finance-team-fund-flow.html"><span class="cat-dot dot-team"></span><i class="bi bi-currency-exchange"></i><span class="text">团队资金流水</span></a></li>
+        <li class="nav-item"><a class="nav-link" href="hq-admin-team-feedback.html"><span class="cat-dot dot-team"></span><i class="bi bi-chat-left-text"></i><span class="text">团队投诉反馈</span></a></li>
+        <!-- 系统 -->
+        <li class="menu-section">系统</li>
+        <li class="nav-item"><a class="nav-link" href="hq-admin-settings-categories.html"><span class="cat-dot dot-system"></span><i class="bi bi-tags"></i><span class="text">业务分类管理</span></a></li>
+        <li class="nav-item"><a class="nav-link" href="hq-admin-system-api-management-monitoring.html"><span class="cat-dot dot-system"></span><i class="bi bi-hdd-network"></i><span class="text">接口管理监控</span></a></li>
+        <li class="nav-item"><a class="nav-link" href="hq-admin-settings-system.html"><span class="cat-dot dot-system"></span><i class="bi bi-gear-fill"></i><span class="text">系统设置</span></a></li>
+      </ul>
+    </div>
+  </aside>
+
+  <!-- ========== 主内容区 ========== -->
+  <main class="main-content">
+    <!-- 标题与概览 -->
+    <div class="row mb-3">
+      <div class="col-12"><h4 class="mb-2">团队提现审核</h4></div>
+    </div>
+
+    <!-- KPI 概览 -->
+    <div class="row g-3 mb-3">
+      <div class="col-6 col-lg-3">
+        <div class="stat-card card card-border-blue h-100">
+          <div class="card-body">
+            <div class="d-flex justify-content-between">
+              <div>
+                <div class="metric-sub">今日待审核</div>
+                <div class="metric-value" id="kpiPending">—</div>
+              </div>
+              <i class="bi bi-hourglass-split text-primary fs-2 align-self-center"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="stat-card card card-border-blue h-100">
+          <div class="card-body">
+            <div class="d-flex justify-content-between">
+              <div>
+                <div class="metric-sub">今日已完成</div>
+                <div class="metric-value" id="kpiDone">—</div>
+              </div>
+              <i class="bi bi-check2-circle text-primary fs-2 align-self-center"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="stat-card card card-border-red h-100">
+          <div class="card-body">
+            <div class="d-flex justify-content-between">
+              <div>
+                <div class="metric-sub">今日异常</div>
+                <div class="metric-value" id="kpiAbnormal">—</div>
+              </div>
+              <i class="bi bi-exclamation-triangle text-danger fs-2 align-self-center"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="stat-card card card-border-blue h-100">
+          <div class="card-body">
+            <div class="d-flex justify-content-between">
+              <div>
+                <div class="metric-sub">今日提现总额</div>
+                <div class="metric-value" id="kpiTotal">—</div>
+              </div>
+              <i class="bi bi-cash-coin text-primary fs-2 align-self-center"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 筛选区（新增“团队类型”） -->
+    <div class="dashboard-card card mb-3">
+      <div class="card-body">
+        <div class="row g-2 align-items-end">
+          <div class="col-12 col-md-2">
+            <label class="form-label">状态</label>
+            <select class="form-select form-select-sm" id="filterState">
+              <option value="">全部</option>
+              <option>待审核</option>
+              <option>已通过待打款</option>
+              <option>已打款待确认</option>
+              <option>已完成</option>
+              <option>已驳回</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-2">
+            <label class="form-label">团队类型</label>
+            <select class="form-select form-select-sm" id="filterTeamType">
+              <option value="">全部</option>
+              <option>发布团队</option>
+              <option>接单团队</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-2">
+            <label class="form-label">账户类型</label>
+            <select class="form-select form-select-sm" id="filterAcctType">
+              <option value="">全部</option>
+              <option>支付宝</option>
+              <option>微信</option>
+              <option>银行卡（对公）</option>
+              <option>银行卡（个人）</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label">金额范围（元）</label>
+            <div class="input-group input-group-sm">
+              <input type="number" class="form-control" id="filterMin" placeholder="最小">
+              <span class="input-group-text">~</span>
+              <input type="number" class="form-control" id="filterMax" placeholder="最大">
+            </div>
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label">日期范围</label>
+            <div class="input-group input-group-sm">
+              <input type="date" class="form-control" id="filterStart">
+              <span class="input-group-text">至</span>
+              <input type="date" class="form-control" id="filterEnd">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 列表 -->
+    <div class="dashboard-card card">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <div>团队提现申请列表 <span class="pill" id="listCount">—</span></div>
+        <div class="d-flex align-items-center gap-2">
+          <div class="input-group input-group-sm" style="width:300px;">
+            <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control" placeholder="搜索（提现ID/团队ID/团队名称）" id="globalSearch">
+          </div>
+          <button class="btn btn-sm btn-outline-secondary" id="btnReset"><i class="bi bi-slash-circle"></i></button>
+          <button class="btn btn-sm btn-outline-secondary" id="btnRefresh"><i class="bi bi-arrow-repeat"></i></button>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0" id="tblWithdraw">
+          <thead class="table-light">
+            <tr>
+              <th>提现ID</th>
+              <th>团队</th>
+              
+              <th>申请金额（元）</th>
+              <th>账户类型</th>
+<th>申请时间</th>
+              <th>状态</th>
+              <th>风险</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="tblBody"><!-- JS 渲染 --></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- ========== 详情弹窗（团队化字段） ========== -->
+  <div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">团队提现详情 <span class="ms-2 badge rounded-pill bg-secondary" id="m-withdrawId">#—</span></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+
+          <!-- 第一行：团队信息 + 收款账户信息 -->
+          <div class="row g-3">
+            <!-- 团队信息 -->
+            <div class="col-12 col-lg-6">
+              <div class="card h-100">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="fw-semibold">团队信息</div>
+                    <span class="badge badge-state" id="m-state" data-state="待审核">待审核</span>
+                  </div>
+                  <div class="small text-muted">当前流程：<span class="fw-semibold" id="m-flowNode">待审核</span></div>
+                  <div class="divider"></div>
+                  <div class="row g-2 small">
+                    <div class="col-6">团队ID：<span id="m-teamId">—</span></div>
+                    <div class="col-6">团队名称：<span id="m-teamName">—</span></div>
+                    <div class="col-6">团队类型：<span id="m-teamType">—</span></div>
+                    <div class="col-6">负责人：<span id="m-leader">—</span></div>
+                    <div class="col-6">申请金额：<span id="m-amount">—</span> 元</div>
+                    <div class="col-6">申请时间：<span id="m-applyAt">—</span></div>
+                    <div class="col-12">提现单备注：<span id="m-remark">—</span></div>
+                  </div>
+                  <div class="divider"></div>
+                  <div class="small">总部审核建议：<span class="text-muted" id="m-advice">—</span></div>
+                </div>
+              </div>
+            </div>
+            <!-- 收款账户信息 -->
+            <div class="col-12 col-lg-6">
+              <div class="card h-100">
+                <div class="card-body">
+                  <div class="fw-semibold mb-2">收款账户信息 <span id="m-nameCheck" class="ms-1"></span></div>
+                  <div class="row g-2 small">
+                    <div class="col-6">账户类型：<span id="m-acctType">—</span></div>
+                    <div class="col-6">账户实名：<span id="m-realName">—</span></div>
+                    <div class="col-12">收款账号/卡号：<span id="m-acctNo">—</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 第二行：风控检查 + 审核记录 -->
+          <div class="row g-3 mt-1">
+            <!-- 风控检查 -->
+            <div class="col-12 col-lg-6">
+<div class="card h-100">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <div class="fw-semibold">余额情况</div>
+      <span class="text-muted" style="font-size:12px;">单位：元</span>
+    </div>
+    <div class="row g-3">
+      <div class="col-6">
+        <div class="text-muted" style="font-size:12px;">可用余额</div>
+        <div class="fw-bold" id="m-bal-avl">—</div>
+      </div>
+      <div class="col-6">
+        <div class="text-muted" style="font-size:12px;">冻结余额</div>
+        <div class="fw-bold" id="m-bal-frz">—</div>
+      </div>
+      <div class="col-6">
+        <div class="text-muted" style="font-size:12px;">待结算</div>
+        <div class="fw-bold" id="m-bal-pend">—</div>
+      </div>
+      <div class="col-6">
+        <div class="text-muted" style="font-size:12px;">上次提现时间</div>
+        <div class="fw-bold" id="m-bal-last">—</div>
+      </div>
+    </div>
+    <hr class="my-3">
+    <div class="row g-2 small">
+      <div class="col-6">本次申请：<span id="m-bal-apply" class="fw-semibold">—</span></div>
+      <div class="col-6">预计打款后可用余额：<span id="m-bal-after" class="fw-semibold">—</span></div>
+      <div class="col-12 d-none" id="m-bal-warn">
+        <div class="alert alert-warning py-2 px-3 mb-0">
+          <i class="bi bi-exclamation-triangle me-1"></i> 申请金额超过可用余额，请复核。
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    </div>
+            <!-- 审核记录 -->
+            <div class="col-12 col-lg-6">
+              <div class="card h-100">
+                <div class="card-body">
+                  <div class="fw-semibold mb-2">审核记录</div>
+                  <div class="timeline small" id="m-auditHistory"><!-- JS 渲染 --></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 第三行：线下打款信息 -->
+          <div class="row g-3 mt-1">
+            <div class="col-12">
+              <div class="card">
+                <div class="card-body">
+                  <div class="fw-semibold mb-2">线下打款信息</div>
+                  <div class="row g-2 small">
+                    <div class="col-12 col-md-4">
+                      <label class="form-label">总部转账账户</label>
+                      <select class="form-select form-select-sm" id="m-payFrom">
+                        <option value="">请选择总部出款账户</option>
+                        <option>招商银行（尾号 6688）</option>
+                        <option>支付宝（company@pay.com）</option>
+                        <option>微信企业（WX-Company-01）</option>
+                      </select>
+                    </div>
+                    <div class="col-12 col-md-4">
+                      <label class="form-label">第三方交易流水号</label>
+                      <input type="text" class="form-control form-control-sm" id="m-transferNo" placeholder="线下转账成功后的交易流水号">
+                      <div class="form-help">对账备注统一：团队提现#ID｜流水号：xxx</div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                      <label class="form-label">打款凭证（截图）</label>
+                      <input class="form-control form-control-sm" type="file" id="m-proof">
+                      <div class="form-help">“交易流水号”与“打款凭证”二选一必填</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <div class="me-auto">
+            <span class="badge text-bg-light">流程：待审核 → 已通过待打款 → 已打款待确认 → 已完成</span>
+          </div>
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">关闭</button>
+          <button class="btn btn-danger" id="btnReject">驳回</button>
+          <button class="btn btn-warning" id="btnApprove">通过审核</button>
+          <button class="btn btn-success" id="btnMarkPaid">标记完成</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 模板：表格行 ========== -->
+  <template id="tplRow">
+    <tr>
+      <td><code class="text-body-secondary">#{id}</code></td>
+      <td>
+        <div class="d-flex align-items-center gap-2">
+          <div class="rounded bg-secondary" style="width:28px;height:28px;"></div>
+          <div class="d-flex flex-column">
+            <span class="fw-semibold">{teamName}</span>
+            <span class="text-muted small">TID:{teamId}</span>
+          </div>
+        </div>
+      </td>
+      
+      <td>{amount}</td>
+      <td>{acctType}</td>
+<td>{applyAt}</td>
+      <td><span class="badge badge-state" data-state="{state}">{state}</span></td>
+      <td><i class="bi bi-shield-check risk-flag {riskCls}" title="{riskTip}"></i></td>
+      <td>
+        <div class="btn-group btn-group-sm">
+          <button class="btn btn-outline-primary btn-view">查看</button>
+          <button class="btn btn-outline-warning btn-approve">通过</button>
+          <button class="btn btn-outline-success btn-paid">完成</button>
+          <button class="btn btn-outline-danger btn-reject">驳回</button>
+        </div>
+      </td>
+    </tr>
+  </template>
+
+  <!-- ========== JS：数据与交互 ========== -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // ========== 模拟数据（团队维度） ==========
+    const mockWithdrawals = [
+      {
+        id: 20250911021, teamId: 30001, teamName: "星火发布组", teamType: "发布团队",
+        amount: 4200.00, acctType: "银行卡（对公）", realName: "上海星火网络科技有限公司", acctNo: "招商银行上海XX支行｜1220 5566 9988 001",
+        applyAt: "2025-09-11 11:05:31", state: "待审核",
+        risk: {level:"ok", tips:"无异常"}, subjectMatched: true,
+        leader: "李明（负责人）", remark: "季度结算提现", advice: "优先处理"
+      },
+      {
+        id: 20250911022, teamId: 30002, teamName: "霹雳接单团", teamType: "接单团队",
+        amount: 1880.50, acctType: "支付宝", realName: "陈雷", acctNo: "pl-team@pay.com",
+        applyAt: "2025-09-11 09:48:02", state: "已通过待打款",
+        risk: {level:"warn", tips:"近7日提现频次较高"}, subjectMatched: true,
+        leader: "陈雷（负责人）", remark: "周度提现", advice: "已通过，尽快出款"
+      },
+      {
+        id: 20250911023, teamId: 30003, teamName: "晨星接单团", teamType: "接单团队",
+        amount: 5200.00, acctType: "银行卡（个人）", realName: "王武", acctNo: "622202******3333",
+        applyAt: "2025-09-11 08:41:10", state: "待审核",
+        risk: {level:"block", tips:"账户主体核验失败（团队主体：晨星接单团｜负责人：王五）"}, subjectMatched: false,
+        leader: "王五（负责人）", remark: "本月提现", advice: "建议驳回或人工复核"
+      },
+      {
+        id: 20250910011, teamId: 30004, teamName: "蓝海发布组", teamType: "发布团队",
+        amount: 3000.00, acctType: "微信", realName: "蓝海发布组-财务", acctNo: "wx-7788",
+        applyAt: "2025-09-10 22:10:40", state: "已打款待确认",
+        risk: {level:"ok", tips:"无异常"}, subjectMatched: true,
+        leader: "赵圆（财务）", remark: "常规提现", advice: "等待团队确认"
+      },
+      {
+        id: 20250909007, teamId: 30005, teamName: "飞跃接单团", teamType: "接单团队",
+        amount: 1560.00, acctType: "支付宝", realName: "刘青", acctNo: "fy-team@pay.com",
+        applyAt: "2025-09-09 15:04:19", state: "已完成",
+        risk: {level:"ok", tips:"无异常"}, subjectMatched: true,
+        leader: "刘青（负责人）", remark: "历史单", advice: "已归档"
+      }
+    ];
+
+    // ========== 状态机定义（前端演示） ==========
+    const Flow = {
+      PENDING: "待审核",
+      APPROVED: "已通过待打款",
+      PAID_PENDING: "已打款待确认",
+      DONE: "已完成",
+      REJECTED: "已驳回"
+    };
+
+    // ========== DOM 引用 ==========
+    const tblBody = document.getElementById('tblBody');
+    const listCount = document.getElementById('listCount');
+    const globalSearch = document.getElementById('globalSearch');
+    const kpiPending = document.getElementById('kpiPending');
+    const kpiDone = document.getElementById('kpiDone');
+    const kpiAbnormal = document.getElementById('kpiAbnormal');
+    const kpiTotal = document.getElementById('kpiTotal');
+
+    // 详情弹窗控件引用
+    const detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
+    const mId = document.getElementById('m-withdrawId');
+    const mState = document.getElementById('m-state');
+    const mFlowNode = document.getElementById('m-flowNode');
+    const mTeamId = document.getElementById('m-teamId');
+    const mTeamName = document.getElementById('m-teamName');
+    const mTeamType = document.getElementById('m-teamType');
+    const mLeader = document.getElementById('m-leader');
+    const mAmount = document.getElementById('m-amount');
+    const mApplyAt = document.getElementById('m-applyAt');
+    const mRemark = document.getElementById('m-remark');
+    const mAdvice = document.getElementById('m-advice');
+
+    const mAcctType = document.getElementById('m-acctType');
+    const mRealName = document.getElementById('m-realName');
+    const mAcctNo = document.getElementById('m-acctNo');
+    const mNameCheck = document.getElementById('m-nameCheck');
+    const mRiskList = document.getElementById('m-riskList');
+    const mAuditHistory = document.getElementById('m-auditHistory');
+    const mPayFrom = document.getElementById('m-payFrom');
+    const mTransferNo = document.getElementById('m-transferNo');
+    const mProof = document.getElementById('m-proof');
+
+    const btnApprove = document.getElementById('btnApprove');
+    const btnReject = document.getElementById('btnReject');
+    const btnMarkPaid = document.getElementById('btnMarkPaid');
+
+    // ========== 确认弹窗（内联注入） ==========
+    const confirmModalEl = document.createElement('div');
+    confirmModalEl.innerHTML = `
+    <div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">操作确认</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <div class="modal-body">
+          <div id="confirmText">确认执行该操作？</div>
+          <div id="rejectArea" class="mt-3" style="display:none;">
+            <label class="form-label">驳回原因</label>
+            <div class="input-group input-group-sm mb-2">
+              <label class="input-group-text">类型</label>
+              <select class="form-select" id="rejectType">
+                <option>主体核验不通过</option>
+                <option>超过内部阈值</option>
+                <option>账户信息异常/不完整</option>
+                <option>涉嫌风险（黑名单/频次异常）</option>
+                <option>其他</option>
+              </select>
+            </div>
+            <textarea class="form-control" rows="3" placeholder="请简要说明驳回原因" id="rejectReason"></textarea>
+            <div class="form-help">将通知到申请团队负责人，并在记录中保留。</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+          <button class="btn btn-primary" id="btnConfirmDo">确认执行</button>
+        </div>
+      </div></div></div>`;
+    document.body.appendChild(confirmModalEl);
+    const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
+    const confirmText = document.getElementById('confirmText');
+    const rejectArea = document.getElementById('rejectArea');
+    const rejectType = document.getElementById('rejectType');
+    const rejectReason = document.getElementById('rejectReason');
+    const btnConfirmDo = document.getElementById('btnConfirmDo');
+
+    // 当前记录与待执行操作
+    let current = null;
+    let pendingAction = null;
+
+    // ========== 工具函数 ==========
+    function maskAccount(acctType, no) {
+      // 账号掩码展示（演示）
+      if (no.includes("｜")) { // 对公账号展示包含开户行信息
+        const parts = no.split("｜");
+        const acct = parts[1] || "";
+        return parts[0] + "｜" + (acct.length>4 ? acct.slice(0,4) + " **** **** " + acct.slice(-3) : "****");
+      }
+      if (acctType.includes("银行卡") && no.includes("*")) return no;
+      if (acctType.includes("银行卡")) {
+        const s = String(no); return s.slice(0,4) + "****" + s.slice(-4);
+      }
+      const s = String(no); return s.length > 4 ? s.slice(0, s.length-4) + "****" : "****";
+    }
+    function badgeState(el, state){ el.setAttribute('data-state', state); el.textContent = state; }
+
+    function renderKPIs(list){
+      const todayStr = "2025-09-11";
+      const todayList = list.filter(x => x.applyAt.startsWith(todayStr));
+      const pending = todayList.filter(x => x.state === Flow.PENDING).length;
+      const done = todayList.filter(x => x.state === Flow.DONE).length;
+      const abnormal = todayList.filter(x => x.risk.level !== "ok").length;
+      const total = todayList.reduce((sum,x)=> sum + x.amount, 0);
+      kpiPending.textContent = pending;
+      kpiDone.textContent = done;
+      kpiAbnormal.textContent = abnormal;
+      kpiTotal.textContent = total.toFixed(2);
+    }
+
+    function renderTable(list){
+      tblBody.innerHTML = "";
+      const tpl = document.getElementById('tplRow').innerHTML;
+      list.forEach(item => {
+        let html = tpl
+          .replace('{id}', item.id)
+          .replace('{teamName}', item.teamName)
+          .replace('{teamId}', item.teamId)
+          .replace('{teamType}', item.teamType)
+          .replace('{amount}', item.amount.toFixed(2))
+          .replace('{acctType}', item.acctType)
+          .replace('{realName}', item.realName)
+          .replace('{acctNoMasked}', maskAccount(item.acctType, item.acctNo))
+          .replace('{applyAt}', item.applyAt)
+          .replaceAll('{state}', item.state)
+          .replace('{riskCls}', item.risk.level)
+          .replace('{riskTip}', item.risk.tips);
+        const tr = document.createElement('tbody'); tr.innerHTML = html;
+        const row = tr.firstElementChild;
+        row.addEventListener('dblclick', ()=> openDetail(item.id));
+        row.querySelector('.btn-view').addEventListener('click', ()=> openDetail(item.id));
+        row.querySelector('.btn-approve').addEventListener('click', ()=> { openDetail(item.id); prepareAction('approve'); });
+        row.querySelector('.btn-paid').addEventListener('click', ()=> { openDetail(item.id); prepareAction('markPaid'); });
+        row.querySelector('.btn-reject').addEventListener('click', ()=> { openDetail(item.id); prepareAction('reject'); });
+        tblBody.appendChild(row);
+      });
+      listCount.textContent = list.length;
+      renderKPIs(list);
+    }
+
+    function openDetail(id){
+      current = mockWithdrawals.find(x=> x.id == id);
+      if(!current) return;
+      // 团队信息
+      document.getElementById('m-withdrawId').textContent = '#' + current.id;
+      badgeState(mState, current.state);
+      mFlowNode.textContent = current.state;
+      mTeamId.textContent = current.teamId;
+      mTeamName.textContent = current.teamName;
+      mTeamType.textContent = current.teamType;
+      mLeader.textContent = current.leader;
+      mAmount.textContent = current.amount.toFixed(2);
+      mApplyAt.textContent = current.applyAt;
+      mRemark.textContent = current.remark || '—';
+      mAdvice.textContent = current.advice || '—';
+
+      // 收款账户
+      mAcctType.textContent = current.acctType;
+      mRealName.textContent = current.realName;
+      mAcctNo.textContent = current.acctNo;
+      mNameCheck.innerHTML = current.subjectMatched
+        ? '<span class="badge text-bg-success">主体核验：通过</span>'
+        : '<span class="badge text-bg-danger">主体核验：不通过</span>';
+
+      // 风控检查（团队维度）
+      // 余额情况（替代风控检查）
+      (function(){
+        const b = current.balance || {available:0,frozen:0,pending:0,last:'—'};
+        const to2 = v => (typeof v === 'number' ? v.toFixed(2) : (parseFloat(v)||0).toFixed(2));
+        const el = id => document.getElementById(id);
+        el('m-bal-avl').textContent = to2(b.available||0);
+        el('m-bal-frz').textContent = to2(b.frozen||0);
+        el('m-bal-pend').textContent = to2(b.pending||0);
+        el('m-bal-last').textContent = b.last || '—';
+        el('m-bal-apply').textContent = to2(current.amount||0);
+        const after = (parseFloat(b.available||0) - parseFloat(current.amount||0));
+        el('m-bal-after').textContent = to2(after);
+        el('m-bal-warn').style.display = after < 0 ? 'block' : 'none';
+      })();
+
+      // 打款字段清空
+      mPayFrom.value = "";
+      mTransferNo.value = "";
+      mProof.value = "";
+
+      // 审核记录
+      renderAuditHistory(current.auditHistory || []);
+
+      // 按钮可用性
+      btnApprove.disabled = current.state !== Flow.PENDING;
+      btnReject.disabled = current.state === Flow.DONE || current.state === Flow.REJECTED;
+      btnMarkPaid.disabled = !(current.state === Flow.APPROVED || current.state === Flow.PAID_PENDING);
+
+      detailModal.show();
+    }
+
+    function renderAuditHistory(list){
+      mAuditHistory.innerHTML = "";
+      list.forEach(x=>{
+        const div = document.createElement('div');
+        div.className = 'item';
+        div.innerHTML = `<div class="time">${x.time}｜${x.who}</div><div class="fw-semibold">${x.action}</div><div class="text-muted">${x.note || ''}</div>`;
+        mAuditHistory.appendChild(div);
+      });
+    }
+
+    // ========== 过滤与搜索 ==========
+    function currentFilter(){
+      const st = document.getElementById('filterState').value;
+      const tt = document.getElementById('filterTeamType').value;
+      const at = document.getElementById('filterAcctType').value;
+      const min = parseFloat(document.getElementById('filterMin').value || '0');
+      const max = parseFloat(document.getElementById('filterMax').value || '0');
+      const sd = document.getElementById('filterStart').value;
+      const ed = document.getElementById('filterEnd').value;
+      return {st,tt,at,min,max,sd,ed};
+    }
+
+    function applyFilter(list, f){
+      return list.filter(x=>{
+        if (f.st && x.state !== f.st) return false;
+        if (f.tt && x.teamType !== f.tt) return false;
+        if (f.at && x.acctType !== f.at) return false;
+        if (f.min && x.amount < f.min) return false;
+        if (f.max && x.amount > f.max) return false;
+        if (f.sd && x.applyAt.slice(0,10) < f.sd) return false;
+        if (f.ed && x.applyAt.slice(0,10) > f.ed) return false;
+        return true;
+      });
+    }
+
+    document.getElementById('btnRefresh').addEventListener('click', ()=> renderTable(mockWithdrawals));
+    document.getElementById('btnReset').addEventListener('click', ()=>{
+      document.getElementById('filterState').value = "";
+      document.getElementById('filterTeamType').value = "";
+      document.getElementById('filterAcctType').value = "";
+      document.getElementById('filterMin').value = "";
+      document.getElementById('filterMax').value = "";
+      document.getElementById('filterStart').value = "";
+      document.getElementById('filterEnd').value = "";
+      document.getElementById('globalSearch').value = "";
+      renderTable(mockWithdrawals);
+    });
+
+    document.getElementById('globalSearch').addEventListener('input', (e)=>{
+      const kw = e.target.value.trim();
+      if(!kw){ renderTable(mockWithdrawals); return; }
+      const list = mockWithdrawals.filter(x =>
+        (""+x.id).includes(kw) || (""+x.teamId).includes(kw) || (x.teamName || "").includes(kw)
+      );
+      renderTable(applyFilter(list, currentFilter()));
+    });
+
+    document.querySelector('.dashboard-card .card-body')?.addEventListener('click', (e)=>{
+      if(e.target.id === 'btnDoFilter'){ // 保留占位，若未来加“筛选”按钮
+        renderTable(applyFilter(mockWithdrawals, currentFilter()));
+      }
+    });
+
+    // ========== 操作：通过/驳回/标记完成 ==========
+    function prepareAction(type){
+      pendingAction = type;
+      if(!current) return;
+      if(type === 'approve'){
+        confirmText.innerHTML = `确定要 <span class="text-warning fw-semibold">通过审核</span> 吗？状态将变更为“已通过待打款”。`;
+        rejectArea.style.display = 'none';
+      }else if(type === 'reject'){
+        confirmText.innerHTML = `确定要 <span class="text-danger fw-semibold">驳回</span> 该团队提现申请吗？请填写驳回原因。`;
+        rejectArea.style.display = 'block';
+      }else{
+        confirmText.innerHTML = `确定要 <span class="text-success fw-semibold">标记完成</span> 吗？请确保已线下打款并填写交易流水号或上传凭证。`;
+        rejectArea.style.display = 'none';
+      }
+      confirmModal.show();
+    }
+    document.addEventListener('click', (e)=>{
+      if(e.target.id === 'btnApprove') prepareAction('approve');
+      if(e.target.id === 'btnReject') prepareAction('reject');
+      if(e.target.id === 'btnMarkPaid') prepareAction('markPaid');
+    });
+
+    document.getElementById('btnConfirmDo').addEventListener('click', ()=>{
+      if(!current || !pendingAction) return;
+      if(pendingAction === 'approve'){
+        if(current.state !== Flow.PENDING){ toast("当前状态不可通过"); return; }
+        current.state = Flow.APPROVED;
+        pushAudit(`通过审核`, `主体/风控通过；建议尽快出款`);
+        updateUIAfterAction();
+      }else if(pendingAction === 'reject'){
+        if(current.state === Flow.DONE || current.state === Flow.REJECTED){ toast("当前状态不可驳回"); return; }
+        const t = rejectType.value || "其他";
+        const r = rejectReason.value.trim();
+        if(!r){ toast("请填写驳回原因说明"); return; }
+        current.state = Flow.REJECTED;
+        pushAudit(`驳回（${t}）`, r);
+        updateUIAfterAction();
+      }else if(pendingAction === 'markPaid'){
+        if(!(current.state === Flow.APPROVED || current.state === Flow.PAID_PENDING)){ toast("当前状态不可标记完成"); return; }
+        const transferNo = mTransferNo.value.trim();
+        const hasProof = mProof.files && mProof.files.length > 0;
+        if(!transferNo && !hasProof){ toast("请填写交易流水号或上传打款凭证至少一项"); return; }
+        // 简易幂等校验（演示）：流水号不可重复
+        if(transferNo && mockWithdrawals.some(x => x !== current && (x.auditHistory||[]).some(h => (h.note||'').includes(transferNo)))){
+          toast("该流水号已被使用，请核对后重试"); return;
+        }
+        current.state = Flow.DONE;
+        pushAudit(`标记完成`, `流水号 ${transferNo || '（凭证）'}；线下款项已支付`);
+        pushAudit(`平台资金流水`, `已记账：备注“团队提现#${current.id}｜流水号：${transferNo || '凭证'}”`);
+        updateUIAfterAction();
+      }
+      confirmModal.hide();
+      detailModal.show();
+    });
+
+    function pushAudit(action, note){
+      if(!current.auditHistory) current.auditHistory = [];
+      current.auditHistory.push({
+        time: new Date().toISOString().slice(0,19).replace('T',' '),
+        who: "管理员", action, note
+      });
+    }
+    function updateUIAfterAction(){
+      badgeState(mState, current.state);
+      mFlowNode.textContent = current.state;
+      renderAuditHistory(current.auditHistory);
+      renderTable(filteredSnapshot());
+    }
+    function filteredSnapshot(){
+      return applyFilter(mockWithdrawals, currentFilter());
+    }
+
+    // 简易提示（演示）
+    function toast(msg){ alert(msg); }
+
+    // 顶部栏：侧边栏开关 & 退出登录
+    document.getElementById('sidebarToggle')?.addEventListener('click', ()=>{
+      document.querySelector('.sidebar')?.classList.toggle('show');
+    });
+    document.getElementById('btnLogout')?.addEventListener('click', function(e){
+      e.preventDefault();
+      try{ localStorage.removeItem('auth_token'); localStorage.removeItem('user_info'); sessionStorage.clear(); }catch(err){}
+      window.location.href = 'login.html';
+    });
+
+    // 初始化
+    renderTable(mockWithdrawals);
+  </script>
+
+<script>
+// 侧边栏统一：插入“系统设置”（接口管理与监控下方），隐藏“数据概览/团队投诉反馈”
+(function(){
+  try{
+    const aside = document.querySelector('aside.sidebar');
+    if(aside){
+      const links = aside.querySelectorAll('a');
+      let apiLink = null, settingsLinkExists = false;
+      links.forEach(a=>{
+        if(a.textContent && a.textContent.includes('接口管理与监控')) apiLink = a;
+        if(a.textContent && a.textContent.trim() === '系统设置') settingsLinkExists = true;
+      });
+      if(apiLink && !settingsLinkExists){
+        const li = document.createElement('li'); li.className = 'nav-item';
+        const a = document.createElement('a'); a.className='nav-link'; a.textContent='系统设置';
+        a.href = 'hq-admin-settings-system_v1.2.1d_tabs.html';
+        li.appendChild(a);
+        const parentUl = apiLink.closest('ul') || aside.querySelector('ul');
+        parentUl.insertBefore(li, apiLink.parentElement.nextSibling);
+      }
+      // 隐藏“数据概览”“团队投诉反馈”
+      links.forEach(a=>{
+        const t = (a.textContent||'').trim();
+        if(t.includes('数据概览') || t.includes('团队投诉反馈')){
+          const li = a.closest('li'); if(li) li.style.display='none';
+        }
+      });
+    }
+  }catch(e){ console.warn('侧边栏统一失败', e); }
+})();
+</script>
+
+
+<script>
+// 将表格中的编号（TSK/TPA/TFA/RCG/WDU/WDT/TF/UF/GF/FBK...）自动变为可点击链接
+(function(){
+  const map = {
+    TSK: 'hq-admin-task-detail.html',
+    TPA: 'hq-admin-audit-task-publish.html',
+    TFA: 'hq-admin-audit-task-completion.html',
+    RCG: 'hq-admin-finance-recharge-review.html',
+    WDU: 'hq-admin-finance-withdrawal-review.html',
+    WDT: 'hq-admin-finance-team-withdrawal-review.html',
+    TF:  'hq-admin-finance-platform-fund-flow.html',
+    UF:  'hq-admin-finance-user-fund-flow.html',
+    GF:  'hq-admin-finance-team-fund-flow.html',
+    FBK: 'hq-admin-users-feedback.html',
+    CAT: 'hq-admin-settings-categories.html',
+    FRM: 'hq-admin-form-design.html',
+    APP: 'hq-admin-system-api-management-monitoring.html',
+    MSG: 'hq-admin-users-feedback.html',
+    LOG: 'hq-admin-audit-task-completion.html',
+    U:   'hq-admin-users-list.html',
+    G:   'hq-admin-team-list.html'
+  };
+  const re = /\b(TSK|TPA|TFA|RCG|WDU|WDT|TF|UF|GF|FBK|CAT|FRM|APP|MSG|LOG|U|G)\d{4,}(?:\s*\d{3,})?\b/g;
+  function linkifyNode(node){
+    if(node.children && node.children.length) return;
+    const text = node.textContent;
+    if(!text || !re.test(text)) return;
+    const html = text.replace(re, (m)=>{
+      const pref = m.match(/^[A-Z]+/)[0];
+      const href = map[pref] || '#';
+      const q = encodeURIComponent(m.replace(/\s+/g,''));
+      return `<a href="${href}?id=${q}" class="text-decoration-underline">${m}</a>`;
+    });
+    const span = document.createElement('span'); span.innerHTML = html;
+    node.replaceWith(span);
+  }
+  const targets = Array.from(document.querySelectorAll('td, span, div, p, li'));
+  targets.forEach(linkifyNode);
+})();
+</script>
+
+
+
+
+
+<style>
+/* 统一状态样式 */
+.unified-empty { text-align:center; padding:28px 12px; color:#6c757d; }
+.unified-empty .icon { display:inline-block; width:36px; height:36px; border-radius:50%; border:2px dashed #ced4da; margin-bottom:6px; }
+.unified-loading { position:relative; min-height:80px; }
+.unified-loading:after {
+  content:""; position:absolute; inset:0; background:
+    linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.04) 50%, rgba(0,0,0,0) 100%);
+  animation: shimmer 1.2s infinite;
+}
+@keyframes shimmer { 0%{background-position:-200% 0;} 100%{background-position:200% 0;} }
+.unified-error { color:#dc3545; padding:8px 0; }
+
+/* 统一筛选浮层 */
+#unifiedFilterPanel {
+  position: fixed; right: 16px; top: 84px; width: 360px; z-index: 1080;
+  background: #fff; border: 1px solid #dee2e6; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.12);
+  display:none;
+}
+#unifiedFilterPanel .hdr { padding: 10px 12px; border-bottom:1px solid #eee; display:flex; align-items:center; justify-content:space-between; }
+#unifiedFilterPanel .bd { padding: 12px; }
+#btnUnifiedFilter { margin-left: 8px; }
+
+/* 按钮意图颜色统一（基于文本） */
+button, .btn { transition: filter .2s ease; }
+.btn-intent-approve { background:#198754; color:#fff; border-color:#198754; }
+.btn-intent-reject { background:#dc3545; color:#fff; border-color:#dc3545; }
+.btn-intent-return { background:#ffc107; color:#212529; border-color:#ffc107; }
+.btn-intent-pay { background:#0d6efd; color:#fff; border-color:#0d6efd; }
+
+/* 可点击编号统一下划线（若页面未设置） */
+a.id-link { text-decoration: underline; }
+</style>
+
+<script>
+(function(){
+  // ===== 读取系统设置（货币/精度/时区） =====
+  const PUB_KEY = 'hq_sys_settings_v1_2_1d_published';
+  let locale = { lang:'zh-CN', tz:'Asia/Shanghai', currency:'CNY', precision:2 };
+  try{
+    const cfg = JSON.parse(localStorage.getItem(PUB_KEY)||'{}');
+    if(cfg.locale){
+      locale.lang = cfg.locale.lang || locale.lang;
+      locale.tz = cfg.locale.tz || locale.tz;
+      locale.currency = cfg.locale.currency || locale.currency;
+      locale.precision = parseInt(cfg.locale.precision||locale.precision,10);
+    }
+  }catch(e){}
+
+  // ===== 统一筛选：在首个 .card-header 右侧添加“筛选”按钮 + 浮层 =====
+  function ensureFilterUI(){
+    if(document.getElementById('unifiedFilterPanel')) return;
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-outline-secondary btn-sm';
+    btn.id = 'btnUnifiedFilter';
+    btn.innerHTML = '<i class="bi bi-funnel me-1"></i>筛选';
+    // 尝试挂到第一个 card-header 右侧
+    const hdr = document.querySelector('.card .card-header') || document.querySelector('.d-flex.align-items-center.justify-content-between');
+    if(hdr){ hdr.appendChild(btn); }
+    else {
+      // 顶部右上角浮动按钮（兜底）
+      const fbtn = btn.cloneNode(true);
+      fbtn.style.position='fixed'; fbtn.style.right='16px'; fbtn.style.top='20px'; fbtn.style.zIndex='1080';
+      document.body.appendChild(fbtn);
+    }
+
+    const panel = document.createElement('div');
+    panel.id = 'unifiedFilterPanel';
+    panel.innerHTML = `
+      <div class="hdr">
+        <strong>通用筛选</strong>
+        <button type="button" class="btn-close" id="btnUFclose"></button>
+      </div>
+      <div class="bd">
+        <div class="mb-2">
+          <label class="form-label">关键字</label>
+          <input class="form-control" id="uf-key" placeholder="编号/手机号/名称">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">状态</label>
+          <select class="form-select" id="uf-status">
+            <option value="">全部</option>
+            <option>待处理</option>
+            <option>处理中</option>
+            <option>已通过</option>
+            <option>已驳回</option>
+            <option>已完成</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">时间范围</label>
+          <div class="d-flex gap-2">
+            <input type="date" class="form-control" id="uf-from">
+            <input type="date" class="form-control" id="uf-to">
+          </div>
+        </div>
+        <div class="d-flex justify-content-end gap-2">
+          <button class="btn btn-outline-secondary btn-sm" id="uf-reset">重置</button>
+          <button class="btn btn-primary btn-sm" id="uf-apply">应用</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(panel);
+
+    document.body.addEventListener('click', function(e){
+      if(e.target && (e.target.id==='btnUnifiedFilter')){
+        const p = document.getElementById('unifiedFilterPanel');
+        p.style.display = (p.style.display==='none' || !p.style.display) ? 'block' : 'none';
+      }
+      if(e.target && (e.target.id==='btnUFclose')){
+        document.getElementById('unifiedFilterPanel').style.display = 'none';
+      }
+      if(e.target && (e.target.id==='uf-reset')){
+        document.getElementById('uf-key').value='';
+        document.getElementById('uf-status').value='';
+        document.getElementById('uf-from').value='';
+        document.getElementById('uf-to').value='';
+        // 客户端演示：移除高亮
+        document.querySelectorAll('.uf-hl').forEach(n=>n.classList.remove('uf-hl'));
+      }
+      if(e.target && (e.target.id==='uf-apply')){
+        // Demo：仅做关键字高亮；实际项目应触发具体表格筛选逻辑
+        const key = (document.getElementById('uf-key').value||'').trim();
+        document.querySelectorAll('.uf-hl').forEach(n=>n.classList.remove('uf-hl'));
+        if(key){
+          const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+          const re = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+          let node; while(node = walker.nextNode()){
+            if(re.test(node.nodeValue) && node.parentElement && node.parentElement.closest('table')){
+              node.parentElement.classList.add('uf-hl');
+            }
+          }
+        }
+        document.getElementById('unifiedFilterPanel').style.display = 'none';
+      }
+    });
+
+    const style = document.createElement('style');
+    style.textContent = `.uf-hl{ background: rgba(255, 230, 0, .45); outline: 1px dashed #ffbf00; }`;
+    document.head.appendChild(style);
+  }
+
+  // ===== 统一金额格式（根据表头关键字判列） =====
+  function unifyAmountFormat(){
+    const tables = Array.from(document.querySelectorAll('table'));
+    const nf = new Intl.NumberFormat(locale.lang, { style:'currency', currency: locale.currency, minimumFractionDigits: locale.precision, maximumFractionDigits: locale.precision });
+    tables.forEach(tb=>{
+      const ths = Array.from(tb.querySelectorAll('thead th, thead td')).map(th => (th.textContent||'').trim());
+      if(!ths.length) return;
+      ths.forEach((txt, idx)=>{
+        if(/金额|价|费|收款|打款|入账|出账/.test(txt)){
+          Array.from(tb.querySelectorAll(`tbody tr`)).forEach(tr=>{
+            const td = tr.children[idx]; if(!td) return;
+            const raw = (td.textContent||'').replace(/[,￥$]/g,'').trim();
+            const num = parseFloat(raw);
+            if(!isNaN(num)){
+              td.setAttribute('data-raw-amount', num);
+              td.textContent = nf.format(num);
+              td.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace';
+              td.style.textAlign = 'right';
+            }
+          });
+        }
+      });
+    });
+  }
+
+  // ===== 统一时间格式 =====
+  function unifyTimeFormat(){
+    const tables = Array.from(document.querySelectorAll('table'));
+    const fmt = new Intl.DateTimeFormat(locale.lang, { timeZone: locale.tz, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    tables.forEach(tb=>{
+      const ths = Array.from(tb.querySelectorAll('thead th, thead td')).map(th => (th.textContent||'').trim());
+      if(!ths.length) return;
+      ths.forEach((txt, idx)=>{
+        if(/时间|日期|创建|更新/.test(txt)){
+          Array.from(tb.querySelectorAll(`tbody tr`)).forEach(tr=>{
+            const td = tr.children[idx]; if(!td) return;
+            const s = (td.textContent||'').trim();
+            // 常见格式 "YYYY-MM-DD HH:mm[:ss]"
+            const iso = s.replace(/(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(:\d{2})?)/, '$1T$2');
+            const d = new Date(iso);
+            if(!isNaN(+d)){
+              td.title = d.toISOString();
+              td.textContent = fmt.format(d);
+              td.style.whiteSpace = 'nowrap';
+            }
+          });
+        }
+      });
+    });
+  }
+
+  // ===== 空态填充（无数据时） =====
+  function fillEmptyStates(){
+    Array.from(document.querySelectorAll('table')).forEach(tb=>{
+      const body = tb.querySelector('tbody'); if(!body) return;
+      const hasRow = body.querySelector('tr');
+      if(!hasRow){
+        const colSpan = (tb.querySelectorAll('thead th').length || 1);
+        const tr = document.createElement('tr');
+        const td = document.createElement('td'); td.colSpan = colSpan; td.className='unified-empty';
+        td.innerHTML = '<div class="icon"></div><div>暂无数据</div>';
+        tr.appendChild(td); body.appendChild(tr);
+      }
+    });
+  }
+
+  // ===== 动作按钮意图着色（基于文本内容） =====
+  function colorizeActionButtons(){
+    const btns = Array.from(document.querySelectorAll('button, a.btn'));
+    btns.forEach(b=>{
+      const t = (b.textContent||'').trim();
+      if(/通过|同意|Approve/i.test(t)) b.classList.add('btn-intent-approve');
+      if(/驳回|拒绝|Reject/i.test(t)) b.classList.add('btn-intent-reject');
+      if(/打回|退回|Return/i.test(t)) b.classList.add('btn-intent-return');
+      if(/打款|已转账|Pay/i.test(t)) b.classList.add('btn-intent-pay');
+    });
+  }
+
+  // ===== 启动顺序 =====
+  document.addEventListener('DOMContentLoaded', function(){
+    ensureFilterUI();
+    unifyAmountFormat();
+    unifyTimeFormat();
+    fillEmptyStates();
+    colorizeActionButtons();
+  });
+})();
+</script>
+
+
+<script>
+(function(){
+  // 统一“通知回执”与“总部收件箱”写入
+  const PUB_KEY = 'hq_sys_settings_v1_2_1d_published';
+
+  function pushHQInbox(msg){
+    try{
+      const cfg = JSON.parse(localStorage.getItem(PUB_KEY) || '{}');
+      const inbox = (cfg.notifySite && cfg.notifySite.hq && Array.isArray(cfg.notifySite.hq.inbox)) ? cfg.notifySite.hq.inbox : [];
+      inbox.unshift(msg);
+      if(!cfg.notifySite) cfg.notifySite = {};
+      if(!cfg.notifySite.hq) cfg.notifySite.hq = {};
+      cfg.notifySite.hq.inbox = inbox.slice(0, 500); // 限制长度
+      localStorage.setItem(PUB_KEY, JSON.stringify(cfg));
+      // 触发 storage 监听（同页不会触发），这里手动广播一次
+      window.dispatchEvent(new StorageEvent('storage', {key: PUB_KEY, newValue: JSON.stringify(cfg)}));
+    }catch(e){ console.warn('写入总部收件箱失败', e); }
+  }
+
+  function toast(msg, link){
+    let wrap = document.getElementById('p2ToastWrap');
+    if(!wrap){
+      wrap = document.createElement('div');
+      wrap.id = 'p2ToastWrap';
+      wrap.style.position='fixed'; wrap.style.right='16px'; wrap.style.bottom='16px';
+      wrap.style.zIndex='2000'; document.body.appendChild(wrap);
+    }
+    const el = document.createElement('div');
+    el.style.background='#212529'; el.style.color='#fff'; el.style.padding='10px 12px'; el.style.borderRadius='10px';
+    el.style.boxShadow='0 6px 18px rgba(0,0,0,.2)'; el.style.marginTop='8px'; el.style.maxWidth='360px';
+    el.innerHTML = `<div>${msg}${link?`　<a href="${link}" class="link-light text-decoration-underline" target="_blank">查看总部收件箱</a>`:''}</div>`;
+    wrap.appendChild(el);
+    setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateY(10px)'; el.style.transition='all .3s'; setTimeout(()=>el.remove(), 350); }, 2200);
+  }
+
+  function nowStr(){
+    const d = new Date();
+    const pad = (n)=>String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function getIdFromUrl(){
+    try{
+      const u = new URL(location.href);
+      return u.searchParams.get('id') || '';
+    }catch(e){ return ''; }
+  }
+
+  // 财务：监听“选择付款账户”确认按钮（如存在则联动）
+  document.addEventListener('click', function(e){
+    if(e.target && e.target.id === 'btnConfirmPayout'){
+      let count = 1; // 总部
+      let type = '财务';
+      let summary = '已完成打款操作';
+      if(location.pathname.includes('recharge')){ type='充值'; summary='充值审核已通过'; count = 2; }
+      if(location.pathname.includes('withdrawal') && !location.pathname.includes('team')){ type='提现（个人）'; summary='个人提现已转账'; count = 3; }
+      if(location.pathname.includes('team-withdrawal')){ type='提现（团队）'; summary='团队提现已转账'; count = 3; }
+      const id = getIdFromUrl();
+      pushHQInbox({time: nowStr(), type, summary: (id? (summary+' '+id) : summary), read:false});
+      toast(`已发送 ${count} 条通知（模拟）`, 'hq-admin-settings-system_v1.2.1d_tabs_p2.html#tab-notify-site');
+    }
+  }, true);
+
+  // 审核页：监听“通过/驳回/打回”按钮文本
+  document.addEventListener('click', function(e){
+    const btn = e.target.closest('button, a.btn');
+    if(!btn) return;
+    const text = (btn.textContent||'').trim();
+    if(/通过|驳回|打回/i.test(text)){
+      let type = '任务审核';
+      if(location.pathname.includes('publish')) type = '任务发布审核';
+      if(location.pathname.includes('completion')) type = '任务完成审核';
+      const id = getIdFromUrl();
+      const summary = `${text} ${id||''}`.trim();
+      pushHQInbox({time: nowStr(), type, summary, read:false});
+      const count = /驳回/.test(text) ? 2 : 3;
+      toast(`已发送 ${count} 条通知（模拟）`, 'hq-admin-settings-system_v1.2.1d_tabs_p2.html#tab-notify-site');
+    }
+  }, true);
+})();
+</script>
+
+</body>
+</html>

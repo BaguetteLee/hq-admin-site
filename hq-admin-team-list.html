@@ -1,0 +1,1374 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>总部管理系统 - 平台团队列表（重写版 v4.1）</title>
+
+  <!-- 依赖：Bootstrap 与 Icons（CDN） -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+
+  <style>
+    :root{
+      --primary:#3b7ddd; --primary-light:#e8f0fe; --white:#fff; --light:#f5f6f8; --border:#e2e8f0; --text:#2d3748;
+      --dot-platform:#3b7ddd; --dot-user:#2fb67b; --dot-team:#f6a035; --dot-system:#7a5af8;
+      --danger:#dc3545; --success:#2fb67b; --warning:#f6a035; --muted:#64748b;
+    }
+    html,body{height:100%;}
+    body{background-color:var(--light);font-family:'Segoe UI',Tahoma,Arial,sans-serif;color:var(--text);}
+    /* 顶部导航/侧边栏与 users-list 保持一致 */
+    .navbar{background:var(--white);border-bottom:1px solid var(--border);box-shadow:0 2px 10px rgba(0,0,0,.05);
+      position:fixed;top:0;left:0;right:0;z-index:1030;padding-left:260px}
+    .navbar-brand{color:var(--primary);font-weight:700;display:flex;gap:.6rem;align-items:center}
+    .navbar-toggler{display:none;border:none;font-size:1.25rem}
+    .navbar-toggler:focus{box-shadow:none}
+    .sidebar{background:var(--white);height:100vh;position:fixed;left:0;top:0;width:260px;padding-top:60px;
+      border-right:1px solid var(--border);box-shadow:2px 0 10px rgba(0,0,0,.05);z-index:1000;overflow-y:auto}
+    .sidebar .nav-link{color:#4a5568;padding:.8rem 1rem;margin:.1rem .5rem;border-radius:6px;display:flex;gap:.55rem;align-items:center}
+    .sidebar .nav-link i{color:#718096}
+    .sidebar .nav-link:hover,.sidebar .nav-link.active{color:var(--primary);background:var(--primary-light)}
+    .sidebar .nav-link.active i,.sidebar .nav-link:hover i{color:var(--primary)}
+    .sidebar .menu-section{padding:.75rem 1rem .25rem;color:#94a3b8;font-weight:700;font-size:.75rem;letter-spacing:.06em;text-transform:uppercase}
+    .cat-dot{display:inline-block;width:.6rem;height:.6rem;border-radius:2px}
+    .dot-platform{background:var(--dot-platform)} .dot-user{background:var(--dot-user)} .dot-team{background:var(--dot-team)} .dot-system{background:var(--dot-system)}
+    .main-content{margin-left:260px;padding:20px 20px 40px 20px;padding-top:80px}
+    .dashboard-card{background:var(--white);border-radius:10px;box-shadow:0 4px 6px rgba(0,0,0,.04);margin-bottom:18px;border:none}
+    .card-header{background:var(--white);border-bottom:1px solid var(--border);font-weight:600}
+    .small-muted{color:#6b7280}
+    .kpi{display:flex;align-items:center;gap:.6rem}
+    .kpi .icon{font-size:1.1rem;color:#64748b}
+    .kpi .val{font-weight:800;font-size:1.2rem}
+    .kpi .sub{font-size:.85rem;color:#94a3b8}
+    /* 表格细节：等宽数字、nowrap、右对齐 */
+    .table-sm>:not(caption)>*>*{padding:.44rem .6rem; vertical-align:middle;}
+    .table thead th{font-weight:600;color:#4a5568;border-bottom:2px solid var(--border);white-space:nowrap}
+    .text-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+    .num{font-variant-numeric: tabular-nums;}
+    /* 右侧抽屉（视为模态） */
+    .drawer{position:fixed;right:-1100px;top:56px;bottom:0;width:1100px;max-width:96vw;background:#fff;border-left:1px solid var(--border);
+      box-shadow:-8px 0 24px rgba(0,0,0,.08);transition:right .25s;z-index:1061;display:flex;flex-direction:column}
+    .drawer.open{right:0}
+    .drawer-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+    .drawer-body{padding:16px;overflow:auto}
+    /* 遮罩层：点击关闭 */
+    .drawer-backdrop{position:fixed;top:56px;left:0;right:0;bottom:0;background:rgba(0,0,0,.35);z-index:1060;display:none}
+    .drawer-backdrop.show{display:block}
+    .badge-api{display:inline-flex;align-items:center;gap:.35rem;font-weight:600}
+    .badge-dot{width:8px;height:8px;border-radius:50%}
+    .section{border:1px solid var(--border);border-radius:10px;padding:1rem;background:#fff;margin-bottom:12px}
+    .bg-soft{background:#f7fafc;border:1px solid var(--border);border-radius:8px;padding:.5rem .75rem}
+    .kv{display:grid;grid-template-columns:160px 1fr;gap:.5rem 1rem;align-items:center}
+    .kv .k{color:#64748b}
+    .kv .v{font-weight:600}
+    /* 响应式 */
+    @media (max-width: 992px){
+      .sidebar{width:84px;padding-top:70px}
+      .sidebar .nav-link span.text,.sidebar .menu-section{display:none}
+      .main-content{margin-left:84px}
+      .navbar{padding-left:84px}
+      .drawer{top:56px;width:96vw}
+    }
+    @media (max-width: 768px){
+      .sidebar{transform:translateX(-100%);width:260px}
+      .sidebar.show{transform:translateX(0)}
+      .main-content{margin-left:0}
+      .navbar{padding-left:15px}
+      .navbar-toggler{display:block}
+    }
+  </style>
+</head>
+<body>
+  <!-- 顶部导航 -->
+  <nav class="navbar navbar-expand-lg navbar-light">
+    <div class="container-fluid">
+      <button class="navbar-toggler" type="button" id="sidebarToggle"><span class="navbar-toggler-icon"></span></button>
+      <a class="navbar-brand" href="#"><strong><i class="bi bi-building me-2"></i>总部管理系统</strong></a>
+      <div class="collapse navbar-collapse">
+        <ul class="navbar-nav ms-auto me-5">
+          <li class="nav-item dropdown ms-2">
+            <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" data-bs-toggle="dropdown">
+              <i class="bi bi-person-circle me-2"></i> 管理员
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li><a class="dropdown-item" href="#" id="btnLogout"><i class="bi bi-box-arrow-right me-2"></i>退出</a></li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- 左侧侧边栏 -->
+  <aside class="sidebar" id="sidebar">
+    <ul class="nav flex-column">
+      <li class="menu-section">平台</li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-dashboard.html"><span class="cat-dot dot-platform"></span><i class="bi bi-speedometer2"></i><span class="text">平台总仪表盘</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-finance-platform-fund-flow.html"><span class="cat-dot dot-platform"></span><i class="bi bi-currency-exchange"></i><span class="text">平台资金流水</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-tasks-global-management.html"><span class="cat-dot dot-platform"></span><i class="bi bi-list-task"></i><span class="text">任务全局管理</span></a></li>
+
+      <li class="menu-section">用户</li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-users-list.html"><span class="cat-dot dot-user"></span><i class="bi bi-people"></i><span class="text">平台用户列表</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-finance-recharge-review.html"><span class="cat-dot dot-user"></span><i class="bi bi-wallet2"></i><span class="text">用户充值审核</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-finance-withdrawal-review.html"><span class="cat-dot dot-user"></span><i class="bi bi-cash-coin"></i><span class="text">用户提现审核</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-finance-user-fund-flow.html"><span class="cat-dot dot-user"></span><i class="bi bi-currency-exchange"></i><span class="text">用户资金流水</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-users-feedback.html"><span class="cat-dot dot-user"></span><i class="bi bi-chat-left-text"></i><span class="text">用户投诉反馈</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-audit-task-publish.html"><span class="cat-dot dot-user"></span><i class="bi bi-send-check"></i><span class="text">用户发布审核</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-audit-task-completion.html"><span class="cat-dot dot-user"></span><i class="bi bi-check2-circle"></i><span class="text">任务完成审核</span></a></li>
+
+      <li class="menu-section">团队</li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-team-dashboard.html"><span class="cat-dot dot-team"></span><i class="bi bi-graph-up"></i><span class="text">团队数据概览</span></a></li>
+      <li class="nav-item"><a class="nav-link active" href="hq-admin-team-list.html"><span class="cat-dot dot-team"></span><i class="bi bi-building"></i><span class="text">平台团队列表</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-finance-team-withdrawal-review.html"><span class="cat-dot dot-team"></span><i class="bi bi-bank"></i><span class="text">团队提现审核</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-finance-team-fund-flow.html"><span class="cat-dot dot-team"></span><i class="bi bi-currency-exchange"></i><span class="text">团队资金流水</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-team-feedback.html"><span class="cat-dot dot-team"></span><i class="bi bi-chat-left-text"></i><span class="text">团队投诉反馈</span></a></li>
+
+      <li class="menu-section">系统</li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-settings-categories.html"><span class="cat-dot dot-system"></span><i class="bi bi-tags"></i><span class="text">业务分类管理</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-system-api-management-monitoring.html"><span class="cat-dot dot-system"></span><i class="bi bi-hdd-network"></i><span class="text">接口管理监控</span></a></li>
+      <li class="nav-item"><a class="nav-link" href="hq-admin-settings-system.html"><span class="cat-dot dot-system"></span><i class="bi bi-gear-fill"></i><span class="text">系统设置</span></a></li>
+    </ul>
+  </aside>
+
+  <!-- 主内容 -->
+  <main class="main-content">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <div>
+        <h4 class="mb-0">平台团队列表 <small class="small-muted">（经营视角 · 重写版）</small></h4>
+        <div class="small-muted">定位：查看团队经营概况、资金构成、关联用户、记录；不涉及启用/禁用/拉黑等控制。</div>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-outline-primary btn-sm" id="btnExport"><i class="bi bi-download me-1"></i>导出可见列表</button>
+        <div class="btn-group btn-sm">
+          <button class="btn btn-outline-secondary" id="btnExportSel">导出选中</button>
+          <button class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown"></button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="#" id="btnExportAll">导出全部（模拟）</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI 概览 -->
+    <div class="row g-3 mb-3">
+      <div class="col-sm-6 col-lg-3">
+        <div class="dashboard-card card h-100"><div class="card-body kpi">
+          <i class="bi bi-buildings icon"></i>
+          <div><div class="sub">团队总数</div><div class="val" id="kpiTotal">0</div></div>
+        </div></div>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <div class="dashboard-card card h-100"><div class="card-body kpi">
+          <i class="bi bi-check2-circle icon"></i>
+          <div><div class="sub">API 正常</div><div class="val" id="kpiApiOk">0</div></div>
+        </div></div>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <div class="dashboard-card card h-100"><div class="card-body kpi">
+          <i class="bi bi-bag-check icon"></i>
+          <div><div class="sub">近 7 日订单数</div><div class="val" id="kpiOrders7d">0</div></div>
+        </div></div>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <div class="dashboard-card card h-100"><div class="card-body kpi">
+          <i class="bi bi-graph-up icon"></i>
+          <div><div class="sub">近 7 日成交额</div><div class="val" id="kpiRev7d">¥0</div></div>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- 筛选器 -->
+    <div class="dashboard-card card">
+      <div class="card-body">
+        <form id="filterForm" class="row g-3 align-items-end">
+          <div class="col-12 col-md-4 col-lg-3">
+            <label class="form-label">关键词</label>
+            <div class="input-group">
+              <input type="text" class="form-control" id="fKw" placeholder="团队名 / 负责人 / 电话 / 团队ID">
+              <button class="btn btn-outline-secondary" type="button" id="btnQuick"><i class="bi bi-search"></i></button>
+            </div>
+          </div>
+          <div class="col-12 col-md-3 col-lg-2">
+            <label class="form-label">团队性质</label>
+            <select class="form-select" id="fKind">
+              <option value="">全部</option>
+              <option value="publish">发布团队</option>
+              <option value="take">接单团队</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-3 col-lg-2">
+            <label class="form-label">API 状态</label>
+            <select class="form-select" id="fApi">
+              <option value="">全部</option>
+              <option value="ok">正常</option>
+              <option value="warn">警告</option>
+              <option value="bad">异常</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-3 col-lg-2">
+            <label class="form-label">排序</label>
+            <select class="form-select" id="fSort">
+              <option value="time">接入时间</option>
+              <option value="users">关联用户</option>
+              <option value="rev7d">近7日成交额</option>
+              <option value="orders7d">近7日订单数</option>
+              <option value="name">名称</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-6 col-lg-3">
+            <button type="button" class="btn btn-primary w-100" id="btnApply"><i class="bi bi-funnel me-1"></i>应用筛选</button>
+          </div>
+          <div class="col-12 col-md-6 col-lg-2">
+            <button type="button" class="btn btn-outline-secondary w-100" id="btnReset">重置</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 批量条 -->
+    <div class="dashboard-card card">
+      <div class="card-body d-flex flex-wrap align-items-center gap-2">
+        <div class="small-muted"><i class="bi bi-check-square me-1"></i>已选：<b id="selCount">0</b></div>
+        <button class="btn btn-sm btn-outline-primary" id="btnBatchExport">导出选中</button>
+        <div class="ms-auto small-muted">说明：该页仅展示经营数据，不提供启用/禁用/拉黑/审核等控制项。</div>
+      </div>
+    </div>
+
+    <!-- 列表 -->
+    <div class="dashboard-card card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm align-middle mb-0" id="tbl">
+            <thead>
+              <tr>
+                <th style="width:34px"><input class="form-check-input" type="checkbox" id="chkAll"></th>
+                <th>团队ID</th>
+                <th>团队名称</th>
+                <th>团队性质</th>
+                <th>负责人</th>
+                <th>联系电话</th>
+                <th class="text-end">关联用户</th>
+                <th>API</th>
+                <th class="text-end">近7日订单</th>
+                <th class="text-end">近7日成交额(¥)</th>
+                <th class="text-end">近30日成交额(¥)</th>
+                <th>接入时间</th>
+                <th style="width:120px">操作</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-body">
+        <nav class="d-flex justify-content-center"><ul class="pagination mb-0" id="pager"></ul></nav>
+      </div>
+    </div>
+  </main>
+
+  <!-- 遮罩层（点击关闭抽屉/模态） -->
+  <div class="drawer-backdrop" id="drawerBackdrop"></div>
+
+  <!-- 右侧抽屉：团队详情（视为模态） -->
+  <aside class="drawer" id="drawer">
+    <div class="drawer-header">
+      <div class="d-flex flex-column">
+        <div class="d-flex align-items-center gap-2">
+          <h6 class="mb-0" id="dTitle">团队详情</h6>
+          <span class="badge bg-secondary" id="dId">—</span>
+        </div>
+        <div class="small-muted" id="dSub">—</div>
+      </div>
+      <!-- 右上角关闭按钮 -->
+      <button type="button" class="btn-close" aria-label="Close" id="drawerClose"></button>
+    </div>
+    <div class="drawer-body">
+      <!-- 基础信息 -->
+      <div class="section">
+        <div class="row g-3">
+          <div class="col-lg-6">
+            <div class="kv">
+              <div class="k">团队ID</div><div class="v text-mono" id="kvId">—</div>
+              <div class="k">团队性质</div><div class="v" id="kvKind">—</div>
+              <div class="k">负责人</div><div class="v" id="kvOwner">—</div>
+              <div class="k">联系电话</div><div class="v" id="kvPhone">—</div>
+              <div class="k">联系邮箱</div><div class="v" id="kvEmail">—</div>
+              <div class="k">接入时间</div><div class="v" id="kvJoin">—</div>
+              <div class="k">API 状态</div><div class="v" id="kvApi">—</div>
+            </div>
+          </div>
+          <div class="col-lg-6">
+            <div class="bg-soft">
+              <div class="fw-semibold mb-1">业务范围 · 分类</div>
+              <div class="small-muted mb-2">参考“业务分类管理”中的可运营分类（静态演示）。</div>
+              <div id="kvScopes" class="d-flex flex-wrap gap-2"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 选项卡（合并“概览 + 记录”） -->
+      <ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-overview">概览与记录</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-biz">经营</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-fund">资金</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-users">用户</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-logs">日志</button></li>
+      </ul>
+
+      <div class="tab-content mt-3">
+        <!-- 概览与记录 -->
+        <div class="tab-pane fade show active" id="tab-overview">
+          <!-- 概览 KPI -->
+          <div class="row g-2">
+            <div class="col-md-3"><div class="dashboard-card card"><div class="card-body">
+              <div class="small-muted">关联用户</div><div class="h5 mb-0 num" id="ovUsers">—</div>
+            </div></div></div>
+            <div class="col-md-3"><div class="dashboard-card card"><div class="card-body">
+              <div class="small-muted">近7日订单</div><div class="h5 mb-0 num" id="ovOrders7d">—</div>
+            </div></div></div>
+            <div class="col-md-3"><div class="dashboard-card card"><div class="card-body">
+              <div class="small-muted">近7日成交额</div><div class="h5 mb-0 num" id="ovRev7d">—</div>
+            </div></div></div>
+            <div class="col-md-3"><div class="dashboard-card card"><div class="card-body">
+              <div class="small-muted">近30日成交额</div><div class="h5 mb-0 num" id="ovRev30d">—</div>
+            </div></div></div>
+          </div>
+
+          <!-- 记录（可新增/删除） -->
+          <div class="section mt-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="fw-semibold">记录</div>
+              <div class="d-flex gap-2">
+                <select class="form-select form-select-sm" id="recType" style="width:150px">
+                  <option value="资料">资料</option>
+                  <option value="协作">协作</option>
+                  <option value="合作">合作</option>
+                  <option value="其他">其他</option>
+                </select>
+                <input class="form-control form-control-sm" id="recText" style="width:360px" placeholder="记录内容（必填）">
+                <input class="form-control form-control-sm" id="recBy" style="width:160px" placeholder="记录人（可选）">
+                <button class="btn btn-sm btn-primary" id="btnAddRecord"><i class="bi bi-plus-lg me-1"></i>添加记录</button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle mb-0">
+                <thead><tr><th style="width:160px">时间</th><th style="width:160px">类型</th><th>内容</th><th style="width:120px">记录人</th><th style="width:80px">操作</th></tr></thead>
+                <tbody id="recordsTbody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="alert alert-secondary small mt-2 mb-0">说明：记录仅为页面内存模拟，刷新后恢复初始数据；对接后端后写入数据库。</div>
+        </div>
+
+        <!-- 经营（按你的字段定义；发布团队移除“发单信息费/实付”列） -->
+        <div class="tab-pane fade" id="tab-biz">
+          <!-- 发单团队 -->
+          <div class="section" id="panel-publish" style="display:none">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="fw-semibold">该团队发布的任务（近30日）</div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-hover table-sm mb-0">
+                <thead>
+                <tr>
+                  <th>任务ID</th><th>任务分类</th><th>发布用户</th><th>发布时间</th>
+                  <th class="text-end">单价</th><th class="text-end">数量</th>
+                  <th class="text-end">进行中</th><th class="text-end">已完成</th><th class="text-end">已驳回</th><th class="text-end">剩余</th>
+                  <th>状态</th>
+                </tr>
+                </thead>
+                <tbody id="bizPubTbody"></tbody>
+              </table>
+            </div>
+          </div>
+          <!-- 接单团队 -->
+          <div class="section" id="panel-take" style="display:none">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="fw-semibold">该团队参与的接单任务（近30日）</div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-hover table-sm mb-0">
+                <thead>
+                <tr>
+                  <th>任务ID</th><th>任务分类</th>
+                  <th class="text-end">接单数量</th><th class="text-end">提交数量</th><th class="text-end">完成数量</th><th class="text-end">驳回数量</th>
+                  <th>任务状态</th>
+                </tr>
+                </thead>
+                <tbody id="bizTakeTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- 资金（保持 v4 行为：按团队类型显示） -->
+        <div class="tab-pane fade" id="tab-fund">
+          <div class="row g-3">
+            <!-- 发单团队资金构成 -->
+            <div id="fund-publish-col" class="col-lg-6">
+              <div class="section" id="fund-publish" style="display:none">
+                <div class="fw-semibold mb-2">发布任务 · 信息服务费</div>
+                <div class="table-responsive">
+                  <table class="table table-sm table-striped mb-0">
+                    <thead>
+                      <tr><th>任务ID</th><th>任务分类</th><th class="text-end">发单信息费率</th><th class="text-end">赏金单价</th><th class="text-end">数量</th><th class="text-end">发单信息费</th><th class="text-end">实付</th></tr>
+                    </thead>
+                    <tbody id="fundPubTbody"></tbody>
+                  </table>
+                </div>
+                <div class="small text-muted mt-1">合计（近30日）：<b id="fundPubTotal">—</b></div>
+              </div>
+            </div>
+            <!-- 接单团队资金构成 -->
+            <div id="fund-take-col" class="col-lg-6">
+              <div class="section" id="fund-take" style="display:none">
+                <div class="fw-semibold mb-2">接单任务 · 团队抽成</div>
+                <div class="table-responsive">
+                  <table class="table table-sm table-striped mb-0">
+                    <thead>
+                      <tr><th>任务ID</th><th>任务分类</th><th class="text-end">接单信息费率</th><th class="text-end">赏金单价</th><th class="text-end">用户到手</th><th class="text-end">接单信息费</th></tr>
+                    </thead>
+                    <tbody id="fundTakeTbody"></tbody>
+                  </table>
+                </div>
+                <div class="small text-muted mt-1">合计（近30日）：<b id="fundTakeTotal">—</b></div>
+              </div>
+            </div>
+          </div>
+          <div class="alert alert-light border small mt-2">显示规则：发布团队展示“信息服务费”，接单团队展示“接单信息费”。当前类型模块自动全宽显示。</div>
+        </div>
+
+        <!-- 用户（发布团队与接单团队显示不同表头与字段） -->
+        <div class="tab-pane fade" id="tab-users">
+          <div class="section">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="fw-semibold">关联用户（示例最多 10 条）</div>
+              <div class="small-muted">更多请前往「平台用户列表」按团队筛选查看。</div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle mb-0">
+                <thead id="usersThead"></thead>
+                <tbody id="usersTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- 日志 -->
+        <div class="tab-pane fade" id="tab-logs">
+          <div class="section">
+            <div class="table-responsive">
+              <table class="table table-sm align-middle mb-0">
+                <thead><tr><th style="width:160px">时间</th><th style="width:120px">事件</th><th>详情</th><th style="width:120px">记录人</th></tr></thead>
+                <tbody id="logsTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    /* ========================
+       模拟数据集（覆盖 T1001~T1011）— v4.1
+       - 发布团队：bizPublish 去掉“发单信息费/实付”在经营表的呈现，但数据仍保留用于「资金」Tab；
+         teamUsers 补充 pubCount/pubBountyTotal/pubFeeTotal 用于“用户”Tab 统计展示。
+       - 接单团队：用户表继续展示“完成数”。
+       ======================== */
+    const TEAMS = [
+      {
+        id:'T1001', name:'星河传播', kind:'publish', owner:'李楠', phone:'13800001111', email:'owner@xinghe.com',
+        api:'ok', users:126, orders7d:520, rev7d:39200, rev30d:168000, joinAt:'2025-06-12 10:05',
+        scopes:['推广营销','测评写作','视频制作','图文设计'],
+        bizPublish:[
+          {taskId:'5201', cat:'推广营销', user:'用户M', time:'2025-09-05 10:21', price:10, qty:300, fee:300, pay:3300, running:62, done:210, rejected:10, left:18, status:'进行中'},
+          {taskId:'5202', cat:'测评写作', user:'用户N', time:'2025-09-06 14:12', price:15, qty:120, fee:180, pay:1980, running:12, done:100, rejected:2,  left:6,  status:'待审核'},
+          {taskId:'5203', cat:'视频制作', user:'用户O', time:'2025-09-08 09:05', price:30, qty:60,  fee:270, pay:2070, running:10, done:46,  rejected:2,  left:2,  status:'已完成'}
+        ],
+        fundPublish:[
+          {taskId:'5201', cat:'推广营销', feeRate:0.10, price:10, qty:300, fee:300, pay:3300},
+          {taskId:'5202', cat:'测评写作', feeRate:0.10, price:15, qty:120, fee:180, pay:1980},
+          {taskId:'5203', cat:'视频制作', feeRate:0.15, price:30, qty:60,  fee:270, pay:2070},
+        ],
+        teamUsers:[
+          {uid:'U1031', name:'王凯', role:'publisher', reg:'2024-12-01', pubCount:5, pubBountyTotal:820, pubFeeTotal:82},
+          {uid:'U1036', name:'谢芷', role:'publisher', reg:'2025-01-14', pubCount:3, pubBountyTotal:420, pubFeeTotal:42},
+          {uid:'U1044', name:'刘海', role:'publisher', reg:'2025-03-22', pubCount:7, pubBountyTotal:1310, pubFeeTotal:150}
+        ],
+        logs:[
+          {time:'2025-09-09 11:02', tag:'资料核验', text:'完成对公账户复核，API 保持正常', by:'系统'},
+          {time:'2025-09-07 18:33', tag:'经营变更', text:'新增经营分类：图文设计', by:'管理员A'},
+        ],
+        records:[
+          {time:'2025-08-31 10:05', type:'资料', text:'更新负责人手机号', by:'管理员A'},
+          {time:'2025-07-25 09:40', type:'协作', text:'与渠道商 B 建立供需联动', by:'管理员B'},
+        ]
+      },
+      {
+        id:'T1002', name:'火柴盒任务社', kind:'take', owner:'周子谦', phone:'13900002222', email:'team@matchbox.com',
+        api:'warn', users:88, orders7d:336, rev7d:18460, rev30d:72900, joinAt:'2025-05-03 16:20',
+        scopes:['推广营销','话题引流','图文设计'],
+        bizTake:[
+          {taskId:'6001', cat:'推广营销', acceptQty:120, submitQty:110, doneQty:100, rejectQty:10, status:'进行中'},
+          {taskId:'6002', cat:'图文设计', acceptQty:80,  submitQty:70,  doneQty:55,  rejectQty:15, status:'异议中'},
+          {taskId:'6003', cat:'视频制作', acceptQty:60,  submitQty:60,  doneQty:60,  rejectQty:0,  status:'已完成'}
+        ],
+        fundTake:[
+          {taskId:'6001', cat:'推广营销', rate:0.20, price:8,  userNet:880, infoFee:220},
+          {taskId:'6002', cat:'图文设计', rate:0.20, price:14, userNet:1260, infoFee:315},
+          {taskId:'6003', cat:'视频制作', rate:0.20, price:13, userNet:1170, infoFee:292.5},
+        ],
+        teamUsers:[
+          {uid:'U2011', name:'林雪', role:'receiver', reg:'2025-02-12', done:47},
+          {uid:'U2022', name:'黄大', role:'receiver', reg:'2025-03-18', done:39},
+          {uid:'U2035', name:'宋黎', role:'receiver', reg:'2025-05-09', done:22}
+        ],
+        logs:[
+          {time:'2025-09-08 19:12', tag:'行为异常', text:'同一设备高频切换账户，标记观察', by:'风控'},
+          {time:'2025-09-06 10:28', tag:'资料核验', text:'补充营业执照副本', by:'管理员B'},
+        ],
+        records:[
+          {time:'2025-08-20 15:20', type:'合作', text:'接入视频制作类目，抽成维持 20%', by:'管理员C'}
+        ]
+      },
+      {
+        id:'T1003', name:'沸点创意', kind:'publish', owner:'高川', phone:'13700003333', email:'biz@boilcreative.com',
+        api:'ok', users:61, orders7d:118, rev7d:9800, rev30d:41800, joinAt:'2025-04-01 09:10',
+        scopes:['测评写作','视频制作'],
+        bizPublish:[
+          {taskId:'5211', cat:'测评写作', user:'用户Q', time:'2025-09-02 13:12', price:18, qty:80, fee:144, pay:1584, running:10, done:64, rejected:2, left:4, status:'进行中'},
+          {taskId:'5212', cat:'视频制作', user:'用户R', time:'2025-09-10 10:40', price:32, qty:30, fee:144, pay:1104, running:12, done:12, rejected:3, left:3, status:'进行中'}
+        ],
+        fundPublish:[
+          {taskId:'5211', cat:'测评写作', feeRate:0.10, price:18, qty:80, fee:144, pay:1584},
+          {taskId:'5212', cat:'视频制作', feeRate:0.15, price:32, qty:30, fee:144, pay:1104},
+        ],
+        teamUsers:[
+          {uid:'U3011', name:'陈杰', role:'publisher', reg:'2025-01-02', pubCount:2, pubBountyTotal:936, pubFeeTotal:96},
+        ],
+        logs:[{time:'2025-08-29 09:12', tag:'资料核验', text:'完成对接回调地址升级', by:'系统'}],
+        records:[{time:'2025-06-11 08:12', type:'资料', text:'更换对公账户', by:'管理员A'}]
+      },
+      { id:'T1004', name:'北冥运营', kind:'take', owner:'余尘', phone:'13600004444', email:'ops@beiming.com', api:'ok', users:45, orders7d:220, rev7d:10200, rev30d:43100, joinAt:'2025-06-01 08:12', scopes:['推广营销','话题引流'],
+        bizTake:[{taskId:'6101', cat:'推广营销', acceptQty:90, submitQty:85, doneQty:81, rejectQty:4, status:'已完成'}],
+        fundTake:[{taskId:'6101', cat:'推广营销', rate:0.20, price:9, userNet:810, infoFee:202}],
+        teamUsers:[{uid:'U4011',name:'安然',role:'receiver',reg:'2025-04-01',done:16}],
+        logs:[{time:'2025-09-04 10:00',tag:'资料核验',text:'对接成功',by:'系统'}],
+        records:[{time:'2025-07-01 10:00',type:'协作',text:'加入话题引流品类',by:'管理员'}]
+      },
+      { id:'T1005', name:'洛谷外包', kind:'publish', owner:'吴克', phone:'13500005555', email:'service@luogu.com', api:'bad', users:33, orders7d:40, rev7d:2600, rev30d:9900, joinAt:'2025-07-22 18:00', scopes:['图文设计'],
+        bizPublish:[{taskId:'5301',cat:'图文设计',user:'用户E',time:'2025-09-03 13:30',price:20,qty:50,fee:100,pay:1100,running:10,done:35,rejected:3,left:2,status:'进行中'}],
+        fundPublish:[{taskId:'5301',cat:'图文设计',feeRate:0.10,price:20,qty:50,fee:100,pay:1100}],
+        teamUsers:[{uid:'U5011',name:'谷语',role:'publisher',reg:'2025-06-02',pubCount:1,pubBountyTotal:1000,pubFeeTotal:100}],
+        logs:[{time:'2025-09-08 09:32',tag:'API 异常',text:'签名过期，等待重置',by:'系统'}],
+        records:[{time:'2025-08-03 09:00',type:'资料',text:'更新营业执照',by:'管理员'}]
+      },
+      { id:'T1006', name:'青柚互动', kind:'take', owner:'白启', phone:'13400006666', email:'hello@qingyou.com', api:'ok', users:74, orders7d:163, rev7d:8700, rev30d:35200, joinAt:'2025-03-27 12:30', scopes:['视频制作','图文设计'],
+        bizTake:[{taskId:'6201',cat:'视频制作',acceptQty:100,submitQty:95,doneQty:95,rejectQty:0, status:'已完成'}],
+        fundTake:[{taskId:'6201',cat:'视频制作',rate:0.20,price:11,userNet:990,infoFee:247.5}],
+        teamUsers:[{uid:'U6011',name:'沈沉',role:'receiver',reg:'2025-04-30',done:25}],
+        logs:[{time:'2025-09-07 20:10',tag:'行为检查',text:'无异常',by:'风控'}],
+        records:[{time:'2025-07-07 09:10',type:'合作',text:'加入图文设计类目',by:'管理员'}]
+      },
+      { id:'T1007', name:'角马传媒', kind:'publish', owner:'金田', phone:'13300007777', email:'hi@gnumedia.com', api:'warn', users:80, orders7d:205, rev7d:14900, rev30d:58900, joinAt:'2025-02-14 11:50', scopes:['推广营销','测评写作'],
+        bizPublish:[{taskId:'5401',cat:'推广营销',user:'用户G',time:'2025-09-01 10:10',price:12,qty:260,fee:312,pay:3432, running:50,done:190,rejected:10,left:10,status:'进行中'}],
+        fundPublish:[{taskId:'5401',cat:'推广营销',feeRate:0.10,price:12,qty:260,fee:312,pay:3432}],
+        teamUsers:[{uid:'U7011',name:'穆七',role:'publisher',reg:'2025-03-10',pubCount:1,pubBountyTotal:3120,pubFeeTotal:312}],
+        logs:[{time:'2025-09-09 08:30',tag:'API 警告',text:'回调频率过高',by:'系统'}],
+        records:[{time:'2025-05-10 15:50',type:'资料',text:'调整签名算法',by:'管理员'}]
+      },
+      { id:'T1008', name:'松果工坊', kind:'take', owner:'卢野', phone:'13100008888', email:'contact@songguo.com', api:'ok', users:21, orders7d:61, rev7d:3200, rev30d:9900, joinAt:'2025-08-03 14:10', scopes:['话题引流'],
+        bizTake:[{taskId:'6301',cat:'话题引流',acceptQty:60,submitQty:58,doneQty:54,rejectQty:4,status:'进行中'}],
+        fundTake:[{taskId:'6301',cat:'话题引流',rate:0.20,price:6,userNet:540,infoFee:135}],
+        teamUsers:[{uid:'U8011',name:'白棠',role:'receiver',reg:'2025-08-10',done:6}],
+        logs:[{time:'2025-09-09 11:11',tag:'观察',text:'新接入，建立白名单',by:'风控'}],
+        records:[{time:'2025-08-15 10:00',type:'资料',text:'补充开户资料',by:'管理员'}]
+      },
+      { id:'T1009', name:'云雀工作室', kind:'publish', owner:'霍星', phone:'13000009999', email:'biz@lark.com', api:'ok', users:59, orders7d:97, rev7d:6100, rev30d:24200, joinAt:'2025-01-12 10:00', scopes:['推广营销','视频制作'],
+        bizPublish:[{taskId:'5501',cat:'视频制作',user:'用户I',time:'2025-09-02 19:40',price:28,qty:40,fee:168,pay:1288,running:8,done:28,rejected:2,left:2,status:'进行中'}],
+        fundPublish:[{taskId:'5501',cat:'视频制作',feeRate:0.15,price:28,qty:40,fee:168,pay:1288}],
+        teamUsers:[{uid:'U9011',name:'阿度',role:'publisher',reg:'2025-01-20',pubCount:1,pubBountyTotal:1120,pubFeeTotal:168}],
+        logs:[{time:'2025-09-01 10:30',tag:'资料核验',text:'对公打款验证通过',by:'系统'}],
+        records:[{time:'2025-02-12 10:00',type:'协议',text:'签署年度合作协议',by:'法务'}]
+      },
+      { id:'T1010', name:'轻舟科技', kind:'publish', owner:'任秋', phone:'13900001010', email:'bd@lightboat.com', api:'warn', users:90, orders7d:176, rev7d:12400, rev30d:50100, joinAt:'2025-04-28 10:40', scopes:['图文设计','测评写作'],
+        bizPublish:[{taskId:'5601',cat:'测评写作',user:'用户J',time:'2025-09-07 09:15',price:16,qty:90,fee:144,pay:1584,running:12,done:70,rejected:3,left:5,status:'进行中'}],
+        fundPublish:[{taskId:'5601',cat:'测评写作',feeRate:0.10,price:16,qty:90,fee:144,pay:1584}],
+        teamUsers:[{uid:'U10011',name:'舟白',role:'publisher',reg:'2025-05-01',pubCount:1,pubBountyTotal:1440,pubFeeTotal:144}],
+        logs:[{time:'2025-09-08 12:20',tag:'API 警告',text:'回调延迟升高',by:'系统'}],
+        records:[{time:'2025-06-10 09:00',type:'资料',text:'新增收款账户',by:'管理员'}]
+      },
+      { id:'T1011', name:'木星外联', kind:'take', owner:'贾静', phone:'13800001112', email:'ops@jupiter.com', api:'ok', users:36, orders7d:84, rev7d:4700, rev30d:19300, joinAt:'2025-07-08 08:50', scopes:['推广营销'],
+        bizTake:[{taskId:'6701',cat:'推广营销',acceptQty:75,submitQty:70,doneQty:67,rejectQty:3,status:'已完成'}],
+        fundTake:[{taskId:'6701',cat:'推广营销',rate:0.20,price:7.5,userNet:675,infoFee:168.75}],
+        teamUsers:[{uid:'U11011',name:'杜衡',role:'receiver',reg:'2025-07-10',done:15}],
+        logs:[{time:'2025-09-10 08:30',tag:'行为检查',text:'地理位置异常已忽略',by:'风控'}],
+        records:[{time:'2025-07-20 17:30',type:'资料',text:'完善收款账户',by:'管理员'}]
+      }
+    ];
+
+    /* ============== 全局状态与工具 ============== */
+    const pageSize = 10;
+    let currentPage = 1;
+    let currentData = [...TEAMS];
+    let selectedIds = new Set();
+    let currentTeam = null;  // 当前打开的团队对象（用于记录新增/删除）
+
+    function fmtMoney(n){ return '¥' + (Number(n).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:2})) }
+    function el(tag, attrs={}, children=[]){
+      const e = document.createElement(tag);
+      Object.entries(attrs).forEach(([k,v])=>{
+        if(k==='class') e.className=v;
+        else if(k==='text') e.textContent=v;
+        else e.setAttribute(k,v);
+      });
+      (Array.isArray(children)?children:[children]).filter(Boolean).forEach(c=>e.appendChild(typeof c==='string'?document.createTextNode(c):c));
+      return e;
+    }
+    function apiBadge(api){
+      const map = {ok:['#198754','正常'], warn:['#ffc107','警告'], bad:['#dc3545','异常']};
+      const [color,text] = map[api] || ['#94a3b8','未知'];
+      const wrap = el('span',{class:'badge-api'});
+      wrap.appendChild(el('span',{class:'badge-dot',style:`background:${color}`}));
+      wrap.appendChild(el('span',{text:text}));
+      return wrap;
+    }
+    function statusBadge(text){
+      const map = {
+        '进行中':'info',
+        '待审核':'warning text-dark',
+        '已完成':'success',
+        '已通过':'success',
+        '异议中':'info text-dark',
+        '待发单确认':'warning text-dark'
+      };
+      const cls = map[text] || 'secondary';
+      return '<span class="badge bg-'+cls+'">'+text+'</span>';
+    }
+    function nowStr(){
+      const d = new Date();
+      const pad = n=>String(n).padStart(2,'0');
+      return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+
+    /* ============== 列表与分页 ============== */
+    function renderTable(){
+      const tbody = document.getElementById('tbody');
+      tbody.innerHTML = '';
+      const start = (currentPage-1)*pageSize;
+      const rows = currentData.slice(start, start+pageSize);
+
+      rows.forEach(team=>{
+        const tr = document.createElement('tr');
+
+        const tdChk = el('td');
+        const chk = el('input',{type:'checkbox',class:'form-check-input'});
+        chk.checked = selectedIds.has(team.id);
+        chk.addEventListener('change',()=>{
+          if(chk.checked) selectedIds.add(team.id); else selectedIds.delete(team.id);
+          document.getElementById('selCount').textContent = selectedIds.size;
+          document.getElementById('chkAll').checked = rows.every(r=>selectedIds.has(r.id));
+        });
+        tdChk.appendChild(chk);
+
+        const tdId = el('td',{text:team.id});
+        const tdName = el('td',{text:team.name});
+        const tdKind = el('td',{text: team.kind==='publish'?'发布团队':'接单团队'});
+        const tdOwner = el('td',{text:team.owner});
+        const tdPhone = el('td',{text:team.phone});
+        const tdUsers = el('td',{class:'text-end num',text:String(team.users)});
+        const tdApi = el('td'); tdApi.appendChild(apiBadge(team.api));
+        const tdOrders7d = el('td',{class:'text-end num',text:String(team.orders7d)});
+        const tdRev7d = el('td',{class:'text-end num',text: team.rev7d.toLocaleString()});
+        const tdRev30d = el('td',{class:'text-end num',text: team.rev30d.toLocaleString()});
+        const tdJoin = el('td',{text:team.joinAt});
+
+        const tdAct = el('td');
+        const btnView = el('button',{class:'btn btn-sm btn-outline-primary'}); btnView.innerHTML = '<i class="bi bi-eye me-1"></i>查看';
+        btnView.addEventListener('click',()=>openDrawer(team));
+        tdAct.appendChild(btnView);
+
+        [tdChk,tdId,tdName,tdKind,tdOwner,tdPhone,tdUsers,tdApi,tdOrders7d,tdRev7d,tdRev30d,tdJoin,tdAct].forEach(td=>tr.appendChild(td));
+        tbody.appendChild(tr);
+      });
+
+      renderPager();
+      document.getElementById('chkAll').checked = rows.length>0 && rows.every(r=>selectedIds.has(r.id));
+    }
+    function renderPager(){
+      const pager = document.getElementById('pager'); pager.innerHTML='';
+      const pages = Math.max(1, Math.ceil(currentData.length/pageSize));
+      function addItem(text, page, disabled=false, active=false){
+        const li = el('li',{class:`page-item ${disabled?'disabled':''} ${active?'active':''}`});
+        const a = el('a',{class:'page-link',href:'#'},text);
+        a.addEventListener('click',evt=>{evt.preventDefault(); if(!disabled && !active){currentPage=page; renderTable();}});
+        li.appendChild(a); pager.appendChild(li);
+      }
+      addItem('«', Math.max(1,currentPage-1), currentPage===1, false);
+      for(let p=1;p<=pages;p++){ addItem(String(p), p, false, p===currentPage); }
+      addItem('»', Math.min(pages,currentPage+1), currentPage===pages, false);
+
+      // 顶部 KPI 汇总（基于过滤结果）
+      document.getElementById('kpiTotal').textContent = String(currentData.length);
+      document.getElementById('kpiApiOk').textContent = String(currentData.filter(t=>t.api==='ok').length);
+      document.getElementById('kpiOrders7d').textContent = String(currentData.reduce((a,b)=>a+b.orders7d,0));
+      document.getElementById('kpiRev7d').textContent = fmtMoney(currentData.reduce((a,b)=>a+b.rev7d,0)).replace('¥¥','¥');
+    }
+
+    /* ============== 过滤/排序 ============== */
+    function applyFilter(){
+      const kw = document.getElementById('fKw').value.trim().toLowerCase();
+      const kind = document.getElementById('fKind').value;
+      const api  = document.getElementById('fApi').value;
+      const sort = document.getElementById('fSort').value;
+
+      currentData = TEAMS.filter(t=>{
+        const hitKw = !kw || (t.name.toLowerCase().includes(kw) || t.owner.toLowerCase().includes(kw) || t.phone.includes(kw) || t.id.toLowerCase().includes(kw));
+        const hitKind = !kind || t.kind===kind;
+        const hitApi  = !api || t.api===api;
+        return hitKw && hitKind && hitApi;
+      });
+
+      currentData.sort((a,b)=>{
+        switch(sort){
+          case 'users': return b.users - a.users;
+          case 'rev7d': return b.rev7d - a.rev7d;
+          case 'orders7d': return b.orders7d - a.orders7d;
+          case 'name': return a.name.localeCompare(b.name,'zh');
+          case 'time':
+          default:
+            return (new Date(b.joinAt)) - (new Date(a.joinAt));
+        }
+      });
+
+      currentPage = 1;
+      renderTable();
+    }
+    function resetFilter(){
+      document.getElementById('fKw').value='';
+      document.getElementById('fKind').value='';
+      document.getElementById('fApi').value='';
+      document.getElementById('fSort').value='time';
+      applyFilter();
+    }
+
+    /* ============== 导出 CSV ============== */
+    function dataToCsv(rows){
+      const header = ['团队ID','团队名称','团队性质','负责人','电话','关联用户','API','近7日订单','近7日成交额','近30日成交额','接入时间'];
+      const lines = [header.join(',')];
+      rows.forEach(t=>{
+        const arr = [
+          t.id, t.name, (t.kind==='publish'?'发布团队':'接单团队'), t.owner, t.phone, t.users,
+          t.api, t.orders7d, t.rev7d, t.rev30d, `"${t.joinAt}"`
+        ];
+        lines.push(arr.join(','));
+      });
+      return lines.join('\n');
+    }
+    function downloadCsv(filename, csv){
+      const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    /* ============== 抽屉开关（含遮罩/ESC） ============== */
+    function openDrawer(team){
+      currentTeam = team; // 记住当前团队对象
+      const drawer = document.getElementById('drawer');
+      const mask = document.getElementById('drawerBackdrop');
+
+      // 顶部信息
+      document.getElementById('dTitle').textContent = team.name;
+      document.getElementById('dId').textContent = team.id;
+      document.getElementById('dSub').textContent = (team.kind==='publish'?'发布团队':'接单团队') + ' · 接入时间 ' + team.joinAt;
+
+      // 基础信息
+      document.getElementById('kvId').textContent = team.id;
+      document.getElementById('kvKind').textContent = team.kind==='publish'?'发布团队':'接单团队';
+      document.getElementById('kvOwner').textContent = team.owner;
+      document.getElementById('kvPhone').textContent = team.phone;
+      document.getElementById('kvEmail').textContent = team.email || '—';
+      document.getElementById('kvJoin').textContent = team.joinAt;
+      document.getElementById('kvApi').innerHTML = ''; document.getElementById('kvApi').appendChild(apiBadge(team.api));
+      const scopeWrap = document.getElementById('kvScopes'); scopeWrap.innerHTML='';
+      (team.scopes||[]).forEach(s=>{
+        const badge = document.createElement('span'); badge.className='badge rounded-pill text-bg-light border me-1';
+        badge.innerHTML = '<i class="bi bi-tag me-1"></i>'+s; scopeWrap.appendChild(badge);
+      });
+
+      // 概览 KPI
+      document.getElementById('ovUsers').textContent = String(team.users);
+      document.getElementById('ovOrders7d').textContent = String(team.orders7d);
+      document.getElementById('ovRev7d').textContent = fmtMoney(team.rev7d).replace('¥¥','¥');
+      document.getElementById('ovRev30d').textContent = fmtMoney(team.rev30d).replace('¥¥','¥');
+
+      // 渲染记录表
+      renderRecords();
+
+      // 经营 Tab
+      const panelPublish = document.getElementById('panel-publish');
+      const panelTake = document.getElementById('panel-take');
+      panelPublish.style.display = team.kind==='publish'?'block':'none';
+      panelTake.style.display = team.kind==='take'?'block':'none';
+
+      const bizPubTbody = document.getElementById('bizPubTbody'); bizPubTbody.innerHTML='';
+      if(team.kind==='publish'){
+        (team.bizPublish||[]).forEach(r=>{
+          const tr = document.createElement('tr');
+          tr.innerHTML =
+            `<td>${r.taskId}</td><td>${r.cat}</td><td>${r.user}</td><td>${r.time}</td>
+             <td class="text-end num">${r.price.toFixed(2)}</td>
+             <td class="text-end num">${r.qty}</td>
+             <td class="text-end num">${r.running}</td>
+             <td class="text-end num">${r.done}</td>
+             <td class="text-end num">${r.rejected}</td>
+             <td class="text-end num">${r.left}</td>
+             <td>${statusBadge(r.status)}</td>`;
+          bizPubTbody.appendChild(tr);
+        });
+        if(!team.bizPublish || team.bizPublish.length===0){
+          bizPubTbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted">暂无数据</td></tr>';
+        }
+      }
+
+      const bizTakeTbody = document.getElementById('bizTakeTbody'); bizTakeTbody.innerHTML='';
+      if(team.kind==='take'){
+        (team.bizTake||[]).forEach(r=>{
+          const tr = document.createElement('tr');
+          tr.innerHTML =
+            `<td>${r.taskId}</td><td>${r.cat}</td>
+             <td class="text-end num">${r.acceptQty}</td>
+             <td class="text-end num">${r.submitQty}</td>
+             <td class="text-end num">${r.doneQty}</td>
+             <td class="text-end num">${r.rejectQty<0?0:r.rejectQty}</td>
+             <td>${statusBadge(r.status)}</td>`;
+          bizTakeTbody.appendChild(tr);
+        });
+        if(!team.bizTake || team.bizTake.length===0){
+          bizTakeTbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">暂无数据</td></tr>';
+        }
+      }
+
+      // 资金 Tab（动态全宽）
+      const fundPubCol = document.getElementById('fund-publish-col');
+      const fundTakeCol = document.getElementById('fund-take-col');
+      const fundPub = document.getElementById('fund-publish');
+      const fundTake = document.getElementById('fund-take');
+      const fundPubTbody = document.getElementById('fundPubTbody'); fundPubTbody.innerHTML='';
+      const fundTakeTbody = document.getElementById('fundTakeTbody'); fundTakeTbody.innerHTML='';
+      let pubTotal = 0, takeTotal = 0;
+
+      if(team.kind==='publish'){
+        fundPubCol.className = 'col-lg-12';
+        fundTakeCol.className = 'col-lg-6 d-none';
+        fundPub.style.display = 'block';
+        fundTake.style.display = 'none';
+        (team.fundPublish||[]).forEach(r=>{
+          pubTotal += r.fee;
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${r.taskId}</td><td>${r.cat}</td>
+                          <td class="text-end num">${(r.feeRate*100).toFixed(0)}%</td>
+                          <td class="text-end num">¥${r.price.toLocaleString()}</td>
+                          <td class="text-end num">${r.qty}</td>
+                          <td class="text-end num">¥${r.fee.toLocaleString()}</td>
+                          <td class="text-end num">¥${r.pay.toLocaleString()}</td>`;
+          fundPubTbody.appendChild(tr);
+        });
+        if(!team.fundPublish || team.fundPublish.length===0){
+          fundPubTbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">暂无数据</td></tr>';
+        }
+        document.getElementById('fundPubTotal').textContent = '¥' + pubTotal.toLocaleString();
+      } else {
+        fundPubCol.className = 'col-lg-6 d-none';
+        fundTakeCol.className = 'col-lg-12';
+        fundPub.style.display = 'none';
+        fundTake.style.display = 'block';
+        (team.fundTake||[]).forEach(r=>{
+          takeTotal += r.infoFee;
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${r.taskId}</td><td>${r.cat}</td>
+                          <td class="text-end num">${(r.rate*100).toFixed(0)}%</td>
+                          <td class="text-end num">¥${Number(r.price).toLocaleString()}</td>
+                          <td class="text-end num">¥${r.userNet.toLocaleString()}</td>
+                          <td class="text-end num">¥${r.infoFee.toLocaleString()}</td>`;
+          fundTakeTbody.appendChild(tr);
+        });
+        if(!team.fundTake || team.fundTake.length===0){
+          fundTakeTbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">暂无数据</td></tr>';
+        }
+        document.getElementById('fundTakeTotal').textContent = '¥' + takeTotal.toLocaleString();
+      }
+
+      // 用户 Tab（按团队性质渲染表头与数据）
+      const usersThead = document.getElementById('usersThead');
+      const usersTbody = document.getElementById('usersTbody');
+      usersThead.innerHTML=''; usersTbody.innerHTML='';
+
+      if(team.kind==='publish'){
+        usersThead.innerHTML = '<tr>\
+          <th>用户ID</th><th>用户名</th><th>用户性质</th><th>注册时间</th>\
+          <th class="text-end">发布任务数</th><th class="text-end">发布任务总赏金</th><th class="text-end">发布任务总服务费</th>\
+        </tr>';
+        (team.teamUsers||[]).slice(0,10).forEach(u=>{
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${u.uid}</td><td>${u.name}</td><td>${u.role==='publisher'?'发布用户':'接单用户'}</td><td>${u.reg}</td>
+                          <td class="text-end num">${u.pubCount||0}</td>
+                          <td class="text-end num">¥${(u.pubBountyTotal||0).toLocaleString()}</td>
+                          <td class="text-end num">¥${(u.pubFeeTotal||0).toLocaleString()}</td>`;
+          usersTbody.appendChild(tr);
+        });
+      } else {
+        usersThead.innerHTML = '<tr>\
+          <th>用户ID</th><th>用户名</th><th>用户性质</th><th>注册时间</th><th class="text-end">完成数</th>\
+        </tr>';
+        (team.teamUsers||[]).slice(0,10).forEach(u=>{
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${u.uid}</td><td>${u.name}</td><td>${u.role==='publisher'?'发布用户':'接单用户'}</td><td>${u.reg}</td>
+                          <td class="text-end num">${u.done||0}</td>`;
+          usersTbody.appendChild(tr);
+        });
+      }
+      if(!team.teamUsers || team.teamUsers.length===0){
+        usersTbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">暂无数据</td></tr>';
+      }
+
+      // 日志 Tab
+      const logsTbody = document.getElementById('logsTbody'); logsTbody.innerHTML='';
+      (team.logs||[]).forEach(r=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${r.time}</td><td>${r.tag}</td><td>${r.text}</td><td>${r.by}</td>`;
+        logsTbody.appendChild(tr);
+      });
+      if(!team.logs || team.logs.length===0){
+        logsTbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">暂无数据</td></tr>';
+      }
+
+      // 打开抽屉 & 显示遮罩 & 默认回到“概览与记录”
+      drawer.classList.add('open');
+      mask.classList.add('show');
+      const tabTrigger = document.querySelector('[data-bs-target="#tab-overview"]');
+      if(tabTrigger){ new bootstrap.Tab(tabTrigger).show(); }
+    }
+
+    function closeDrawer(){
+      document.getElementById('drawer').classList.remove('open');
+      document.getElementById('drawerBackdrop').classList.remove('show');
+      currentTeam = null;
+    }
+
+    /* ============== 记录渲染 + 事件（新增/删除） ============== */
+    function renderRecords(){
+      const recordsTbody = document.getElementById('recordsTbody'); recordsTbody.innerHTML='';
+      const list = (currentTeam && currentTeam.records) ? currentTeam.records : [];
+      if(!list.length){
+        recordsTbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">暂无数据</td></tr>';
+        return;
+      }
+      list.forEach((r, idx)=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${r.time}</td><td>${r.type}</td><td>${r.text}</td><td>${r.by||'—'}</td>
+                        <td><button class="btn btn-sm btn-outline-danger" data-idx="${idx}"><i class="bi bi-trash"></i></button></td>`;
+        recordsTbody.appendChild(tr);
+      });
+      // 绑定删除事件（委托）
+      recordsTbody.querySelectorAll('button.btn-outline-danger').forEach(btn=>{
+        btn.addEventListener('click', (e)=>{
+          const idx = Number(e.currentTarget.getAttribute('data-idx'));
+          currentTeam.records.splice(idx,1);
+          renderRecords();
+        });
+      });
+    }
+
+    /* ============== 事件绑定 ============== */
+    document.addEventListener('DOMContentLoaded', ()=>{
+      applyFilter();
+
+      // 查询、重置
+      document.getElementById('btnApply').addEventListener('click', applyFilter);
+      document.getElementById('btnQuick').addEventListener('click', applyFilter);
+      document.getElementById('btnReset').addEventListener('click', resetFilter);
+
+      // 全选
+      document.getElementById('chkAll').addEventListener('change', (e)=>{
+        const checked = e.target.checked;
+        const start = (currentPage-1)*pageSize;
+        const rows = currentData.slice(start, start+pageSize);
+        rows.forEach(r=>{ if(checked) selectedIds.add(r.id); else selectedIds.delete(r.id); });
+        document.getElementById('selCount').textContent = selectedIds.size;
+        renderTable();
+      });
+
+      // 导出
+      document.getElementById('btnExport').addEventListener('click', ()=>{
+        const start = (currentPage-1)*pageSize;
+        const rows = currentData.slice(start, start+pageSize);
+        downloadCsv('团队列表_当前页.csv', dataToCsv(rows));
+      });
+      document.getElementById('btnExportSel').addEventListener('click', ()=>{
+        const rows = TEAMS.filter(t=>selectedIds.has(t.id));
+        if(rows.length===0){ alert('请选择至少一条团队记录'); return; }
+        downloadCsv('团队列表_选中.csv', dataToCsv(rows));
+      });
+      document.getElementById('btnBatchExport').addEventListener('click', ()=>{
+        const rows = TEAMS.filter(t=>selectedIds.has(t.id));
+        if(rows.length===0){ alert('请选择至少一条团队记录'); return; }
+        downloadCsv('团队列表_选中.csv', dataToCsv(rows));
+      });
+      document.getElementById('btnExportAll').addEventListener('click', (e)=>{
+        e.preventDefault();
+        downloadCsv('团队列表_全部.csv', dataToCsv(TEAMS));
+      });
+
+      // 侧边栏（移动端）
+      const sidebar = document.getElementById('sidebar');
+      document.getElementById('sidebarToggle').addEventListener('click', ()=>{
+        sidebar.classList.toggle('show');
+      });
+
+      // 模拟退出
+      document.getElementById('btnLogout').addEventListener('click', (e)=>{
+        e.preventDefault();
+        alert('已退出登录（演示）');
+      });
+
+      // 概览与记录：添加记录按钮
+      document.body.addEventListener('click', (e)=>{
+        if(e.target && (e.target.id==='btnAddRecord' || e.target.closest('#btnAddRecord'))){
+          if(!currentTeam){ return; }
+          const type = document.getElementById('recType').value || '其他';
+          const text = (document.getElementById('recText').value || '').trim();
+          const by   = (document.getElementById('recBy').value || '').trim();
+          if(!text){ alert('请填写记录内容'); return; }
+          currentTeam.records = currentTeam.records || [];
+          currentTeam.records.unshift({time: nowStr(), type, text, by: by || '管理员'});
+          document.getElementById('recText').value='';
+          renderRecords();
+        }
+      });
+
+      // 抽屉关闭：按钮/遮罩/ESC
+      document.getElementById('drawerClose').addEventListener('click', closeDrawer);
+      document.getElementById('drawerBackdrop').addEventListener('click', closeDrawer);
+      document.addEventListener('keydown', (e)=>{
+        if(e.key === 'Escape'){
+          closeDrawer();
+        }
+      });
+    });
+  </script>
+
+<script>
+// 侧边栏统一：插入“系统设置”（接口管理与监控下方），隐藏“数据概览/团队投诉反馈”
+(function(){
+  try{
+    const aside = document.querySelector('aside.sidebar');
+    if(aside){
+      const links = aside.querySelectorAll('a');
+      let apiLink = null, settingsLinkExists = false;
+      links.forEach(a=>{
+        if(a.textContent && a.textContent.includes('接口管理与监控')) apiLink = a;
+        if(a.textContent && a.textContent.trim() === '系统设置') settingsLinkExists = true;
+      });
+      if(apiLink && !settingsLinkExists){
+        const li = document.createElement('li'); li.className = 'nav-item';
+        const a = document.createElement('a'); a.className='nav-link'; a.textContent='系统设置';
+        a.href = 'hq-admin-settings-system_v1.2.1d_tabs.html';
+        li.appendChild(a);
+        const parentUl = apiLink.closest('ul') || aside.querySelector('ul');
+        parentUl.insertBefore(li, apiLink.parentElement.nextSibling);
+      }
+      // 隐藏“数据概览”“团队投诉反馈”
+      links.forEach(a=>{
+        const t = (a.textContent||'').trim();
+        if(t.includes('数据概览') || t.includes('团队投诉反馈')){
+          const li = a.closest('li'); if(li) li.style.display='none';
+        }
+      });
+    }
+  }catch(e){ console.warn('侧边栏统一失败', e); }
+})();
+</script>
+
+
+<script>
+// 将表格中的编号（TSK/TPA/TFA/RCG/WDU/WDT/TF/UF/GF/FBK...）自动变为可点击链接
+(function(){
+  const map = {
+    TSK: 'hq-admin-task-detail.html',
+    TPA: 'hq-admin-audit-task-publish.html',
+    TFA: 'hq-admin-audit-task-completion.html',
+    RCG: 'hq-admin-finance-recharge-review.html',
+    WDU: 'hq-admin-finance-withdrawal-review.html',
+    WDT: 'hq-admin-finance-team-withdrawal-review.html',
+    TF:  'hq-admin-finance-platform-fund-flow.html',
+    UF:  'hq-admin-finance-user-fund-flow.html',
+    GF:  'hq-admin-finance-team-fund-flow.html',
+    FBK: 'hq-admin-users-feedback.html',
+    CAT: 'hq-admin-settings-categories.html',
+    FRM: 'hq-admin-form-design.html',
+    APP: 'hq-admin-system-api-management-monitoring.html',
+    MSG: 'hq-admin-users-feedback.html',
+    LOG: 'hq-admin-audit-task-completion.html',
+    U:   'hq-admin-users-list.html',
+    G:   'hq-admin-team-list.html'
+  };
+  const re = /\b(TSK|TPA|TFA|RCG|WDU|WDT|TF|UF|GF|FBK|CAT|FRM|APP|MSG|LOG|U|G)\d{4,}(?:\s*\d{3,})?\b/g;
+  function linkifyNode(node){
+    if(node.children && node.children.length) return;
+    const text = node.textContent;
+    if(!text || !re.test(text)) return;
+    const html = text.replace(re, (m)=>{
+      const pref = m.match(/^[A-Z]+/)[0];
+      const href = map[pref] || '#';
+      const q = encodeURIComponent(m.replace(/\s+/g,''));
+      return `<a href="${href}?id=${q}" class="text-decoration-underline">${m}</a>`;
+    });
+    const span = document.createElement('span'); span.innerHTML = html;
+    node.replaceWith(span);
+  }
+  const targets = Array.from(document.querySelectorAll('td, span, div, p, li'));
+  targets.forEach(linkifyNode);
+})();
+</script>
+
+
+<style>
+/* 统一状态样式 */
+.unified-empty { text-align:center; padding:28px 12px; color:#6c757d; }
+.unified-empty .icon { display:inline-block; width:36px; height:36px; border-radius:50%; border:2px dashed #ced4da; margin-bottom:6px; }
+.unified-loading { position:relative; min-height:80px; }
+.unified-loading:after {
+  content:""; position:absolute; inset:0; background:
+    linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.04) 50%, rgba(0,0,0,0) 100%);
+  animation: shimmer 1.2s infinite;
+}
+@keyframes shimmer { 0%{background-position:-200% 0;} 100%{background-position:200% 0;} }
+.unified-error { color:#dc3545; padding:8px 0; }
+
+/* 统一筛选浮层 */
+#unifiedFilterPanel {
+  position: fixed; right: 16px; top: 84px; width: 360px; z-index: 1080;
+  background: #fff; border: 1px solid #dee2e6; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.12);
+  display:none;
+}
+#unifiedFilterPanel .hdr { padding: 10px 12px; border-bottom:1px solid #eee; display:flex; align-items:center; justify-content:space-between; }
+#unifiedFilterPanel .bd { padding: 12px; }
+#btnUnifiedFilter { margin-left: 8px; }
+
+/* 按钮意图颜色统一（基于文本） */
+button, .btn { transition: filter .2s ease; }
+.btn-intent-approve { background:#198754; color:#fff; border-color:#198754; }
+.btn-intent-reject { background:#dc3545; color:#fff; border-color:#dc3545; }
+.btn-intent-return { background:#ffc107; color:#212529; border-color:#ffc107; }
+.btn-intent-pay { background:#0d6efd; color:#fff; border-color:#0d6efd; }
+
+/* 可点击编号统一下划线（若页面未设置） */
+a.id-link { text-decoration: underline; }
+</style>
+
+<script>
+(function(){
+  // ===== 读取系统设置（货币/精度/时区） =====
+  const PUB_KEY = 'hq_sys_settings_v1_2_1d_published';
+  let locale = { lang:'zh-CN', tz:'Asia/Shanghai', currency:'CNY', precision:2 };
+  try{
+    const cfg = JSON.parse(localStorage.getItem(PUB_KEY)||'{}');
+    if(cfg.locale){
+      locale.lang = cfg.locale.lang || locale.lang;
+      locale.tz = cfg.locale.tz || locale.tz;
+      locale.currency = cfg.locale.currency || locale.currency;
+      locale.precision = parseInt(cfg.locale.precision||locale.precision,10);
+    }
+  }catch(e){}
+
+  // ===== 统一筛选：在首个 .card-header 右侧添加“筛选”按钮 + 浮层 =====
+  function ensureFilterUI(){
+    if(document.getElementById('unifiedFilterPanel')) return;
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-outline-secondary btn-sm';
+    btn.id = 'btnUnifiedFilter';
+    btn.innerHTML = '<i class="bi bi-funnel me-1"></i>筛选';
+    // 尝试挂到第一个 card-header 右侧
+    const hdr = document.querySelector('.card .card-header') || document.querySelector('.d-flex.align-items-center.justify-content-between');
+    if(hdr){ hdr.appendChild(btn); }
+    else {
+      // 顶部右上角浮动按钮（兜底）
+      const fbtn = btn.cloneNode(true);
+      fbtn.style.position='fixed'; fbtn.style.right='16px'; fbtn.style.top='20px'; fbtn.style.zIndex='1080';
+      document.body.appendChild(fbtn);
+    }
+
+    const panel = document.createElement('div');
+    panel.id = 'unifiedFilterPanel';
+    panel.innerHTML = `
+      <div class="hdr">
+        <strong>通用筛选</strong>
+        <button type="button" class="btn-close" id="btnUFclose"></button>
+      </div>
+      <div class="bd">
+        <div class="mb-2">
+          <label class="form-label">关键字</label>
+          <input class="form-control" id="uf-key" placeholder="编号/手机号/名称">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">状态</label>
+          <select class="form-select" id="uf-status">
+            <option value="">全部</option>
+            <option>待处理</option>
+            <option>处理中</option>
+            <option>已通过</option>
+            <option>已驳回</option>
+            <option>已完成</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">时间范围</label>
+          <div class="d-flex gap-2">
+            <input type="date" class="form-control" id="uf-from">
+            <input type="date" class="form-control" id="uf-to">
+          </div>
+        </div>
+        <div class="d-flex justify-content-end gap-2">
+          <button class="btn btn-outline-secondary btn-sm" id="uf-reset">重置</button>
+          <button class="btn btn-primary btn-sm" id="uf-apply">应用</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(panel);
+
+    document.body.addEventListener('click', function(e){
+      if(e.target && (e.target.id==='btnUnifiedFilter')){
+        const p = document.getElementById('unifiedFilterPanel');
+        p.style.display = (p.style.display==='none' || !p.style.display) ? 'block' : 'none';
+      }
+      if(e.target && (e.target.id==='btnUFclose')){
+        document.getElementById('unifiedFilterPanel').style.display = 'none';
+      }
+      if(e.target && (e.target.id==='uf-reset')){
+        document.getElementById('uf-key').value='';
+        document.getElementById('uf-status').value='';
+        document.getElementById('uf-from').value='';
+        document.getElementById('uf-to').value='';
+        // 客户端演示：移除高亮
+        document.querySelectorAll('.uf-hl').forEach(n=>n.classList.remove('uf-hl'));
+      }
+      if(e.target && (e.target.id==='uf-apply')){
+        // Demo：仅做关键字高亮；实际项目应触发具体表格筛选逻辑
+        const key = (document.getElementById('uf-key').value||'').trim();
+        document.querySelectorAll('.uf-hl').forEach(n=>n.classList.remove('uf-hl'));
+        if(key){
+          const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+          const re = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+          let node; while(node = walker.nextNode()){
+            if(re.test(node.nodeValue) && node.parentElement && node.parentElement.closest('table')){
+              node.parentElement.classList.add('uf-hl');
+            }
+          }
+        }
+        document.getElementById('unifiedFilterPanel').style.display = 'none';
+      }
+    });
+
+    const style = document.createElement('style');
+    style.textContent = `.uf-hl{ background: rgba(255, 230, 0, .45); outline: 1px dashed #ffbf00; }`;
+    document.head.appendChild(style);
+  }
+
+  // ===== 统一金额格式（根据表头关键字判列） =====
+  function unifyAmountFormat(){
+    const tables = Array.from(document.querySelectorAll('table'));
+    const nf = new Intl.NumberFormat(locale.lang, { style:'currency', currency: locale.currency, minimumFractionDigits: locale.precision, maximumFractionDigits: locale.precision });
+    tables.forEach(tb=>{
+      const ths = Array.from(tb.querySelectorAll('thead th, thead td')).map(th => (th.textContent||'').trim());
+      if(!ths.length) return;
+      ths.forEach((txt, idx)=>{
+        if(/金额|价|费|收款|打款|入账|出账/.test(txt)){
+          Array.from(tb.querySelectorAll(`tbody tr`)).forEach(tr=>{
+            const td = tr.children[idx]; if(!td) return;
+            const raw = (td.textContent||'').replace(/[,￥$]/g,'').trim();
+            const num = parseFloat(raw);
+            if(!isNaN(num)){
+              td.setAttribute('data-raw-amount', num);
+              td.textContent = nf.format(num);
+              td.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace';
+              td.style.textAlign = 'right';
+            }
+          });
+        }
+      });
+    });
+  }
+
+  // ===== 统一时间格式 =====
+  function unifyTimeFormat(){
+    const tables = Array.from(document.querySelectorAll('table'));
+    const fmt = new Intl.DateTimeFormat(locale.lang, { timeZone: locale.tz, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    tables.forEach(tb=>{
+      const ths = Array.from(tb.querySelectorAll('thead th, thead td')).map(th => (th.textContent||'').trim());
+      if(!ths.length) return;
+      ths.forEach((txt, idx)=>{
+        if(/时间|日期|创建|更新/.test(txt)){
+          Array.from(tb.querySelectorAll(`tbody tr`)).forEach(tr=>{
+            const td = tr.children[idx]; if(!td) return;
+            const s = (td.textContent||'').trim();
+            // 常见格式 "YYYY-MM-DD HH:mm[:ss]"
+            const iso = s.replace(/(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(:\d{2})?)/, '$1T$2');
+            const d = new Date(iso);
+            if(!isNaN(+d)){
+              td.title = d.toISOString();
+              td.textContent = fmt.format(d);
+              td.style.whiteSpace = 'nowrap';
+            }
+          });
+        }
+      });
+    });
+  }
+
+  // ===== 空态填充（无数据时） =====
+  function fillEmptyStates(){
+    Array.from(document.querySelectorAll('table')).forEach(tb=>{
+      const body = tb.querySelector('tbody'); if(!body) return;
+      const hasRow = body.querySelector('tr');
+      if(!hasRow){
+        const colSpan = (tb.querySelectorAll('thead th').length || 1);
+        const tr = document.createElement('tr');
+        const td = document.createElement('td'); td.colSpan = colSpan; td.className='unified-empty';
+        td.innerHTML = '<div class="icon"></div><div>暂无数据</div>';
+        tr.appendChild(td); body.appendChild(tr);
+      }
+    });
+  }
+
+  // ===== 动作按钮意图着色（基于文本内容） =====
+  function colorizeActionButtons(){
+    const btns = Array.from(document.querySelectorAll('button, a.btn'));
+    btns.forEach(b=>{
+      const t = (b.textContent||'').trim();
+      if(/通过|同意|Approve/i.test(t)) b.classList.add('btn-intent-approve');
+      if(/驳回|拒绝|Reject/i.test(t)) b.classList.add('btn-intent-reject');
+      if(/打回|退回|Return/i.test(t)) b.classList.add('btn-intent-return');
+      if(/打款|已转账|Pay/i.test(t)) b.classList.add('btn-intent-pay');
+    });
+  }
+
+  // ===== 启动顺序 =====
+  document.addEventListener('DOMContentLoaded', function(){
+    ensureFilterUI();
+    unifyAmountFormat();
+    unifyTimeFormat();
+    fillEmptyStates();
+    colorizeActionButtons();
+  });
+})();
+</script>
+
+</body>
+</html>

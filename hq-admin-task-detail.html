@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>总部管理系统 - 任务详情设计</title>
+  <!-- 依赖：Bootstrap、Bootstrap Icons（与全站一致） -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+  <style>
+    /* ============== 主题变量（与 dashboard 一致） ============== */
+    :root{
+      --primary:#3b7ddd;
+      --primary-light:#e8f0fe;
+      --red:#dc3545;
+      --white:#ffffff;
+      --light:#f5f6f8;
+      --border:#e2e8f0;
+      --text:#2d3748;
+      --dot-platform:#3b7ddd;
+      --dot-user:#2fb67b;
+      --dot-team:#f6a035;
+      --dot-system:#7a5af8;
+    }
+    body{background-color:var(--light);font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:var(--text);}
+    /* 侧边栏/顶部栏（与 dashboard 对齐） */
+    .sidebar{background-color:var(--white);color:#4a5568;height:100vh;position:fixed;left:0;top:0;width:260px;padding-top:60px;box-shadow:2px 0 10px rgba(0,0,0,0.05);border-right:1px solid var(--border);z-index:1000;overflow-y:auto;}
+    .sidebar .nav-link{color:#4a5568;padding:.8rem 1rem;margin:.1rem .5rem;border-radius:6px;transition:all .2s;display:flex;align-items:center;gap:.55rem;}
+    .sidebar .nav-link i{color:#718096;}
+    .sidebar .nav-link:hover,.sidebar .nav-link.active{color:var(--primary);background-color:var(--primary-light);}
+    .sidebar .nav-link.active i,.sidebar .nav-link:hover i{color:var(--primary);}
+    .sidebar .menu-section{padding:.75rem 1rem .25rem;color:#94a3b8;font-weight:700;text-transform:uppercase;font-size:.75rem;letter-spacing:.06em;}
+    .cat-dot{display:inline-block;width:.6rem;height:.6rem;border-radius:2px;flex:0 0 auto;}
+    .dot-platform{background-color:var(--dot-platform);} .dot-user{background-color:var(--dot-user);} .dot-team{background-color:var(--dot-team);} .dot-system{background-color:var(--dot-system);}
+    .main-content{margin-left:260px;padding:20px;padding-top:80px;transition:margin-left .3s;}
+    .navbar{background-color:var(--white);box-shadow:0 2px 10px rgba(0,0,0,.05);border-bottom:1px solid var(--border);position:fixed;top:0;left:0;right:0;z-index:1030;padding-left:260px;transition:padding-left .3s;}
+    .navbar-toggler{display:none;border:none;font-size:1.25rem;}
+    .navbar-toggler:focus{box-shadow:none;}
+    @media (max-width: 992px){
+      .sidebar{width:84px;padding-top:70px;}
+      .sidebar .nav-link span.text{display:none;}
+      .sidebar .menu-section{display:none;}
+      .main-content{margin-left:84px;}
+      .navbar{padding-left:84px;}
+    }
+    @media (max-width: 768px){
+      .sidebar{transform:translateX(-100%);width:260px;}
+      .sidebar.show{transform:translateX(0);}
+      .main-content{margin-left:0;}
+      .navbar{padding-left:15px;}
+      .navbar-toggler{display:block;}
+    }
+
+    /* ============== 左编辑 / 右预览 基础样式 ============== */
+    .section-title{font-weight:700;color:#4a5568;margin-bottom:.5rem;}
+    .subtle{color:#6c757d;font-size:.9rem;}
+    .editor-card{border:none;border-radius:10px;box-shadow:0 4px 10px rgba(0,0,0,.04);}
+    .preview-card{border:none;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.06);overflow:hidden;}
+    .preview-pane{position:sticky;top:88px;}
+    .phone-frame{background:#111;color:#fff;border-radius:24px;padding:12px;border:10px solid #000;box-shadow:0 10px 30px rgba(0,0,0,.2);}
+    .phone-header{background:linear-gradient(135deg,#ff7e00,#ff5f00);padding:.6rem;color:#fff;border-radius:.6rem;margin-bottom:.6rem;display:flex;align-items:center;justify-content:space-between;}
+    .pill{display:inline-flex;align-items:center;gap:.25rem;border:1px solid #ffd8b8;background:#fff9f2;color:#ff7e00;border-radius:999px;padding:.1rem .5rem;font-size:.8rem;}
+    .pub-card,.task-card,.info-block,.submit-block{background:#fff;border-radius:.6rem;padding:.8rem;margin-bottom:.6rem;border:1px solid #eee;color:#333;}
+    .pub-row{display:flex;gap:.5rem;margin-bottom:.4rem;}
+    .pub-label{width:5.5rem;color:#666;flex-shrink:0;}
+    .pub-value{flex:1;color:#333;}
+    .pub-total{font-weight:700;color:#e33333;}
+    .step-list{list-style:none;padding-left:0;counter-reset:step;}
+    .step-list li{counter-increment:step;position:relative;padding-left:2rem;margin:.4rem 0;}
+    .step-list li::before{content:counter(step);position:absolute;left:0;top:0;width:1.4rem;height:1.4rem;background:#ff7e00;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;}
+    .file-drop{border:1px dashed #e0e0e0;border-radius:.4rem;padding:1rem;text-align:center;color:#666;background:#fff;}
+    .palette .btn{width:100%;margin-bottom:.5rem;text-align:left;}
+    .canvas{border:1px dashed var(--border);border-radius:8px;min-height:200px;background:#fff;padding:12px;}
+    .field-item{border:1px solid var(--border);border-radius:6px;padding:.6rem .75rem;margin-bottom:.6rem;background:#fff;}
+    .field-item .actions .btn{padding:.15rem .4rem;font-size:.8rem;}
+
+    /* ============== 操作步骤编辑器样式 ============== */
+    .step-editor-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+      padding: 10px;
+      background-color: #f8f9fa;
+      border-radius: 6px;
+      border: 1px solid #e9ecef;
+    }
+    .step-number {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background-color: var(--primary);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 10px;
+      flex-shrink: 0;
+    }
+    .step-content {
+      flex-grow: 1;
+      position: relative;
+    }
+    .step-actions {
+      display: flex;
+      gap: 5px;
+      margin-left: 10px;
+      flex-shrink: 0;
+    }
+    .step-actions .btn {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.8rem;
+    }
+    
+    /* ============== 字段插入面板样式 ============== */
+    .fields-panel {
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 20px;
+      border: 1px solid #e9ecef;
+    }
+    .field-badge {
+      cursor: pointer;
+      margin: 0 5px 5px 0;
+      font-family: monospace;
+    }
+    .field-badge:hover {
+      opacity: 0.8;
+    }
+    .insert-field-btn {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      padding: 0.15rem 0.4rem;
+      font-size: 0.75rem;
+    }
+    .textarea-container {
+      position: relative;
+    }
+    .insert-field-btn-textarea {
+      position: absolute;
+      right: 12px;
+      top: 12px;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <!-- 顶部导航栏（与dashboard一致） -->
+  <nav class="navbar navbar-expand-lg navbar-light">
+        <div class="container-fluid">
+            <button class="navbar-toggler" type="button" id="sidebarToggle">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <a class="navbar-brand" href="#"><strong><i class="bi bi-building me-2"></i>总部管理系统</strong></a>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto me-5">
+                    <li class="nav-item dropdown ms-2">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle me-2"></i> 管理员
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="#" id="btnLogout"><i class="bi bi-box-arrow-right me-2"></i>退出</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+  </nav>
+
+  <!-- 侧边栏（与dashboard一致） -->
+  <aside class="sidebar">
+        <div class="position-sticky">
+            <ul class="nav flex-column">
+                <!-- 平台层面 -->
+                <li class="menu-section">平台</li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-dashboard.html">
+                        <span class="cat-dot dot-platform"></span><i class="bi bi-speedometer2"></i><span class="text">平台总仪表盘</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-finance-platform-fund-flow.html">
+                        <span class="cat-dot dot-platform"></span><i class="bi bi-currency-exchange"></i><span class="text">平台资金流水</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-tasks-global-management.html">
+                        <span class="cat-dot dot-platform"></span><i class="bi bi-list-task"></i><span class="text">任务全局管理</span>
+                    </a>
+                </li>
+
+                <!-- 用户层面 -->
+                <li class="menu-section">用户</li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-users-list.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-people"></i><span class="text">平台用户列表</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-finance-recharge-review.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-wallet2"></i><span class="text">用户充值审核</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-finance-withdrawal-review.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-cash-coin"></i><span class="text">用户提现审核</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-finance-user-fund-flow.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-currency-exchange"></i><span class="text">用户资金流水</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-users-feedback.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-chat-left-text"></i><span class="text">用户投诉反馈</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-audit-task-publish.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-send-check"></i><span class="text">用户发布审核</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-audit-task-completion.html">
+                        <span class="cat-dot dot-user"></span><i class="bi bi-check2-circle"></i><span class="text">任务完成审核</span>
+                    </a>
+                </li>
+
+                <!-- 团队层面 -->
+                <li class="menu-section">团队</li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-team-dashboard.html">
+                        <span class="cat-dot dot-team"></span><i class="bi bi-graph-up"></i><span class="text">团队数据概览</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-team-list.html">
+                        <span class="cat-dot dot-team"></span><i class="bi bi-building"></i><span class="text">平台团队列表</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-finance-team-withdrawal-review.html">
+                        <span class="cat-dot dot-team"></span><i class="bi bi-bank"></i><span class="text">团队提现审核</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-finance-team-fund-flow.html">
+                        <span class="cat-dot dot-team"></span><i class="bi bi-currency-exchange"></i><span class="text">团队资金流水</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-team-feedback.html">
+                        <span class="cat-dot dot-team"></span><i class="bi bi-chat-left-text"></i><span class="text">团队投诉反馈</span>
+                    </a>
+                </li>
+
+                <!-- 系统设置层面 -->
+                <li class="menu-section">系统</li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="hq-admin-settings-categories.html">
+                        <span class="cat-dot dot-system"></span><i class="bi bi-tags"></i><span class="text">业务分类管理</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-system-api-management-monitoring.html">
+                        <span class="cat-dot dot-system"></span><i class="bi bi-hdd-network"></i><span class="text">接口管理监控</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="hq-admin-settings-system.html">
+                        <span class="cat-dot dot-system"></span><i class="bi bi-gear-fill"></i><span class="text">系统设置</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+  </aside>
+
+  <!-- 主内容 -->
+  <main class="main-content">
+    <!-- 页面抬头 -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div>
+        <h4 class="mb-0">任务详情设计 <small id="categoryName" class="text-muted"></small></h4>
+        <div class="subtle">专注于任务详情设计，布局采用"左编辑 / 右预览"模式。</div>
+      </div>
+      <div class="d-flex gap-2">
+        <button id="btnBack" class="btn btn-outline-secondary" type="button"><i class="bi bi-arrow-left"></i> 返回</button>
+        <button id="btnSave" class="btn btn-primary" type="button"><i class="bi bi-save"></i> 保存</button>
+      </div>
+    </div>
+
+    <!-- ====== 任务详情设计（左编辑 / 右预览） ====== -->
+    <div class="row g-3 mb-3">
+      <!-- 左：任务详情编辑 -->
+      <div class="col-12 col-lg-7">
+        <div class="card editor-card">
+          <div class="card-header bg-white">
+            <strong>任务详情设计</strong>
+            <span class="text-muted ms-2">编辑任务详情各模块内容，操作步骤可动态添加/删除/排序</span>
+          </div>
+          <div class="card-body">
+            <!-- 字段插入面板 -->
+            <div class="fields-panel mb-4">
+              <h6 class="section-title">插入任务字段 <small class="text-muted">(点击字段插入到内容中)</small></h6>
+              <div class="d-flex flex-wrap">
+                <span class="field-badge badge bg-primary" data-field="{{task_category}}">任务分类</span>
+                <span class="field-badge badge bg-primary" data-field="{{task_platform}}">任务平台</span>
+                <span class="field-badge badge bg-primary" data-field="{{task_duration}}">任务时长</span>
+                <span class="field-badge badge bg-primary" data-field="{{task_quantity}}">任务数量</span>
+                <span class="field-badge badge bg-primary" data-field="{{entry_method}}">入场方式</span>
+                <span class="field-badge badge bg-primary" data-field="{{task_unit_price}}">任务单价</span>
+                <span class="field-badge badge bg-primary" data-field="{{task_total_price}}">任务总价</span>
+                <span class="field-badge badge bg-primary" data-field="{{task_deadline}}">任务截止时间</span>
+                
+              </div>
+            </div>
+
+            <!-- 接单信息费率 -->
+            <div class="mb-3">
+              <label class="form-label">接单信息费率</label>
+              <div class="input-group">
+                <input type="number" class="form-control" id="task-commission-rate" placeholder="例如：20" step="0.1" min="0" max="100" value="20">
+                <span class="input-group-text">%</span>
+              </div>
+              <div class="form-text">接单团队从任务赏金中抽取的佣金比例。此费率仅用于预览示例。</div>
+            </div>
+
+            <!-- 任务描述 -->
+            <div class="mb-3">
+              <label class="form-label">任务描述</label>
+              <div class="textarea-container">
+                <textarea class="form-control" id="task-description" rows="3" placeholder="请输入任务描述..."></textarea>
+                <button class="btn btn-sm btn-outline-secondary insert-field-btn-textarea" data-target="task-description">
+                  <i class="bi bi-code-slash"></i> 插入字段
+                </button>
+              </div>
+              <div class="form-text">简要描述任务的内容和目的。可使用上方字段插入任务相关信息。</div>
+            </div>
+
+            <!-- 任务要求 -->
+            <div class="mb-3">
+              <label class="form-label">任务要求</label>
+              <div class="textarea-container">
+                <textarea class="form-control" id="task-requirements" rows="3" placeholder="请输入任务要求..."></textarea>
+                <button class="btn btn-sm btn-outline-secondary insert-field-btn-textarea" data-target="task-requirements">
+                  <i class="bi bi-code-slash"></i> 插入字段
+                </button>
+              </div>
+              <div class="form-text">明确任务执行的具体要求和标准。可使用上方字段插入任务相关信息。</div>
+            </div>
+
+            <!-- 操作步骤 -->
+            <div class="mb-3">
+              <label class="form-label">操作步骤</label>
+              <div id="steps-container">
+                <!-- 步骤将通过JS动态添加 -->
+              </div>
+              <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="add-step-btn">
+                <i class="bi bi-plus-lg me-1"></i>添加步骤
+              </button>
+              <div class="form-text">详细描述完成任务所需的操作步骤，可调整顺序。可使用字段插入任务相关信息。</div>
+            </div>
+
+            <!-- 审核标准 -->
+            <div class="mb-3">
+              <label class="form-label">审核标准</label>
+              <div class="textarea-container">
+                <textarea class="form-control" id="review-standards" rows="3" placeholder="请输入审核标准..."></textarea>
+                <button class="btn btn-sm btn-outline-secondary insert-field-btn-textarea" data-target="review-standards">
+                  <i class="bi bi-code-slash"></i> 插入字段
+                </button>
+              </div>
+              <div class="form-text">明确任务完成后审核通过的标准和要求。可使用上方字段插入任务相关信息。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右：任务详情预览 -->
+      <div class="col-12 col-lg-5">
+        <div class="preview-pane">
+          <div class="card preview-card">
+            <div class="card-header d-flex align-items-center justify-content-between">
+              <div>任务详情预览</div>
+              <span class="pill"><i class="bi bi-lightning-charge"></i> 实时</span>
+            </div>
+            <div class="card-body">
+              <div class="phone-frame">
+                <div class="phone-header">
+                  <div class="d-flex align-items-center gap-2">
+                    <strong>任务详情</strong>
+                  </div>
+                  <span class="pill">预览</span>
+                </div>
+                <div id="preview-task-details">
+<div class="info-block">
+                    <div class="fw-bold mb-2"><i class="bi bi-card-text me-1"></i>任务描述</div>
+                    <div id="pv-description" class="text-muted small">（填写后将实时显示）</div>
+                  </div>
+                  <div class="info-block">
+                    <div class="fw-bold mb-2"><i class="bi bi-clipboard-check me-1"></i>任务要求</div>
+                    <div id="pv-requirements" class="text-muted small">（填写后将实时显示）</div>
+                  </div>
+                  <div class="info-block">
+                    <div class="fw-bold mb-2"><i class="bi bi-list-ol me-1"></i>操作步骤</div>
+                    <ol id="pv-steps" class="mt-2 ps-3">
+                      <li class="text-muted small">（步骤将实时显示）</li>
+                    </ol>
+                  </div>
+                  <div class="info-block">
+                    <div class="fw-bold mb-2"><i class="bi bi-shield-check me-1"></i>审核标准</div>
+                    <div id="pv-review" class="text-muted small">（填写后将实时显示）</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- 必要脚本：即使 CDN 失败，核心交互也能工作 -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // =========================
+    // 工具函数
+    // =========================
+    // 从 URL 读取参数
+    function getQueryParam(key){
+      const params = new URLSearchParams(window.location.search);
+      return params.get(key) || '';
+    }
+
+    // 插入文本到光标位置
+    function insertAtCursor(field, element) {
+      const startPos = element.selectionStart;
+      const endPos = element.selectionEnd;
+      const value = element.value;
+      
+      element.value = value.substring(0, startPos) + field + value.substring(endPos, value.length);
+      element.selectionStart = startPos + field.length;
+      element.selectionEnd = startPos + field.length;
+      element.focus();
+      
+      // 触发输入事件以更新预览
+      const event = new Event('input', { bubbles: true });
+      element.dispatchEvent(event);
+    }
+
+    // 字段示例值映射
+    const fieldExamples = {
+      '{{task_category}}': '游戏',
+      '{{task_platform}}': '抖音',
+      '{{task_duration}}': '30分钟',
+      '{{task_quantity}}': '10',
+      '{{entry_method}}': '扫码关注',
+      '{{task_unit_price}}': '1.5',
+      '{{task_total_price}}': '15',
+      '{{task_deadline}}': '2023-12-31',
+    };
+
+    // 替换字段为示例值
+    function replaceFieldsWithExamples(text) {
+      if (!text) return text;
+      
+      let result = text;
+      Object.keys(fieldExamples).forEach(field => {
+        const regex = new RegExp(field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+        result = result.replace(regex, fieldExamples[field]);
+      });
+      
+      return result;
+    }
+
+    // 全局设计状态（模拟持久化）
+    const designState = {
+      commissionRate: '20',
+      description: '',
+      requirements: '',
+      steps: [],
+      review: ''
+    };
+
+    // =========================
+    // 页面初始化
+    // =========================
+    document.addEventListener('DOMContentLoaded', function(){
+      const cat = getQueryParam('category');
+      if(cat) document.getElementById('categoryName').textContent = '（' + cat + '）';
+
+      // 返回按钮
+      document.getElementById('btnBack').addEventListener('click', function(e){
+        e.preventDefault();
+        window.location.href = 'hq-admin-settings-categories.html';
+      });
+
+      // 字段插入功能
+      document.querySelectorAll('.field-badge').forEach(badge => {
+        badge.addEventListener('click', function() {
+          const field = this.getAttribute('data-field');
+          const activeElement = document.activeElement;
+          
+          if (activeElement && (activeElement.tagName === 'TEXTAREA' || 
+              (activeElement.tagName === 'INPUT' && activeElement.classList.contains('step-input')))) {
+            insertAtCursor(field, activeElement);
+          }
+        });
+      });
+
+      // 接单信息费率输入框事件
+      document.getElementById('task-commission-rate').addEventListener('input', function(){
+        designState.commissionRate = this.value;
+        updatePreview();
+      });
+
+      // 文本区域插入字段按钮
+      document.querySelectorAll('.insert-field-btn-textarea').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const targetId = this.getAttribute('data-target');
+          const textarea = document.getElementById(targetId);
+          
+          // 创建并显示字段选择下拉菜单
+          const dropdown = document.createElement('div');
+          dropdown.className = 'dropdown-menu show';
+          dropdown.style.position = 'absolute';
+          dropdown.style.zIndex = '1000';
+          
+          // 添加字段选项
+          const fields = [
+            {name: '任务分类', value: '{{task_category}}'},
+            {name: '任务平台', value: '{{task_platform}}'},
+            {name: '任务时长', value: '{{task_duration}}'},
+            {name: '任务数量', value: '{{task_quantity}}'},
+            {name: '入场方式', value: '{{entry_method}}'},
+            {name: '任务单价', value: '{{task_unit_price}}'},
+            {name: '任务总价', value: '{{task_total_price}}'},
+            {name: '任务截止时间', value: '{{task_deadline}}'},
+            ];
+          
+          fields.forEach(field => {
+            const item = document.createElement('a');
+            item.className = 'dropdown-item';
+            item.href = '#';
+            item.textContent = field.name;
+            item.addEventListener('click', function(e) {
+              e.preventDefault();
+              insertAtCursor(field.value, textarea);
+              dropdown.remove();
+            });
+            dropdown.appendChild(item);
+          });
+          
+          // 定位并显示下拉菜单
+          const rect = this.getBoundingClientRect();
+          dropdown.style.left = rect.left + 'px';
+          dropdown.style.top = (rect.bottom + 5) + 'px';
+          document.body.appendChild(dropdown);
+          
+          // 点击外部关闭下拉菜单
+          const closeDropdown = function(e) {
+            if (!dropdown.contains(e.target) && e.target !== this) {
+              dropdown.remove();
+              document.removeEventListener('click', closeDropdown);
+            }
+          };
+          
+          setTimeout(() => {
+            document.addEventListener('click', closeDropdown);
+          }, 0);
+        });
+      });
+
+      // 载入历史草稿（如果存在）
+      try{
+        const draft = JSON.parse(localStorage.getItem('taskDetailDesignDraft'));
+        if(draft){ 
+          Object.assign(designState, draft);
+          // 更新UI
+          document.getElementById('task-commission-rate').value = designState.commissionRate || '20';
+          document.getElementById('task-description').value = designState.description;
+          document.getElementById('task-requirements').value = designState.requirements;
+          document.getElementById('review-standards').value = designState.review;
+          
+          // 更新字段示例值
+          // 渲染步骤
+          renderSteps();
+        }
+      }catch(e){ console.warn('读取草稿失败', e); }
+
+      // 添加步骤按钮
+      document.getElementById('add-step-btn').addEventListener('click', addNewStep);
+
+      // 输入框变化监听
+      document.getElementById('task-description').addEventListener('input', function(){
+        designState.description = this.value;
+        updatePreview();
+      });
+
+      document.getElementById('task-requirements').addEventListener('input', function(){
+        designState.requirements = this.value;
+        updatePreview();
+      });
+
+      document.getElementById('review-standards').addEventListener('input', function(){
+        designState.review = this.value;
+        updatePreview();
+      });
+
+      // 保存按钮
+      document.getElementById('btnSave').addEventListener('click', function(e){
+        e.preventDefault();
+        const data = JSON.parse(JSON.stringify(designState));
+        try{ 
+          localStorage.setItem('taskDetailDesignDraft', JSON.stringify(data)); 
+          alert('任务详情配置已保存（模拟）。');
+        }catch(err){ console.warn('保存草稿失败', err); }
+      });
+
+      // 初始预览
+      updatePreview();
+    });
+
+    // =========================
+    // 步骤管理
+    // =========================
+    function addNewStep() {
+      designState.steps.push('');
+      renderSteps();
+      
+      // 聚焦到新添加的步骤输入框
+      const steps = document.querySelectorAll('.step-input');
+      if(steps.length > 0) {
+        steps[steps.length - 1].focus();
+      }
+    }
+
+    function removeStep(index) {
+      designState.steps.splice(index, 1);
+      renderSteps();
+      updatePreview();
+    }
+
+    function moveStepUp(index) {
+      if(index <= 0) return;
+      
+      const temp = designState.steps[index];
+      designState.steps[index] = designState.steps[index - 1];
+      designState.steps[index - 1] = temp;
+      
+      renderSteps();
+      updatePreview();
+    }
+
+    function moveStepDown(index) {
+      if(index >= designState.steps.length - 1) return;
+      
+      const temp = designState.steps[index];
+      designState.steps[index] = designState.steps[index + 1];
+      designState.steps[index + 1] = temp;
+      
+      renderSteps();
+      updatePreview();
+    }
+
+    function updateStep(index, value) {
+      designState.steps[index] = value;
+      updatePreview();
+    }
+
+    function renderSteps() {
+      const container = document.getElementById('steps-container');
+      container.innerHTML = '';
+      
+      designState.steps.forEach((step, index) => {
+        const stepElement = document.createElement('div');
+        stepElement.className = 'step-editor-item';
+        stepElement.innerHTML = `
+          <div class="step-number">${index + 1}</div>
+          <div class="step-content">
+            <input type="text" class="form-control form-control-sm step-input" 
+                   value="${step}" 
+                   placeholder="请输入步骤描述"
+                   oninput="updateStep(${index}, this.value)">
+            <button class="btn btn-sm btn-outline-secondary insert-field-btn" onclick="showStepFieldDropdown(${index})">
+              <i class="bi bi-code-slash"></i>
+            </button>
+          </div>
+          <div class="step-actions">
+            <button type="button" class="btn btn-sm btn-outline-secondary" ${index === 0 ? 'disabled' : ''} 
+                    onclick="moveStepUp(${index})">
+              <i class="bi bi-arrow-up"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" ${index === designState.steps.length - 1 ? 'disabled' : ''} 
+                    onclick="moveStepDown(${index})">
+              <i class="bi bi-arrow-down"></i>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeStep(${index})">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
+        `;
+        container.appendChild(stepElement);
+      });
+      
+      // 如果没有步骤，显示提示
+      if(designState.steps.length === 0) {
+        container.innerHTML = '<div class="text-muted text-center py-3">暂无步骤，点击"添加步骤"按钮开始添加</div>';
+      }
+    }
+
+    // 显示步骤字段下拉菜单
+    function showStepFieldDropdown(index) {
+      const stepInput = document.querySelectorAll('.step-input')[index];
+      
+      // 创建并显示字段选择下拉菜单
+      const dropdown = document.createElement('div');
+      dropdown.className = 'dropdown-menu show';
+      dropdown.style.position = 'absolute';
+      dropdown.style.zIndex = '1000';
+      
+      // 添加字段选项
+      const fields = [
+        {name: '任务分类', value: '{{task_category}}'},
+        {name: '任务平台', value: '{{task_platform}}'},
+        {name: '任务时长', value: '{{task_duration}}'},
+        {name: '任务数量', value: '{{task_quantity}}'},
+        {name: '入场方式', value: '{{entry_method}}'},
+        {name: '任务单价', value: '{{task_unit_price}}'},
+        {name: '任务总价', value: '{{task_total_price}}'},
+        {name: '任务截止时间', value: '{{task_deadline}}'},
+        ];
+      
+      fields.forEach(field => {
+        const item = document.createElement('a');
+        item.className = 'dropdown-item';
+        item.href = '#';
+        item.textContent = field.name;
+        item.addEventListener('click', function(e) {
+          e.preventDefault();
+          insertAtCursor(field.value, stepInput);
+          dropdown.remove();
+        });
+        dropdown.appendChild(item);
+      });
+      
+      // 定位并显示下拉菜单
+      const rect = stepInput.getBoundingClientRect();
+      dropdown.style.left = rect.left + 'px';
+      dropdown.style.top = (rect.bottom + 5) + 'px';
+      document.body.appendChild(dropdown);
+      
+      // 点击外部关闭下拉菜单
+      const closeDropdown = function(e) {
+        if (!dropdown.contains(e.target) && e.target !== stepInput) {
+          dropdown.remove();
+          document.removeEventListener('click', closeDropdown);
+        }
+      };
+      
+      setTimeout(() => {
+        document.addEventListener('click', closeDropdown);
+      }, 0);
+    }
+
+    // =========================
+    // 预览更新
+    // =========================
+    function updatePreview() {
+      
+
+      // 更新任务描述（替换字段为示例值）
+      const descriptionWithExamples = replaceFieldsWithExamples(designState.description);
+      document.getElementById('pv-description').textContent = 
+        descriptionWithExamples || '（填写后将实时显示）';
+      
+      // 更新任务要求（替换字段为示例值）
+      const requirementsWithExamples = replaceFieldsWithExamples(designState.requirements);
+      document.getElementById('pv-requirements').textContent = 
+        requirementsWithExamples || '（填写后将实时显示）';
+      
+      // 更新审核标准（替换字段为示例值）
+      const reviewWithExamples = replaceFieldsWithExamples(designState.review);
+      document.getElementById('pv-review').textContent = 
+        reviewWithExamples || '（填写后将实时显示）';
+      
+      // 更新步骤（替换字段为示例值）
+      const stepsContainer = document.getElementById('pv-steps');
+      stepsContainer.innerHTML = '';
+      
+      if(designState.steps.length === 0) {
+        stepsContainer.innerHTML = '<li class="text-muted small">（步骤将实时显示）</li>';
+      } else {
+        designState.steps.forEach(step => {
+          if(step.trim()) {
+            const li = document.createElement('li');
+            li.textContent = replaceFieldsWithExamples(step);
+            stepsContainer.appendChild(li);
+          }
+        });
+      }
+    }
+
+    // 使函数在全局可访问，以便HTML中的onclick调用
+    window.addNewStep = addNewStep;
+    window.removeStep = removeStep;
+    window.moveStepUp = moveStepUp;
+    window.moveStepDown = moveStepDown;
+    window.updateStep = updateStep;
+    window.showStepFieldDropdown = showStepFieldDropdown;
+  </script>
+
+<script>
+// 侧边栏统一：插入“系统设置”（接口管理与监控下方），隐藏“数据概览/团队投诉反馈”
+(function(){
+  try{
+    const aside = document.querySelector('aside.sidebar');
+    if(aside){
+      const links = aside.querySelectorAll('a');
+      let apiLink = null, settingsLinkExists = false;
+      links.forEach(a=>{
+        if(a.textContent && a.textContent.includes('接口管理与监控')) apiLink = a;
+        if(a.textContent && a.textContent.trim() === '系统设置') settingsLinkExists = true;
+      });
+      if(apiLink && !settingsLinkExists){
+        const li = document.createElement('li'); li.className = 'nav-item';
+        const a = document.createElement('a'); a.className='nav-link'; a.textContent='系统设置';
+        a.href = 'hq-admin-settings-system_v1.2.1d_tabs.html';
+        li.appendChild(a);
+        const parentUl = apiLink.closest('ul') || aside.querySelector('ul');
+        parentUl.insertBefore(li, apiLink.parentElement.nextSibling);
+      }
+      // 隐藏“数据概览”“团队投诉反馈”
+      links.forEach(a=>{
+        const t = (a.textContent||'').trim();
+        if(t.includes('数据概览') || t.includes('团队投诉反馈')){
+          const li = a.closest('li'); if(li) li.style.display='none';
+        }
+      });
+    }
+  }catch(e){ console.warn('侧边栏统一失败', e); }
+})();
+</script>
+
+
+<script>
+// 将表格中的编号（TSK/TPA/TFA/RCG/WDU/WDT/TF/UF/GF/FBK...）自动变为可点击链接
+(function(){
+  const map = {
+    TSK: 'hq-admin-task-detail.html',
+    TPA: 'hq-admin-audit-task-publish.html',
+    TFA: 'hq-admin-audit-task-completion.html',
+    RCG: 'hq-admin-finance-recharge-review.html',
+    WDU: 'hq-admin-finance-withdrawal-review.html',
+    WDT: 'hq-admin-finance-team-withdrawal-review.html',
+    TF:  'hq-admin-finance-platform-fund-flow.html',
+    UF:  'hq-admin-finance-user-fund-flow.html',
+    GF:  'hq-admin-finance-team-fund-flow.html',
+    FBK: 'hq-admin-users-feedback.html',
+    CAT: 'hq-admin-settings-categories.html',
+    FRM: 'hq-admin-form-design.html',
+    APP: 'hq-admin-system-api-management-monitoring.html',
+    MSG: 'hq-admin-users-feedback.html',
+    LOG: 'hq-admin-audit-task-completion.html',
+    U:   'hq-admin-users-list.html',
+    G:   'hq-admin-team-list.html'
+  };
+  const re = /\b(TSK|TPA|TFA|RCG|WDU|WDT|TF|UF|GF|FBK|CAT|FRM|APP|MSG|LOG|U|G)\d{4,}(?:\s*\d{3,})?\b/g;
+  function linkifyNode(node){
+    if(node.children && node.children.length) return;
+    const text = node.textContent;
+    if(!text || !re.test(text)) return;
+    const html = text.replace(re, (m)=>{
+      const pref = m.match(/^[A-Z]+/)[0];
+      const href = map[pref] || '#';
+      const q = encodeURIComponent(m.replace(/\s+/g,''));
+      return `<a href="${href}?id=${q}" class="text-decoration-underline">${m}</a>`;
+    });
+    const span = document.createElement('span'); span.innerHTML = html;
+    node.replaceWith(span);
+  }
+  const targets = Array.from(document.querySelectorAll('td, span, div, p, li'));
+  targets.forEach(linkifyNode);
+})();
+</script>
+
+
+<style>
+/* 统一状态样式 */
+.unified-empty { text-align:center; padding:28px 12px; color:#6c757d; }
+.unified-empty .icon { display:inline-block; width:36px; height:36px; border-radius:50%; border:2px dashed #ced4da; margin-bottom:6px; }
+.unified-loading { position:relative; min-height:80px; }
+.unified-loading:after {
+  content:""; position:absolute; inset:0; background:
+    linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.04) 50%, rgba(0,0,0,0) 100%);
+  animation: shimmer 1.2s infinite;
+}
+@keyframes shimmer { 0%{background-position:-200% 0;} 100%{background-position:200% 0;} }
+.unified-error { color:#dc3545; padding:8px 0; }
+
+/* 统一筛选浮层 */
+#unifiedFilterPanel {
+  position: fixed; right: 16px; top: 84px; width: 360px; z-index: 1080;
+  background: #fff; border: 1px solid #dee2e6; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.12);
+  display:none;
+}
+#unifiedFilterPanel .hdr { padding: 10px 12px; border-bottom:1px solid #eee; display:flex; align-items:center; justify-content:space-between; }
+#unifiedFilterPanel .bd { padding: 12px; }
+#btnUnifiedFilter { margin-left: 8px; }
+
+/* 按钮意图颜色统一（基于文本） */
+button, .btn { transition: filter .2s ease; }
+.btn-intent-approve { background:#198754; color:#fff; border-color:#198754; }
+.btn-intent-reject { background:#dc3545; color:#fff; border-color:#dc3545; }
+.btn-intent-return { background:#ffc107; color:#212529; border-color:#ffc107; }
+.btn-intent-pay { background:#0d6efd; color:#fff; border-color:#0d6efd; }
+
+/* 可点击编号统一下划线（若页面未设置） */
+a.id-link { text-decoration: underline; }
+</style>
+
+<script>
+(function(){
+  // ===== 读取系统设置（货币/精度/时区） =====
+  const PUB_KEY = 'hq_sys_settings_v1_2_1d_published';
+  let locale = { lang:'zh-CN', tz:'Asia/Shanghai', currency:'CNY', precision:2 };
+  try{
+    const cfg = JSON.parse(localStorage.getItem(PUB_KEY)||'{}');
+    if(cfg.locale){
+      locale.lang = cfg.locale.lang || locale.lang;
+      locale.tz = cfg.locale.tz || locale.tz;
+      locale.currency = cfg.locale.currency || locale.currency;
+      locale.precision = parseInt(cfg.locale.precision||locale.precision,10);
+    }
+  }catch(e){}
+
+  // ===== 统一筛选：在首个 .card-header 右侧添加“筛选”按钮 + 浮层 =====
+  function ensureFilterUI(){
+    if(document.getElementById('unifiedFilterPanel')) return;
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-outline-secondary btn-sm';
+    btn.id = 'btnUnifiedFilter';
+    btn.innerHTML = '<i class="bi bi-funnel me-1"></i>筛选';
+    // 尝试挂到第一个 card-header 右侧
+    const hdr = document.querySelector('.card .card-header') || document.querySelector('.d-flex.align-items-center.justify-content-between');
+    if(hdr){ hdr.appendChild(btn); }
+    else {
+      // 顶部右上角浮动按钮（兜底）
+      const fbtn = btn.cloneNode(true);
+      fbtn.style.position='fixed'; fbtn.style.right='16px'; fbtn.style.top='20px'; fbtn.style.zIndex='1080';
+      document.body.appendChild(fbtn);
+    }
+
+    const panel = document.createElement('div');
+    panel.id = 'unifiedFilterPanel';
+    panel.innerHTML = `
+      <div class="hdr">
+        <strong>通用筛选</strong>
+        <button type="button" class="btn-close" id="btnUFclose"></button>
+      </div>
+      <div class="bd">
+        <div class="mb-2">
+          <label class="form-label">关键字</label>
+          <input class="form-control" id="uf-key" placeholder="编号/手机号/名称">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">状态</label>
+          <select class="form-select" id="uf-status">
+            <option value="">全部</option>
+            <option>待处理</option>
+            <option>处理中</option>
+            <option>已通过</option>
+            <option>已驳回</option>
+            <option>已完成</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">时间范围</label>
+          <div class="d-flex gap-2">
+            <input type="date" class="form-control" id="uf-from">
+            <input type="date" class="form-control" id="uf-to">
+          </div>
+        </div>
+        <div class="d-flex justify-content-end gap-2">
+          <button class="btn btn-outline-secondary btn-sm" id="uf-reset">重置</button>
+          <button class="btn btn-primary btn-sm" id="uf-apply">应用</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(panel);
+
+    document.body.addEventListener('click', function(e){
+      if(e.target && (e.target.id==='btnUnifiedFilter')){
+        const p = document.getElementById('unifiedFilterPanel');
+        p.style.display = (p.style.display==='none' || !p.style.display) ? 'block' : 'none';
+      }
+      if(e.target && (e.target.id==='btnUFclose')){
+        document.getElementById('unifiedFilterPanel').style.display = 'none';
+      }
+      if(e.target && (e.target.id==='uf-reset')){
+        document.getElementById('uf-key').value='';
+        document.getElementById('uf-status').value='';
+        document.getElementById('uf-from').value='';
+        document.getElementById('uf-to').value='';
+        // 客户端演示：移除高亮
+        document.querySelectorAll('.uf-hl').forEach(n=>n.classList.remove('uf-hl'));
+      }
+      if(e.target && (e.target.id==='uf-apply')){
+        // Demo：仅做关键字高亮；实际项目应触发具体表格筛选逻辑
+        const key = (document.getElementById('uf-key').value||'').trim();
+        document.querySelectorAll('.uf-hl').forEach(n=>n.classList.remove('uf-hl'));
+        if(key){
+          const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+          const re = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+          let node; while(node = walker.nextNode()){
+            if(re.test(node.nodeValue) && node.parentElement && node.parentElement.closest('table')){
+              node.parentElement.classList.add('uf-hl');
+            }
+          }
+        }
+        document.getElementById('unifiedFilterPanel').style.display = 'none';
+      }
+    });
+
+    const style = document.createElement('style');
+    style.textContent = `.uf-hl{ background: rgba(255, 230, 0, .45); outline: 1px dashed #ffbf00; }`;
+    document.head.appendChild(style);
+  }
+
+  // ===== 统一金额格式（根据表头关键字判列） =====
+  function unifyAmountFormat(){
+    const tables = Array.from(document.querySelectorAll('table'));
+    const nf = new Intl.NumberFormat(locale.lang, { style:'currency', currency: locale.currency, minimumFractionDigits: locale.precision, maximumFractionDigits: locale.precision });
+    tables.forEach(tb=>{
+      const ths = Array.from(tb.querySelectorAll('thead th, thead td')).map(th => (th.textContent||'').trim());
+      if(!ths.length) return;
+      ths.forEach((txt, idx)=>{
+        if(/金额|价|费|收款|打款|入账|出账/.test(txt)){
+          Array.from(tb.querySelectorAll(`tbody tr`)).forEach(tr=>{
+            const td = tr.children[idx]; if(!td) return;
+            const raw = (td.textContent||'').replace(/[,￥$]/g,'').trim();
+            const num = parseFloat(raw);
+            if(!isNaN(num)){
+              td.setAttribute('data-raw-amount', num);
+              td.textContent = nf.format(num);
+              td.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace';
+              td.style.textAlign = 'right';
+            }
+          });
+        }
+      });
+    });
+  }
+
+  // ===== 统一时间格式 =====
+  function unifyTimeFormat(){
+    const tables = Array.from(document.querySelectorAll('table'));
+    const fmt = new Intl.DateTimeFormat(locale.lang, { timeZone: locale.tz, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    tables.forEach(tb=>{
+      const ths = Array.from(tb.querySelectorAll('thead th, thead td')).map(th => (th.textContent||'').trim());
+      if(!ths.length) return;
+      ths.forEach((txt, idx)=>{
+        if(/时间|日期|创建|更新/.test(txt)){
+          Array.from(tb.querySelectorAll(`tbody tr`)).forEach(tr=>{
+            const td = tr.children[idx]; if(!td) return;
+            const s = (td.textContent||'').trim();
+            // 常见格式 "YYYY-MM-DD HH:mm[:ss]"
+            const iso = s.replace(/(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(:\d{2})?)/, '$1T$2');
+            const d = new Date(iso);
+            if(!isNaN(+d)){
+              td.title = d.toISOString();
+              td.textContent = fmt.format(d);
+              td.style.whiteSpace = 'nowrap';
+            }
+          });
+        }
+      });
+    });
+  }
+
+  // ===== 空态填充（无数据时） =====
+  function fillEmptyStates(){
+    Array.from(document.querySelectorAll('table')).forEach(tb=>{
+      const body = tb.querySelector('tbody'); if(!body) return;
+      const hasRow = body.querySelector('tr');
+      if(!hasRow){
+        const colSpan = (tb.querySelectorAll('thead th').length || 1);
+        const tr = document.createElement('tr');
+        const td = document.createElement('td'); td.colSpan = colSpan; td.className='unified-empty';
+        td.innerHTML = '<div class="icon"></div><div>暂无数据</div>';
+        tr.appendChild(td); body.appendChild(tr);
+      }
+    });
+  }
+
+  // ===== 动作按钮意图着色（基于文本内容） =====
+  function colorizeActionButtons(){
+    const btns = Array.from(document.querySelectorAll('button, a.btn'));
+    btns.forEach(b=>{
+      const t = (b.textContent||'').trim();
+      if(/通过|同意|Approve/i.test(t)) b.classList.add('btn-intent-approve');
+      if(/驳回|拒绝|Reject/i.test(t)) b.classList.add('btn-intent-reject');
+      if(/打回|退回|Return/i.test(t)) b.classList.add('btn-intent-return');
+      if(/打款|已转账|Pay/i.test(t)) b.classList.add('btn-intent-pay');
+    });
+  }
+
+  // ===== 启动顺序 =====
+  document.addEventListener('DOMContentLoaded', function(){
+    ensureFilterUI();
+    unifyAmountFormat();
+    unifyTimeFormat();
+    fillEmptyStates();
+    colorizeActionButtons();
+  });
+})();
+</script>
+
+</body>
+</html>

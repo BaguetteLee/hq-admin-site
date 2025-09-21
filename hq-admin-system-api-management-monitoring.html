@@ -1,0 +1,1424 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>总部管理系统 - 接口管理与监控（重构版 v2）</title>
+  <!-- 依赖：Bootstrap、Bootstrap Icons、Chart.js -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* ================== 主题变量，与 Dashboard 保持一致（中文注释） ================== */
+    :root{
+      --primary:#3b7ddd;
+      --primary-light:#e8f0fe;
+      --red:#dc3545;
+      --white:#ffffff;
+      --light:#f5f6f8;
+      --border:#e2e8f0;
+      --text:#2d3748;
+      --dot-platform:#3b7ddd;
+      --dot-user:#2fb67b;
+      --dot-team:#f6a035;
+      --dot-system:#7a5af8;
+    }
+    body{background-color:var(--light);font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:var(--text);}
+
+    /* ================== 侧边栏（与 Dashboard 同步） ================== */
+    .sidebar{background-color:var(--white);color:#4a5568;height:100vh;position:fixed;left:0;top:0;width:260px;padding-top:60px;box-shadow:2px 0 10px rgba(0,0,0,0.05);border-right:1px solid var(--border);z-index:1000;overflow-y:auto;}
+    .sidebar .nav-link{color:#4a5568;padding:.8rem 1rem;margin:.1rem .5rem;border-radius:6px;transition:all .2s;display:flex;align-items:center;gap:.55rem;}
+    .sidebar .nav-link i{color:#718096;}
+    .sidebar .nav-link:hover,.sidebar .nav-link.active{color:var(--primary);background-color:var(--primary-light);}
+    .sidebar .nav-link.active i,.sidebar .nav-link:hover i{color:var(--primary);}
+    .sidebar .menu-section{padding:.75rem 1rem .25rem;color:#94a3b8;font-weight:700;text-transform:uppercase;font-size:.75rem;letter-spacing:.06em;}
+    .cat-dot{display:inline-block;width:.6rem;height:.6rem;border-radius:2px;flex:0 0 auto;}
+    .dot-platform{background-color:var(--dot-platform);}
+    .dot-user{background-color:var(--dot-user);}
+    .dot-team{background-color:var(--dot-team);}
+    .dot-system{background-color:var(--dot-system);}
+
+    /* ================== 主内容区与顶部导航 ================== */
+    .main-content{margin-left:260px;padding:20px;padding-top:96px;transition:margin-left .3s;} /* ↑ 增加顶部内边距以避免与吸顶元素重叠 */
+    .navbar{background-color:var(--white);box-shadow:0 2px 10px rgba(0,0,0,.05);border-bottom:1px solid var(--border);position:fixed;top:0;left:0;right:0;z-index:1030;padding-left:260px;transition:padding-left .3s;}
+    .navbar-brand{color:var(--primary);font-weight:700;display:flex;align-items:center;gap:.6rem;}
+    .navbar-toggler{display:none;border:none;font-size:1.25rem;}
+    .navbar-toggler:focus{box-shadow:none;}
+
+    /* ================== 容器与卡片 ================== */
+    .dashboard-card{background:var(--white);border-radius:10px;box-shadow:0 4px 6px rgba(0,0,0,.04);margin-bottom:24px;border:none;}
+    .card-header{background-color:var(--white);border-bottom:1px solid var(--border);font-weight:600;padding:1rem 1.5rem;}
+    .card-body{padding:1.25rem;}
+    .table-sm td,.table-sm th{padding:.45rem .5rem;vertical-align:middle;}
+    .badge-scope{background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;font-weight:500;}
+    .stat-num{font-size:1.6rem;font-weight:800;}
+    .mini-tabs .btn{padding:.25rem .5rem;font-size:.75rem;}
+    .sticky-actions{position: static;top:76px;z-index:100;background:var(--light);padding:.25rem 0;} /* ↑ 粘性操作条，避免挡住内容 */
+
+    /* ================== 图表画布高度 ================== */
+    canvas.chart{height:220px !important;} /* 统一图表高度，避免拉伸与遮挡 */
+
+    /* ================== 响应式处理 ================== */
+    @media (max-width: 992px){
+      .sidebar{width:84px;padding-top:70px;}
+      .sidebar .nav-link span.text{display:none;}
+      .sidebar .menu-section{display:none;}
+      .main-content{margin-left:84px;}
+      .navbar{padding-left:84px;}
+    }
+    @media (max-width: 768px){
+      .sidebar{transform:translateX(-100%);width:260px;}
+      .sidebar.show{transform:translateX(0);}
+      .main-content{margin-left:0;}
+      .navbar{padding-left:15px;}
+      .navbar-toggler{display:block;}
+    }
+
+    /* ================== 代码块样式（用于展示凭据） ================== */
+    pre.code{background:#0f172a;color:#e2e8f0;border-radius:8px;padding:10px 12px;font-size:.85rem;overflow:auto;}
+    .mask{filter:blur(3px);user-select:none;}
+    .cursor-pointer{cursor:pointer;}
+    .form-hint{font-size:.8rem;color:#64748b;}
+  </style>
+</head>
+<body>
+  <!-- ========== 顶部导航（与 Dashboard 保持一致） ========== -->
+  <nav class="navbar navbar-expand-lg navbar-light">
+    <div class="container-fluid">
+      <button class="navbar-toggler" type="button" id="sidebarToggle">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <a class="navbar-brand" href="#"><strong><i class="bi bi-building me-2"></i>总部管理系统</strong></a>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto me-5">
+          <li class="nav-item dropdown ms-2">
+            <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+              <i class="bi bi-person-circle me-2"></i> 管理员
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li><a class="dropdown-item" href="#" id="btnLogout"><i class="bi bi-box-arrow-right me-2"></i>退出</a></li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ========== 侧边栏（与 Dashboard 一致） ========== -->
+  <aside class="sidebar">
+    <div class="position-sticky">
+      <ul class="nav flex-column">
+        <!-- 平台 -->
+        <li class="menu-section">平台</li>
+        <li class="nav-item">
+          <a class="nav-link" href="hq-admin-dashboard.html">
+            <span class="cat-dot dot-platform"></span><i class="bi bi-speedometer2"></i><span class="text">平台总仪表盘</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="hq-admin-finance-platform-fund-flow.html">
+            <span class="cat-dot dot-platform"></span><i class="bi bi-currency-exchange"></i><span class="text">平台资金流水</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="hq-admin-tasks-global-management.html">
+            <span class="cat-dot dot-platform"></span><i class="bi bi-list-task"></i><span class="text">任务全局管理</span>
+          </a>
+        </li>
+
+        <!-- 用户 -->
+        <li class="menu-section">用户</li>
+        <li class="nav-item">
+          <a class="nav-link" href="hq-admin-users-list.html">
+            <span class="cat-dot dot-user"></span><i class="bi bi-people"></i><span class="text">平台用户列表</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="hq-admin-finance-recharge-review.html">
+            <span class="cat-dot dot-user"></span><i class="bi bi-wallet2"></i><span class="text">用户充值审核</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="hq-admin-finance-withdrawal-review.html">
+            <span class="cat-dot dot-user"></span><i class="bi bi-cash-coin"></i><span class="text">用户提现审核</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="hq-admin-finance-user-fund-flow.html">
+            <span class="cat-dot dot-user"></span><i class="bi bi-currency-exchange"></i><span class="text">用户资金流水</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="hq-admin-users-feedback.html">
+            <span class="cat-dot dot-user"></span><i class="bi bi-chat-left-text"></i><span class="text">用户投诉反馈</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="hq-admin-audit-task-publish.html">
+            <span class="cat-dot dot-user"></span><i class="bi bi-send-check"></i><span class="text">用户发布审核</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="hq-admin-audit-task-completion.html">
+            <span class="cat-dot dot-user"></span><i class="bi bi-check2-circle"></i><span class="text">任务完成审核</span>
+          </a>
+        </li>
+
+        <!-- 团队 -->
+        <li class="menu-section">团队</li>
+        <li class="nav-item">
+          <a class="nav-link" href="hq-admin-team-dashboard.html">
+            <span class="cat-dot dot-team"></span><i class="bi bi-graph-up"></i><span class="text">团队数据概览</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="hq-admin-team-list.html">
+            <span class="cat-dot dot-team"></span><i class="bi bi-building"></i><span class="text">平台团队列表</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="hq-admin-finance-team-withdrawal-review.html">
+            <span class="cat-dot dot-team"></span><i class="bi bi-bank"></i><span class="text">团队提现审核</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="hq-admin-finance-team-fund-flow.html">
+            <span class="cat-dot dot-team"></span><i class="bi bi-currency-exchange"></i><span class="text">团队资金流水</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="hq-admin-team-feedback.html">
+            <span class="cat-dot dot-team"></span><i class="bi bi-chat-left-text"></i><span class="text">团队投诉反馈</span>
+          </a>
+        </li>
+
+        <!-- 系统 -->
+        <li class="menu-section">系统</li>
+        <li class="nav-item">
+          <a class="nav-link" href="hq-admin-settings-categories.html">
+            <span class="cat-dot dot-system"></span><i class="bi bi-tags"></i><span class="text">业务分类管理</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link active" href="hq-admin-system-api-management-monitoring.html">
+            <span class="cat-dot dot-system"></span><i class="bi bi-hdd-network"></i><span class="text">接口管理监控</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="hq-admin-settings-system.html">
+            <span class="cat-dot dot-system"></span><i class="bi bi-gear-fill"></i><span class="text">系统设置</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+  </aside>
+
+  <!-- ========== 主内容区：接口管理与监控（重构 v2） ========== -->
+  <main class="main-content">
+    <div class="container-fluid"><!-- ↑ 使用容器避免列在大屏下拉伸错位 -->
+      <!-- 顶部操作条：新建应用、导出日志、全局搜索 -->
+      <div class="sticky-actions mb-3">
+        <div class="d-flex align-items-center justify-content-between">
+          <h4 class="mb-0">接口管理与监控</h4>
+          <div class="d-flex align-items-center gap-2">
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-search"></i></span>
+              <input id="globalSearch" type="text" class="form-control" placeholder="搜索应用、Client ID、端点、状态码…">
+            </div>
+            <button class="btn btn-outline-secondary" id="btnExport"><i class="bi bi-download me-1"></i>导出日志</button>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalNewApp"><i class="bi bi-plus-lg me-1"></i>新建应用</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 一、总体概览 -->
+      <section class="row g-3 mb-4">
+        <div class="col-xl-3 col-md-6">
+          <div class="dashboard-card card">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <div class="text-muted">注册应用总数</div>
+                  <div class="stat-num" id="statApps">57</div>
+                </div>
+                <i class="bi bi-boxes fs-1 text-primary"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+          <div class="dashboard-card card">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <div class="text-muted">活跃令牌（近24小时）</div>
+                  <div class="stat-num" id="statTokens">163</div>
+                </div>
+                <i class="bi bi-key fs-1 text-primary"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+          <div class="dashboard-card card">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <div class="text-muted">平台QPS峰值（近1小时）</div>
+                  <div class="stat-num" id="statQps">538</div>
+                </div>
+                <i class="bi bi-activity fs-1 text-primary"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+          <div class="dashboard-card card">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <div class="text-muted">错误率（近24小时）</div>
+                  <div class="stat-num" id="statErr">1.12%</div>
+                </div>
+                <i class="bi bi-exclamation-triangle fs-1 text-danger"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 二、调用趋势 + 错误分布 -->
+      <section class="row g-3 mb-4">
+        <div class="col-lg-8">
+          <div class="dashboard-card card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <span>调用趋势（按分钟聚合）</span>
+              <div class="btn-group btn-group-sm mini-tabs" role="group">
+                <button class="btn btn-outline-primary active" data-trend="h1">近1小时</button>
+                <button class="btn btn-outline-primary" data-trend="h6">近6小时</button>
+                <button class="btn btn-outline-primary" data-trend="d1">近24小时</button>
+              </div>
+            </div>
+            <div class="card-body">
+              <canvas id="trendChart" class="chart"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="dashboard-card card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <span>错误码分布（近24小时）</span>
+            </div>
+            <div class="card-body">
+              <canvas id="errorPie" class="chart"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 三、Top 端点 / Top 应用 -->
+      <section class="row g-3 mb-4">
+        <div class="col-lg-6">
+          <div class="dashboard-card card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <span>Top 端点（按次数）</span>
+            </div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                  <thead>
+                    <tr>
+                      <th>端点</th><th class="text-end">调用次数</th><th class="text-end">P95(ms)</th><th class="text-end">错误率</th>
+                    </tr>
+                  </thead>
+                  <tbody id="topEndpoints"></tbody>
+                </table>
+                <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mt-2">
+                  <div class="small text-muted" id="epPagerInfo">共 0 条</div>
+                  <div class="d-flex align-items-center gap-2">
+                    <select id="epPageSize" class="form-select form-select-sm" style="width:auto;">
+                      <option value="5">每页 5 条</option>
+                      <option value="10" selected>每页 10 条</option>
+                      <option value="20">每页 20 条</option>
+                    </select>
+                    <nav><ul class="pagination pagination-sm mb-0" id="epPager"></ul></nav>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="dashboard-card card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <span>Top 应用（按调用量）</span>
+            </div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                  <thead>
+                    <tr>
+                      <th>应用名称</th><th>环境</th><th>到期日</th><th>Scopes</th><th class="text-end">调用量</th><th class="text-end">错误率</th>
+                    </tr>
+                  </thead>
+                  <tbody id="topApps"></tbody>
+                </table>
+                <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mt-2">
+                  <div class="small text-muted" id="taPagerInfo">共 0 条</div>
+                  <div class="d-flex align-items-center gap-2">
+                    <select id="taPageSize" class="form-select form-select-sm" style="width:auto;">
+                      <option value="5">每页 5 条</option>
+                      <option value="10" selected>每页 10 条</option>
+                      <option value="20">每页 20 条</option>
+                    </select>
+                    <nav><ul class="pagination pagination-sm mb-0" id="taPager"></ul></nav>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 四、应用列表（含密钥/令牌/限流/安全操作） -->
+      <section class="dashboard-card card mb-4">
+        <div class="card-header d-flex flex-wrap gap-2 align-items-center justify-content-between">
+          <div>应用列表</div>
+          <div class="d-flex align-items-center gap-2">
+            <select id="filterEnv" class="form-select form-select-sm" style="width:auto;">
+              <option value="">全部环境</option>
+              <option value="dev">开发</option>
+              <option value="stage">预发</option>
+              <option value="prod">生产</option>
+            </select>
+            <select id="filterStatus" class="form-select form-select-sm" style="width:auto;">
+              <option value="">全部状态</option>
+              <option value="active">已启用</option>
+              <option value="suspended">已停用</option>
+            </select>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead>
+                <tr>
+                  <th>应用名称</th>
+                  <th>Client ID</th>
+                  <th>环境</th>
+                  <th>到期日</th><th>Scopes</th>
+                  <th class="text-end">限流</th>
+                  <th class="text-end">近24h调用</th>
+                  <th>状态</th>
+                  <th class="text-end">操作</th>
+                </tr>
+              </thead>
+              <tbody id="appTableBody"></tbody>
+            </table>
+            <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mt-2">
+              <div class="small text-muted" id="appPagerInfo">共 0 条</div>
+              <div class="d-flex align-items-center gap-2">
+                <select id="appPageSize" class="form-select form-select-sm" style="width:auto;">
+                  <option value="10" selected>每页 10 条</option>
+                  <option value="20">每页 20 条</option>
+                  <option value="50">每页 50 条</option>
+                </select>
+                <nav><ul class="pagination pagination-sm mb-0" id="appPager"></ul></nav>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 五、调用日志（可筛选） -->
+      <section class="dashboard-card card mb-5">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <div>调用日志</div>
+          <div class="d-flex gap-2 flex-wrap">
+            <input type="datetime-local" id="logFrom" class="form-control form-control-sm" />
+            <input type="datetime-local" id="logTo" class="form-control form-control-sm" />
+            <select id="logStatus" class="form-select form-select-sm" style="width:auto;">
+              <option value="">全部状态</option>
+              <option value="2xx">2xx</option>
+              <option value="4xx">4xx</option>
+              <option value="5xx">5xx</option>
+            </select>
+            <button id="btnQueryLog" class="btn btn-outline-primary btn-sm"><i class="bi bi-funnel me-1"></i>筛选</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead>
+                <tr>
+                  <th>时间</th><th>应用</th><th>端点</th><th class="text-end">耗时(ms)</th><th class="text-end">状态码</th><th>IP</th><th class="text-end">操作</th>
+                </tr>
+              </thead>
+              <tbody id="logTableBody"></tbody>
+            </table>
+          </div>
+          <div class="form-hint">提示：日志为静态模拟数据，更多行数可在代码中调整生成数量。</div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- ========== 模态框区域 ========== -->
+  <!-- 新建应用 -->
+  <div class="modal fade" id="modalNewApp" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">新建应用</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">应用名称</label>
+              <input id="newAppName" type="text" class="form-control" placeholder="示例：发布端-渠道A" />
+              <div class="invalid-feedback">请填写应用名称</div>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">环境</label>
+              <select id="newAppEnv" class="form-select">
+                <option value="dev">开发</option>
+                <option value="stage">预发</option>
+                <option value="prod" selected>生产</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">当前环境 API 基础地址（只读）</label>
+              <input id="newAppBaseUrl" type="text" class="form-control" readonly value="">
+              <div class="form-text">由总部统一提供。创建后可在“应用详情→环境网关（只读）”中查看所有环境地址。</div>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">默认限流（req/min）</label>
+              <input id="newAppRatelimit" type="number" class="form-control" value="600" />
+            </div>
+            <div class="col-12">
+              <label class="form-label">Scopes（权限）</label>
+              <div class="row">
+                <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" value="users.read" id="scUsersR" checked><label class="form-check-label" for="scUsersR">users.read</label></div></div>
+                <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" value="tasks.read" id="scTasksR" checked><label class="form-check-label" for="scTasksR">tasks.read</label></div></div>
+                <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" value="tasks.write" id="scTasksW"><label class="form-check-label" for="scTasksW">tasks.write</label></div></div>
+                <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" value="finance.read" id="scFinR"><label class="form-check-label" for="scFinR">finance.read</label></div></div>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="agreeApi">
+                <label class="form-label ms-1" for="agreeApi">已阅读并同意《平台API接入协议》</label>
+                <div class="invalid-feedback d-block" id="agreeWarn" style="display:none;">请先勾选同意《平台API接入协议》</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-primary" id="btnCreateApp" disabled>创建</button><!-- ↑ 初始禁用，避免“点了没反应”的体感 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 应用详情 / 密钥管理 -->
+  <div class="modal fade" id="modalAppDetail" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">应用详情与密钥管理</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+        </div>
+        <div class="modal-body">
+          <div id="appDetailBody"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">关闭</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 日志详情 -->
+  <div class="modal fade" id="modalLogDetail" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">调用日志详情</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+        </div>
+        <div class="modal-body">
+          <pre class="code" id="logJson">{}</pre>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">关闭</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== Toast 通知（右下角） ========== -->
+  <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1080">
+    <div id="toast" class="toast align-items-center text-bg-dark border-0" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex">
+        <div class="toast-body" id="toastMsg">操作已完成</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="关闭"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 脚本 ========== -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // ================= 顶部交互：侧边栏、退出登录（中文注释） =================
+    document.getElementById('sidebarToggle')?.addEventListener('click', ()=>{
+      document.querySelector('.sidebar')?.classList.toggle('show');
+    });
+    document.getElementById('btnLogout')?.addEventListener('click', function(e){
+      e.preventDefault();
+      try{ localStorage.removeItem('auth_token'); localStorage.removeItem('user_info'); sessionStorage.clear(); }catch(_){}
+      location.href = 'login.html';
+    });
+
+    // ================= 工具函数：Toast 与遮罩 =================
+    const toastEl = document.getElementById('toast');
+    const toastMsg = document.getElementById('toastMsg');
+    const showToast = (msg)=>{ toastMsg.textContent = msg; new bootstrap.Toast(toastEl).show(); };
+    const maskToggle = (el)=> el.classList.toggle('mask');
+
+    // ================== 元素引用（修复 v1 中未定义变量导致的交互中断） ==================
+    const filterEnvEl = document.getElementById('filterEnv');
+    const filterStatusEl = document.getElementById('filterStatus');
+    const globalSearchEl = document.getElementById('globalSearch');
+    const getFilters = ()=>({ env: filterEnvEl.value, status: filterStatusEl.value, q: globalSearchEl.value.trim() });
+
+    // ================== 模拟数据：应用、端点、调用、日志（更丰富） ==================
+    // 应用数据（模拟 12 条，覆盖 dev/stage/prod，状态混合）
+    const apps = [
+      {id:'a1', name:'发布端-渠道A', clientId:'PUBA_2JH7K9', env:'prod', scopes:['users.read','tasks.read','finance.read'], rate:1200, calls24h:185432, errorRate:0.6, status:'active', lastCall:'2025-09-13 13:45:10'},
+      {id:'a2', name:'接单端-渠道B', clientId:'DOERB_D8X5Q2', env:'prod', scopes:['tasks.read','tasks.write'], rate:800, calls24h:142210, errorRate:1.2, status:'active', lastCall:'2025-09-13 13:44:51'},
+      {id:'a3', name:'发布管理-测试', clientId:'PUBM_T3Q9V7', env:'stage', scopes:['users.read','tasks.read'], rate:300, calls24h:18210, errorRate:0.3, status:'active', lastCall:'2025-09-13 13:40:04'},
+      {id:'a4', name:'接单管理-测试', clientId:'DOERM_J1P4N8', env:'dev', scopes:['tasks.read'], rate:200, calls24h:1012, errorRate:0.0, status:'active', lastCall:'2025-09-13 12:55:19'},
+      {id:'a5', name:'外部伙伴-渠道C', clientId:'EXTC_7FK2M1', env:'prod', scopes:['tasks.read','finance.read'], rate:500, calls24h:65420, errorRate:2.1, status:'suspended', lastCall:'2025-09-13 09:21:33'},
+      {id:'a6', name:'发布端-渠道D', clientId:'PUBLISH_D2L9S1', env:'prod', scopes:['tasks.read'], rate:600, calls24h:82344, errorRate:0.8, status:'active', lastCall:'2025-09-13 13:40:55'},
+      {id:'a7', name:'接单端-渠道E', clientId:'DOERE_9ZK1A0', env:'prod', scopes:['tasks.read','tasks.write'], rate:700, calls24h:93210, errorRate:1.0, status:'active', lastCall:'2025-09-13 13:42:02'},
+      {id:'a8', name:'发布管理-灰度', clientId:'PUBM_GRAY7', env:'stage', scopes:['users.read','tasks.read','tasks.write'], rate:400, calls24h:22100, errorRate:0.4, status:'active', lastCall:'2025-09-13 13:39:19'},
+      {id:'a9', name:'外部分析-BI', clientId:'EXTBI_Q1W2E3', env:'prod', scopes:['finance.read'], rate:300, calls24h:41025, errorRate:0.2, status:'active', lastCall:'2025-09-13 13:36:10'},
+      {id:'a10', name:'接单端-渠道F', clientId:'DOERF_6T5R4E', env:'prod', scopes:['tasks.read'], rate:650, calls24h:57210, errorRate:0.9, status:'active', lastCall:'2025-09-13 13:41:20'},
+      {id:'a11', name:'沙箱-自动化测试', clientId:'SANDBOX_AUTO1', env:'dev', scopes:['tasks.read','users.read'], rate:150, calls24h:812, errorRate:0.0, status:'active', lastCall:'2025-09-13 12:00:01'},
+      {id:'a12', name:'合作方-渠道G', clientId:'PARTNER_G8H7J6', env:'prod', scopes:['tasks.read','finance.read'], rate:450, calls24h:33120, errorRate:1.7, status:'suspended', lastCall:'2025-09-13 10:21:33'}
+    ];
+    
+    // ====== 环境基础地址（只读示例，不参与实际请求；中文注释） ======
+    const BASE_URLS = {
+      dev:   'https://dev-api.example.com/v1',
+      stage: 'https://stage-api.example.com/v1',
+      prod:  'https://api.example.com/v1'
+    };
+// ====== v3.2 新增：应用到期日期 & 提醒逻辑（纯前端模拟） ======
+    // 工具：格式化 YYYY-MM-DD
+    const fmtDate = (d)=> {
+      const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), da = String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${da}`;
+    };
+    const daysBetween = (a,b)=> Math.ceil((a.getTime()-b.getTime())/86400000);
+
+    // 给没有设置到期日的应用一个默认值：prod 180 天，stage 120 天，dev 90 天
+    (function ensureExpiry(){
+      const now = new Date();
+      apps.forEach((a,i)=>{
+        if(!a.expiry){
+          const plus = a.env==='prod'?180:(a.env==='stage'?120:90);
+          const d = new Date(now.getTime()+plus*86400000);
+          a.expiry = fmtDate(d);
+        }
+        if(typeof a.remindDays!=='number') a.remindDays = 15; // 默认 15 天提醒
+      });
+    })();
+
+    // 渲染在表格中的到期日：7 天内高亮
+    function formatExpiry(expiryStr){
+      if(!expiryStr) return '<span class="text-muted">未设置</span>';
+      const now = new Date();
+      const d = new Date(expiryStr+'T00:00:00');
+      const left = daysBetween(d, now);
+      const badge = left<=7 ? '<span class="badge text-bg-danger ms-2">7天内到期</span>' : '';
+      return `<span>${expiryStr}</span> ${badge}`;
+    }
+
+
+    // Top 端点（扩充为 8 条）
+    const endpointTop = [
+      {ep:'GET /tasks', count:142210, p95:186, err:'0.5%'},
+      {ep:'POST /tasks/{id}/submit', count:88210, p95:242, err:'1.1%'},
+      {ep:'GET /finance/ledger', count:72112, p95:210, err:'0.7%'},
+      {ep:'POST /withdrawals', count:17801, p95:355, err:'2.9%'},
+      {ep:'GET /users/{id}', count:16820, p95:120, err:'0.3%'},
+      {ep:'GET /tasks/{id}', count:15110, p95:132, err:'0.4%'},
+      {ep:'GET /tasks?status=running', count:14502, p95:190, err:'0.6%'},
+      {ep:'POST /tasks', count:9901, p95:410, err:'1.8%'}
+    ];
+
+    // Top 应用（扩充为 6 条）
+    const appTop = [
+      {name:'发布端-渠道A', env:'prod', scopes:['users.read','tasks.read','finance.read'], count:185432, err:'0.6%'},
+      {name:'接单端-渠道B', env:'prod', scopes:['tasks.read','tasks.write'], count:142210, err:'1.2%'},
+      {name:'接单端-渠道E', env:'prod', scopes:['tasks.read','tasks.write'], count:93210, err:'1.0%'},
+      {name:'发布端-渠道D', env:'prod', scopes:['tasks.read'], count:82344, err:'0.8%'},
+      {name:'外部伙伴-渠道C', env:'prod', scopes:['tasks.read','finance.read'], count:65420, err:'2.1%'},
+      {name:'外部分析-BI', env:'prod', scopes:['finance.read'], count:41025, err:'0.2%'}
+    ];
+
+    // 调用日志（扩充到 30 条，更接近真实流水）
+    const logs = Array.from({length:30}).map((_,i)=>{
+      const ok = i%7!==0; // 每 7 条造一条 5xx
+      const status = ok ? (i%5===0? 429 : (i%6===0? 401 : 200)) : 502;
+      const appsRef = ['发布端-渠道A','接单端-渠道B','接单端-渠道E','外部伙伴-渠道C','发布端-渠道D','外部分析-BI'];
+      const eps = ['GET /tasks','POST /tasks/123/submit','GET /finance/ledger','POST /withdrawals','GET /users/77889'];
+      return {
+        at:`2025-09-13 13:${String(10+i).padStart(2,'0')}:${String(10+i).padStart(2,'0')}`,
+        app: appsRef[i % appsRef.length],
+        endpoint: eps[i % eps.length],
+        dur: Math.floor(60+Math.random()*340),
+        status,
+        ip: '203.0.113.'+(20+i),
+        detail:{
+          request:{headers:{Authorization:'Bearer ***'}, body: i%3? {} : {taskId:123, files:2}},
+          response:{code: status, body: status===200? {ok:true}:{error: (status===429?'rate limited':status===401?'unauthorized':'upstream unavailable'), traceId:'tr-'+i}},
+          meta:{idempotency_key: 'idem-'+i, tenant_id: (i%2?'t-pubA':'t-doerB')}
+        }
+      };
+    });
+
+    
+    // =============== 公共分页工具（中文注释） ===============
+    const Paging = {
+      // 生成 [1..pages]，仅渲染最多 7 个按钮（含首/末/省略）
+      pages(total, size){ const pages = Math.max(1, Math.ceil(total/size)); return pages; },
+      clamp(page, pages){ return Math.min(Math.max(1, page), pages); },
+      render(containerId, infoId, total, state, onChange){
+        const pages = this.pages(total, state.size);
+        state.page = this.clamp(state.page, pages);
+        const ul = document.getElementById(containerId); if(!ul) return;
+        const info = document.getElementById(infoId); if(info) info.textContent = `共 ${total} 条，${state.size} 条/页，第 ${state.page}/${pages} 页`;
+        const makeLi = (label, disabled, active, goto)=>{
+          const li = document.createElement('li');
+          li.className = 'page-item'+(disabled?' disabled':'')+(active?' active':'');
+          const a = document.createElement('a');
+          a.className = 'page-link'; a.href = 'javascript:void(0)'; a.textContent = label;
+          if(!disabled){ a.addEventListener('click', ()=> onChange(goto)); }
+          li.appendChild(a); return li;
+        };
+        ul.innerHTML = '';
+        ul.appendChild(makeLi('«', state.page===1, false, 1));
+        const windowSize = 5;
+        let start = Math.max(1, state.page - Math.floor(windowSize/2));
+        let end = Math.min(pages, start + windowSize - 1);
+        if(end - start + 1 < windowSize){ start = Math.max(1, end - windowSize + 1); }
+        if(start>1){ ul.appendChild(makeLi('1', false, false, 1)); if(start>2){ ul.appendChild(makeLi('…', true, false)); } }
+        for(let i=start;i<=end;i++){ ul.appendChild(makeLi(String(i), false, i===state.page, i)); }
+        if(end<pages){ if(end<pages-1){ ul.appendChild(makeLi('…', true, false)); } ul.appendChild(makeLi(String(pages), false, false, pages)); }
+        ul.appendChild(makeLi('»', state.page===pages, false, pages));
+      }
+    };
+
+    // 默认分页状态
+    const stateApps = { page: 1, size: 10 };
+    const stateLogs = { page: 1, size: 20 };
+    const stateEps  = { page: 1, size: 10 };
+    const stateTA   = { page: 1, size: 10 };
+// =============== 渲染：Top 端点与 Top 应用表格 ===============
+    const topEndpointsTbody = document.getElementById('topEndpoints');
+    const epRenderAll = endpointTop.slice();
+    const renderTopEndpoints = ()=>{
+      topEndpointsTbody.innerHTML='';
+      const total = epRenderAll.length;
+      const start = (stateEps.page-1)*stateEps.size;
+      const pageItems = epRenderAll.slice(start, start+stateEps.size);
+      pageItems.forEach(r=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><code>${r.ep}</code></td>
+        <td class="text-end">${r.count.toLocaleString()}</td>
+        <td class="text-end">${r.p95}</td>
+        <td class="text-end">${r.err}</td>`;
+      topEndpointsTbody.appendChild(tr);
+      });
+      Paging.render('epPager','epPagerInfo', total, stateEps, (p)=>{ stateEps.page=p; renderTopEndpoints(); });
+    };
+    renderTopEndpoints();
+    document.getElementById('epPageSize')?.addEventListener('change', (e)=>{ stateEps.size=parseInt(e.target.value,10)||10; stateEps.page=1; renderTopEndpoints(); });
+    const topAppsTbody = document.getElementById('topApps');
+    const taRenderAll = appTop.slice();
+    const renderTopApps = ()=>{
+      topAppsTbody.innerHTML='';
+      const total = taRenderAll.length;
+      const start = (stateTA.page-1)*stateTA.size;
+      const pageItems = taRenderAll.slice(start, start+stateTA.size);
+      pageItems.forEach(r=>{
+      const tr = document.createElement('tr');
+      const scopes = r.scopes.map(s=>'<span class="badge rounded-pill badge-scope me-1">'+s+'</span>').join('');
+      tr.innerHTML = `
+        <td>${r.name}</td>
+        <td><span class="badge text-bg-light">${r.env}</span></td>
+        <td>${scopes}</td>
+        <td class="text-end">${r.count.toLocaleString()}</td>
+        <td class="text-end">${r.err}</td>`;
+      topAppsTbody.appendChild(tr);
+      });
+      Paging.render('taPager','taPagerInfo', total, stateTA, (p)=>{ stateTA.page=p; renderTopApps(); });
+    };
+    renderTopApps();
+    document.getElementById('taPageSize')?.addEventListener('change', (e)=>{ stateTA.size=parseInt(e.target.value,10)||10; stateTA.page=1; renderTopApps(); });
+
+    // =============== 渲染：应用列表 ===============
+    const appTableBody = document.getElementById('appTableBody');
+    function renderApps(filter={}){
+      appTableBody.innerHTML = '';
+      const listAll = apps.filter(a=>{
+        if(filter.env && a.env!==filter.env) return false;
+        if(filter.status && a.status!==filter.status) return false;
+        if(filter.q && !(a.name.includes(filter.q)||a.clientId.includes(filter.q))) return false;
+        return true;
+      });
+      const total = listAll.length;
+      const start = (stateApps.page-1)*stateApps.size;
+      const pageItems = listAll.slice(start, start+stateApps.size);
+      pageItems.forEach(a=>{
+        const scopes = a.scopes.map(s=>'<span class="badge rounded-pill badge-scope me-1">'+s+'</span>').join('');
+        const status = a.status==='active' ? '<span class="badge text-bg-success">已启用</span>' : '<span class="badge text-bg-secondary">已停用</span>';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${a.name}</td>
+          <td><code>${a.clientId}</code></td>
+          <td><span class="badge text-bg-light">${a.env}</span></td>
+          <td>\${formatExpiry(a.expiry)}</td>
+          <td>\${scopes}</td>
+          <td class="text-end"><span class="badge text-bg-light">${a.rate}/min</span></td>
+          <td class="text-end">${a.calls24h.toLocaleString()}</td>
+          <td>${status}</td>
+          <td class="text-end">
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-outline-primary" data-action="detail" data-id="${a.id}"><i class="bi bi-eye"></i></button>
+              <button class="btn btn-outline-secondary" data-action="ratelimit" data-id="${a.id}"><i class="bi bi-sliders"></i></button>
+              <button class="btn btn-outline-dark" data-action="security" data-id="${a.id}"><i class="bi bi-shield-lock"></i></button>
+              <button class="btn btn-outline-danger" data-action="toggle" data-id="${a.id}"><i class="bi bi-power"></i></button>
+            </div>
+          </td>`;
+        appTableBody.appendChild(tr);
+      });
+      Paging.render('appPager','appPagerInfo', total, stateApps, (p)=>{ stateApps.page=p; renderApps(getFilters()); });
+    }
+    renderApps();
+    document.getElementById('appPageSize')?.addEventListener('change',(e)=>{ stateApps.size=parseInt(e.target.value,10)||10; stateApps.page=1; renderApps(getFilters()); });
+
+    // =============== 筛选/搜索（修复未定义变量；统一读取函数） ===============
+    filterEnvEl.addEventListener('change',()=>{ stateApps.page=1; renderApps(getFilters()); });
+    filterStatusEl.addEventListener('change',()=>{ stateApps.page=1; renderApps(getFilters()); });
+    globalSearchEl.addEventListener('input',()=>{ stateApps.page=1; renderApps(getFilters()); });
+
+    // =============== 应用操作：详情、限流、安全、启停 ===============
+    const appDetailModal = new bootstrap.Modal(document.getElementById('modalAppDetail'));
+    appTableBody.addEventListener('click',(e)=>{
+      const btn = e.target.closest('button[data-action]'); if(!btn) return;
+      const id = btn.getAttribute('data-id');
+      const app = apps.find(x=>x.id===id);
+      const action = btn.getAttribute('data-action');
+      if(action==='detail'){
+        // 渲染应用详情（密钥管理、令牌、Webhook 等）
+        document.getElementById('appDetailBody').innerHTML = `
+          <div class="row g-3">
+            <div class="col-lg-6">
+              <div class="dashboard-card card h-100">
+                <div class="card-header">凭据</div>
+                <div class="card-body">
+                  <div class="mb-2 small text-muted">Client ID</div>
+                  <pre class="code"><code>${app.clientId}</code></pre>
+                  <div class="mb-2 small text-muted d-flex align-items-center justify-content-between">
+                    <span>Client Secret</span>
+                    <button class="btn btn-sm btn-outline-secondary" id="btnRotateSecret"><i class="bi bi-arrow-repeat me-1"></i>轮换</button>
+                  </div>
+                  <pre class="code"><code id="clientSecret" class="mask cursor-pointer">s3cr3t-x9K2...X</code></pre>
+                  <div class="small text-muted">提示：点击可临时显示/隐藏密钥（仅示例）</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <div class="dashboard-card card h-100">
+                <div class="card-header">令牌与权限</div>
+                <div class="card-body">
+                  <div class="mb-2">Scopes：</div>
+                  ${app.scopes.map(s=>'<span class="badge rounded-pill badge-scope me-1">'+s+'</span>').join('')}
+                  <hr/>
+                  <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                      <div class="small text-muted">活跃令牌</div>
+                      <div class="stat-num"> ${Math.floor(Math.random()*20)+5} </div>
+                    </div>
+                    <div class="btn-group">
+                      <button class="btn btn-sm btn-outline-primary" id="btnIssueToken"><i class="bi bi-key me-1"></i>签发测试令牌</button>
+                      <button class="btn btn-sm btn-outline-danger" id="btnRevokeTokens"><i class="bi bi-x-octagon me-1"></i>吊销全部令牌</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="dashboard-card card">
+                <div class="card-header">安全设置</div>
+                <div class="card-body">
+                  <div class="row g-3">
+                    <div class="col-md-4">
+                      <label class="form-label">IP 白名单（逗号分隔）</label>
+                      <input id="ipAllow" class="form-control" placeholder="203.0.113.10,203.0.113.11" value="203.0.113.10">
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">启用 mTLS</label>
+                      <select id="mtls" class="form-select"><option>关闭</option><option selected>开启</option></select>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">Webhook Secret</label>
+                      <div class="input-group">
+                        <input id="whSecret" class="form-control" value="whsec_9Pr2G..." />
+                        <button class="btn btn-outline-secondary" id="btnRotateWh"><i class="bi bi-arrow-repeat"></i></button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="row g-3 mt-3">
+            <div class="col-12">
+              <div class="dashboard-card card h-100">
+                <div class="card-header">
+          <div class="row g-3 mt-3">
+            <div class="col-12">
+              <div class="dashboard-card card h-100">
+                <div class="card-header">环境网关（只读）</div>
+                <div class="card-body">
+                  <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-2">
+                      <thead><tr><th style="width:120px">环境</th><th>API 基础地址</th><th style="width:180px">当前应用环境</th></tr></thead>
+                      <tbody>
+                        <tr><td>开发（dev）</td><td><code>${BASE_URLS.dev}</code></td><td>${app.env==='dev' ? '<span class="badge text-bg-primary">当前</span>' : ''}</td></tr>
+                        <tr><td>预发（stage）</td><td><code>${BASE_URLS.stage}</code></td><td>${app.env==='stage' ? '<span class="badge text-bg-primary">当前</span>' : ''}</td></tr>
+                        <tr><td>生产（prod）</td><td><code>${BASE_URLS.prod}</code></td><td>${app.env==='prod' ? '<span class="badge text-bg-primary">当前</span>' : ''}</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="form-text">说明：以上为总部统一维护的网关入口地址，前端在各自平台配置页填写对应环境地址即可。</div>
+                </div>
+              </div>
+            </div>
+          </div>
+    授权到期</div>
+                <div class="card-body">
+                  <div class="row g-3">
+                    <div class="col-md-4">
+                      <label class="form-label">应用到期时间</label>
+                      <input id="appExpiry" type="date" class="form-control" value="${app.expiry||''}">
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">到期前提醒</label>
+                      <select id="appRemind" class="form-select">
+                        <option value="7">7天</option>
+                        <option value="15" selected>15天</option>
+                        <option value="30">30天</option>
+                      </select>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                      <button id="btnSaveExpiry" class="btn btn-primary w-100"><i class="bi bi-save me-1"></i>保存到期设置（示例）</button>
+                    </div>
+                  </div>
+                  <div class="form-text">说明：到期后所有令牌与调用将被拒绝（401/403）。保存后会立刻影响授权检查。</div>
+                </div>
+              </div>
+            </div>
+          </div>
+`;
+        // 事件绑定：密钥遮罩、轮换、令牌操作
+        document.getElementById('clientSecret').addEventListener('click', (e)=> maskToggle(e.target));
+        document.getElementById('btnRotateSecret').addEventListener('click', ()=> showToast('已生成新密钥，并同步到后台（示例）'));
+        document.getElementById('btnIssueToken').addEventListener('click', ()=> showToast('已签发短期访问令牌（示例）'));
+        document.getElementById('btnRevokeTokens').addEventListener('click', ()=> showToast('已吊销该应用的全部活跃令牌（示例）'));
+        document.getElementById('btnRotateWh').addEventListener('click', ()=> showToast('Webhook Secret 已轮换（示例）'));
+        // 保存到期设置（纯前端模拟）
+        document.getElementById('appRemind').value = String(app.remindDays||15);
+        document.getElementById('btnSaveExpiry').addEventListener('click', ()=>{
+          const ex = document.getElementById('appExpiry').value;
+          const rd = parseInt(document.getElementById('appRemind').value,10)||15;
+          app.expiry = ex; app.remindDays = rd;
+          showToast('已保存：到期时间 '+ (ex||'未设置') +'，提醒 '+rd+' 天（示例）');
+          renderApps(getFilters());
+        });
+        
+        // v3.2：保存“授权到期”设置（纯前端模拟）
+        (function bindExpiry(){
+          const exEl = document.getElementById('appExpiry');
+          const rdEl = document.getElementById('appRemind');
+          const btnSave = document.getElementById('btnSaveExpiry');
+          if(btnSave){
+            rdEl.value = String(app.remindDays||15);
+            btnSave.addEventListener('click', ()=>{
+              const ex = exEl.value;
+              const rd = parseInt(rdEl.value,10)||15;
+              if(!ex){ alert('请先选择到期日期'); return; }
+              app.expiry = ex; app.remindDays = rd;
+              showToast('已保存到期设置（示例）。列表将在下次刷新时展示新到期日。');
+              // 立即刷新应用列表以反映到期列
+              renderApps(getFilters());
+            });
+          }
+        })();
+appDetailModal.show();
+      }else if(action==='ratelimit'){
+        // 示例：提升限流并刷新表格（使用统一筛选器读取）
+        app.rate += 100; showToast('已将限流提升为 '+app.rate+'/min（示例）'); renderApps(getFilters());
+      }else if(action==='security'){
+        showToast('请在“应用详情”中配置安全策略'); // 引导到详情
+      }else if(action==='toggle'){
+        app.status = app.status==='active' ? 'suspended' : 'active';
+        showToast('状态已切换为：'+(app.status==='active'?'已启用':'已停用'));
+        renderApps(getFilters());
+      }
+    });
+
+    // =============== “新建应用”表单：启用/禁用创建按钮 + 校验提示 ===============
+    const agreeWarn = document.getElementById('agreeWarn');
+    const newAppNameEl = document.getElementById('newAppName');
+    const newAppEnvEl = document.getElementById('newAppEnv');
+    const newAppRateEl = document.getElementById('newAppRatelimit');
+    const agreeApiEl = document.getElementById('agreeApi');
+    const btnCreate = document.getElementById('btnCreateApp');
+    const validateNewApp = ()=>{
+      const okName = newAppNameEl.value.trim().length>0;
+      const okAgree = agreeApiEl.checked;
+      newAppNameEl.classList.toggle('is-invalid', !okName);
+      agreeWarn.style.display = okAgree? 'none':'block';
+      btnCreate.disabled = !(okName && okAgree);
+    };
+    newAppNameEl.addEventListener('input', validateNewApp);
+    agreeApiEl.addEventListener('change', validateNewApp);
+
+    document.getElementById('btnCreateApp').addEventListener('click', ()=>{
+      // 收集并创建模拟应用记录
+      const name = newAppNameEl.value.trim();
+      const env  = newAppEnvEl.value;
+      const rate = parseInt(newAppRateEl.value||'300',10);
+      const scopes = ['scUsersR','scTasksR','scTasksW','scFinR'].filter(id=>document.getElementById(id).checked)
+                        .map(id=>document.getElementById(id).value);
+      if(!name || !agreeApiEl.checked){ validateNewApp();
+      // v3.3：根据环境展示只读“API 基础地址”（示例）
+      const envSel = document.getElementById('newAppEnv');
+      const baseUrlEl = document.getElementById('newAppBaseUrl');
+      const syncEnvBaseUrl = ()=>{ baseUrlEl.value = BASE_URLS[envSel.value] || ''; };
+      envSel?.addEventListener('change', syncEnvBaseUrl);
+      syncEnvBaseUrl();
+ return; }
+      const id = 'a'+(apps.length+1);
+      const clientId = (env=='prod'?'PROD':'DEV')+'_'+Math.random().toString(36).slice(2,8).toUpperCase();
+      apps.unshift({id, name, clientId, env, scopes, rate, calls24h:0, errorRate:0, status:'active', lastCall:'—'});
+      renderApps(getFilters());
+      showToast('应用已创建（示例），Client ID：'+clientId);
+      bootstrap.Modal.getInstance(document.getElementById('modalNewApp')).hide();
+      // 重置表单
+      newAppNameEl.value=''; newAppRateEl.value='600'; agreeApiEl.checked=false;
+      ['scUsersR','scTasksR','scTasksW','scFinR'].forEach(id=>{ const el=document.getElementById(id); el.checked = (id==='scUsersR'||id==='scTasksR'); });
+      validateNewApp();
+    });
+
+    // =============== 调用趋势：折线图（可切换时间窗口） ===============
+    const trendCtx = document.getElementById('trendChart').getContext('2d');
+    const makeSeries = (n)=> Array.from({length:n}).map((_,i)=>({x:i,y:Math.floor(100+Math.random()*300)}));
+    const trendSeries = { h1: makeSeries(60), h6: makeSeries(72), d1: makeSeries(96) };
+    const trendChart = new Chart(trendCtx, {
+      type:'line',
+      data:{
+        labels:trendSeries.h1.map(p=>p.x),
+        datasets:[
+          {label:'总调用数', data:trendSeries.h1.map(p=>p.y), borderWidth:2, fill:false},
+          {label:'错误数', data:trendSeries.h1.map(p=>Math.floor(p.y*0.01+Math.random()*5)), borderWidth:2, fill:false}
+        ]
+      },
+      options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'top'}}, scales:{y:{beginAtZero:true}}}
+    });
+    document.querySelectorAll('[data-trend]').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        const key = btn.getAttribute('data-trend');
+        const series = trendSeries[key];
+        trendChart.data.labels = series.map(p=>p.x);
+        trendChart.data.datasets[0].data = series.map(p=>p.y);
+        trendChart.data.datasets[1].data = series.map(p=>Math.floor(p.y*0.01+Math.random()*5));
+        trendChart.update();
+      });
+    });
+
+    // =============== 错误分布：环形图 ===============
+    const errorPie = new Chart(document.getElementById('errorPie').getContext('2d'), {
+      type:'doughnut',
+      data:{
+        labels:['401 未授权','429 频率限制','500 服务器错误','502 上游不可用','其它'],
+        datasets:[{ data:[12,18,22,16,8] }]
+      },
+      options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}}}
+    });
+
+    // =============== 调用日志（筛选 + 详情） ===============
+    const logTableBody = document.getElementById('logTableBody');
+    function renderLogs(){
+      logTableBody.innerHTML = '';
+      const statusSel = document.getElementById('logStatus').value;
+      const listAll = logs.filter(l=>{
+        if(statusSel==='') return true;
+        if(statusSel==='2xx') return l.status>=200 && l.status<300;
+        if(statusSel==='4xx') return l.status>=400 && l.status<500;
+        if(statusSel==='5xx') return l.status>=500;
+      });
+      const total = listAll.length;
+      const start = (stateLogs.page-1)*stateLogs.size;
+      const pageItems = listAll.slice(start, start+stateLogs.size);
+      pageItems.forEach(l=>{
+        const tr = document.createElement('tr');
+        const badge = l.status>=500?'text-bg-danger':(l.status>=400?'text-bg-warning':'text-bg-success');
+        tr.innerHTML = `
+          <td>${l.at}</td>
+          <td>${l.app}</td>
+          <td><code>${l.endpoint}</code></td>
+          <td class="text-end">${l.dur}</td>
+          <td class="text-end"><span class="badge ${badge}">${l.status}</span></td>
+          <td>${l.ip}</td>
+          <td class="text-end"><button class="btn btn-sm btn-outline-primary" data-log='${JSON.stringify(l).replaceAll("'", "&apos;")}'><i class="bi bi-eye"></i> 查看</button></td>`;
+        logTableBody.appendChild(tr);
+      });
+      Paging.render('logPager','logPagerInfo', total, stateLogs, (p)=>{ stateLogs.page=p; renderLogs();
+    document.getElementById('logPageSize')?.addEventListener('change',(e)=>{ stateLogs.size=parseInt(e.target.value,10)||20; stateLogs.page=1; renderLogs(); }); });
+    }
+    renderLogs();
+    document.getElementById('logPageSize')?.addEventListener('change',(e)=>{ stateLogs.size=parseInt(e.target.value,10)||20; stateLogs.page=1; renderLogs(); });
+    document.getElementById('btnQueryLog').addEventListener('click', ()=>{ stateLogs.page=1; renderLogs();
+    document.getElementById('logPageSize')?.addEventListener('change',(e)=>{ stateLogs.size=parseInt(e.target.value,10)||20; stateLogs.page=1; renderLogs(); }); });
+    logTableBody.addEventListener('click',(e)=>{
+      const btn = e.target.closest('button[data-log]'); if(!btn) return;
+      const data = JSON.parse(btn.getAttribute('data-log').replaceAll('&apos;', "'"));
+      document.getElementById('logJson').textContent = JSON.stringify(data, null, 2);
+      new bootstrap.Modal(document.getElementById('modalLogDetail')).show();
+    });
+
+    // =============== 导出日志（示例） ===============
+    document.getElementById('btnExport').addEventListener('click', ()=>{
+      showToast('已发起导出任务，完成后在下载中心可见（示例）');
+    });
+  </script>
+
+<script>
+// 侧边栏统一：插入“系统设置”（接口管理与监控下方），隐藏“数据概览/团队投诉反馈”
+(function(){
+  try{
+    const aside = document.querySelector('aside.sidebar');
+    if(aside){
+      const links = aside.querySelectorAll('a');
+      let apiLink = null, settingsLinkExists = false;
+      links.forEach(a=>{
+        if(a.textContent && a.textContent.includes('接口管理与监控')) apiLink = a;
+        if(a.textContent && a.textContent.trim() === '系统设置') settingsLinkExists = true;
+      });
+      if(apiLink && !settingsLinkExists){
+        const li = document.createElement('li'); li.className = 'nav-item';
+        const a = document.createElement('a'); a.className='nav-link'; a.textContent='系统设置';
+        a.href = 'hq-admin-settings-system_v1.2.1d_tabs.html';
+        li.appendChild(a);
+        const parentUl = apiLink.closest('ul') || aside.querySelector('ul');
+        parentUl.insertBefore(li, apiLink.parentElement.nextSibling);
+      }
+      // 隐藏“数据概览”“团队投诉反馈”
+      links.forEach(a=>{
+        const t = (a.textContent||'').trim();
+        if(t.includes('数据概览') || t.includes('团队投诉反馈')){
+          const li = a.closest('li'); if(li) li.style.display='none';
+        }
+      });
+    }
+  }catch(e){ console.warn('侧边栏统一失败', e); }
+})();
+</script>
+
+
+<script>
+// 将表格中的编号（TSK/TPA/TFA/RCG/WDU/WDT/TF/UF/GF/FBK...）自动变为可点击链接
+(function(){
+  const map = {
+    TSK: 'hq-admin-task-detail.html',
+    TPA: 'hq-admin-audit-task-publish.html',
+    TFA: 'hq-admin-audit-task-completion.html',
+    RCG: 'hq-admin-finance-recharge-review.html',
+    WDU: 'hq-admin-finance-withdrawal-review.html',
+    WDT: 'hq-admin-finance-team-withdrawal-review.html',
+    TF:  'hq-admin-finance-platform-fund-flow.html',
+    UF:  'hq-admin-finance-user-fund-flow.html',
+    GF:  'hq-admin-finance-team-fund-flow.html',
+    FBK: 'hq-admin-users-feedback.html',
+    CAT: 'hq-admin-settings-categories.html',
+    FRM: 'hq-admin-form-design.html',
+    APP: 'hq-admin-system-api-management-monitoring.html',
+    MSG: 'hq-admin-users-feedback.html',
+    LOG: 'hq-admin-audit-task-completion.html',
+    U:   'hq-admin-users-list.html',
+    G:   'hq-admin-team-list.html'
+  };
+  const re = /\b(TSK|TPA|TFA|RCG|WDU|WDT|TF|UF|GF|FBK|CAT|FRM|APP|MSG|LOG|U|G)\d{4,}(?:\s*\d{3,})?\b/g;
+  function linkifyNode(node){
+    if(node.children && node.children.length) return;
+    const text = node.textContent;
+    if(!text || !re.test(text)) return;
+    const html = text.replace(re, (m)=>{
+      const pref = m.match(/^[A-Z]+/)[0];
+      const href = map[pref] || '#';
+      const q = encodeURIComponent(m.replace(/\s+/g,''));
+      return `<a href="${href}?id=${q}" class="text-decoration-underline">${m}</a>`;
+    });
+    const span = document.createElement('span'); span.innerHTML = html;
+    node.replaceWith(span);
+  }
+  const targets = Array.from(document.querySelectorAll('td, span, div, p, li'));
+  targets.forEach(linkifyNode);
+})();
+</script>
+
+
+<style>
+/* 统一状态样式 */
+.unified-empty { text-align:center; padding:28px 12px; color:#6c757d; }
+.unified-empty .icon { display:inline-block; width:36px; height:36px; border-radius:50%; border:2px dashed #ced4da; margin-bottom:6px; }
+.unified-loading { position:relative; min-height:80px; }
+.unified-loading:after {
+  content:""; position:absolute; inset:0; background:
+    linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.04) 50%, rgba(0,0,0,0) 100%);
+  animation: shimmer 1.2s infinite;
+}
+@keyframes shimmer { 0%{background-position:-200% 0;} 100%{background-position:200% 0;} }
+.unified-error { color:#dc3545; padding:8px 0; }
+
+/* 统一筛选浮层 */
+#unifiedFilterPanel {
+  position: fixed; right: 16px; top: 84px; width: 360px; z-index: 1080;
+  background: #fff; border: 1px solid #dee2e6; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.12);
+  display:none;
+}
+#unifiedFilterPanel .hdr { padding: 10px 12px; border-bottom:1px solid #eee; display:flex; align-items:center; justify-content:space-between; }
+#unifiedFilterPanel .bd { padding: 12px; }
+#btnUnifiedFilter { margin-left: 8px; }
+
+/* 按钮意图颜色统一（基于文本） */
+button, .btn { transition: filter .2s ease; }
+.btn-intent-approve { background:#198754; color:#fff; border-color:#198754; }
+.btn-intent-reject { background:#dc3545; color:#fff; border-color:#dc3545; }
+.btn-intent-return { background:#ffc107; color:#212529; border-color:#ffc107; }
+.btn-intent-pay { background:#0d6efd; color:#fff; border-color:#0d6efd; }
+
+/* 可点击编号统一下划线（若页面未设置） */
+a.id-link { text-decoration: underline; }
+</style>
+
+<script>
+(function(){
+  // ===== 读取系统设置（货币/精度/时区） =====
+  const PUB_KEY = 'hq_sys_settings_v1_2_1d_published';
+  let locale = { lang:'zh-CN', tz:'Asia/Shanghai', currency:'CNY', precision:2 };
+  try{
+    const cfg = JSON.parse(localStorage.getItem(PUB_KEY)||'{}');
+    if(cfg.locale){
+      locale.lang = cfg.locale.lang || locale.lang;
+      locale.tz = cfg.locale.tz || locale.tz;
+      locale.currency = cfg.locale.currency || locale.currency;
+      locale.precision = parseInt(cfg.locale.precision||locale.precision,10);
+    }
+  }catch(e){}
+
+  // ===== 统一筛选：在首个 .card-header 右侧添加“筛选”按钮 + 浮层 =====
+  function ensureFilterUI(){
+    if(document.getElementById('unifiedFilterPanel')) return;
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-outline-secondary btn-sm';
+    btn.id = 'btnUnifiedFilter';
+    btn.innerHTML = '<i class="bi bi-funnel me-1"></i>筛选';
+    // 尝试挂到第一个 card-header 右侧
+    const hdr = document.querySelector('.card .card-header') || document.querySelector('.d-flex.align-items-center.justify-content-between');
+    if(hdr){ hdr.appendChild(btn); }
+    else {
+      // 顶部右上角浮动按钮（兜底）
+      const fbtn = btn.cloneNode(true);
+      fbtn.style.position='fixed'; fbtn.style.right='16px'; fbtn.style.top='20px'; fbtn.style.zIndex='1080';
+      document.body.appendChild(fbtn);
+    }
+
+    const panel = document.createElement('div');
+    panel.id = 'unifiedFilterPanel';
+    panel.innerHTML = `
+      <div class="hdr">
+        <strong>通用筛选</strong>
+        <button type="button" class="btn-close" id="btnUFclose"></button>
+      </div>
+      <div class="bd">
+        <div class="mb-2">
+          <label class="form-label">关键字</label>
+          <input class="form-control" id="uf-key" placeholder="编号/手机号/名称">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">状态</label>
+          <select class="form-select" id="uf-status">
+            <option value="">全部</option>
+            <option>待处理</option>
+            <option>处理中</option>
+            <option>已通过</option>
+            <option>已驳回</option>
+            <option>已完成</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">时间范围</label>
+          <div class="d-flex gap-2">
+            <input type="date" class="form-control" id="uf-from">
+            <input type="date" class="form-control" id="uf-to">
+          </div>
+        </div>
+        <div class="d-flex justify-content-end gap-2">
+          <button class="btn btn-outline-secondary btn-sm" id="uf-reset">重置</button>
+          <button class="btn btn-primary btn-sm" id="uf-apply">应用</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(panel);
+
+    document.body.addEventListener('click', function(e){
+      if(e.target && (e.target.id==='btnUnifiedFilter')){
+        const p = document.getElementById('unifiedFilterPanel');
+        p.style.display = (p.style.display==='none' || !p.style.display) ? 'block' : 'none';
+      }
+      if(e.target && (e.target.id==='btnUFclose')){
+        document.getElementById('unifiedFilterPanel').style.display = 'none';
+      }
+      if(e.target && (e.target.id==='uf-reset')){
+        document.getElementById('uf-key').value='';
+        document.getElementById('uf-status').value='';
+        document.getElementById('uf-from').value='';
+        document.getElementById('uf-to').value='';
+        // 客户端演示：移除高亮
+        document.querySelectorAll('.uf-hl').forEach(n=>n.classList.remove('uf-hl'));
+      }
+      if(e.target && (e.target.id==='uf-apply')){
+        // Demo：仅做关键字高亮；实际项目应触发具体表格筛选逻辑
+        const key = (document.getElementById('uf-key').value||'').trim();
+        document.querySelectorAll('.uf-hl').forEach(n=>n.classList.remove('uf-hl'));
+        if(key){
+          const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+          const re = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+          let node; while(node = walker.nextNode()){
+            if(re.test(node.nodeValue) && node.parentElement && node.parentElement.closest('table')){
+              node.parentElement.classList.add('uf-hl');
+            }
+          }
+        }
+        document.getElementById('unifiedFilterPanel').style.display = 'none';
+      }
+    });
+
+    const style = document.createElement('style');
+    style.textContent = `.uf-hl{ background: rgba(255, 230, 0, .45); outline: 1px dashed #ffbf00; }`;
+    document.head.appendChild(style);
+  }
+
+  // ===== 统一金额格式（根据表头关键字判列） =====
+  function unifyAmountFormat(){
+    const tables = Array.from(document.querySelectorAll('table'));
+    const nf = new Intl.NumberFormat(locale.lang, { style:'currency', currency: locale.currency, minimumFractionDigits: locale.precision, maximumFractionDigits: locale.precision });
+    tables.forEach(tb=>{
+      const ths = Array.from(tb.querySelectorAll('thead th, thead td')).map(th => (th.textContent||'').trim());
+      if(!ths.length) return;
+      ths.forEach((txt, idx)=>{
+        if(/金额|价|费|收款|打款|入账|出账/.test(txt)){
+          Array.from(tb.querySelectorAll(`tbody tr`)).forEach(tr=>{
+            const td = tr.children[idx]; if(!td) return;
+            const raw = (td.textContent||'').replace(/[,￥$]/g,'').trim();
+            const num = parseFloat(raw);
+            if(!isNaN(num)){
+              td.setAttribute('data-raw-amount', num);
+              td.textContent = nf.format(num);
+              td.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace';
+              td.style.textAlign = 'right';
+            }
+          });
+        }
+      });
+    });
+  }
+
+  // ===== 统一时间格式 =====
+  function unifyTimeFormat(){
+    const tables = Array.from(document.querySelectorAll('table'));
+    const fmt = new Intl.DateTimeFormat(locale.lang, { timeZone: locale.tz, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    tables.forEach(tb=>{
+      const ths = Array.from(tb.querySelectorAll('thead th, thead td')).map(th => (th.textContent||'').trim());
+      if(!ths.length) return;
+      ths.forEach((txt, idx)=>{
+        if(/时间|日期|创建|更新/.test(txt)){
+          Array.from(tb.querySelectorAll(`tbody tr`)).forEach(tr=>{
+            const td = tr.children[idx]; if(!td) return;
+            const s = (td.textContent||'').trim();
+            // 常见格式 "YYYY-MM-DD HH:mm[:ss]"
+            const iso = s.replace(/(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(:\d{2})?)/, '$1T$2');
+            const d = new Date(iso);
+            if(!isNaN(+d)){
+              td.title = d.toISOString();
+              td.textContent = fmt.format(d);
+              td.style.whiteSpace = 'nowrap';
+            }
+          });
+        }
+      });
+    });
+  }
+
+  // ===== 空态填充（无数据时） =====
+  function fillEmptyStates(){
+    Array.from(document.querySelectorAll('table')).forEach(tb=>{
+      const body = tb.querySelector('tbody'); if(!body) return;
+      const hasRow = body.querySelector('tr');
+      if(!hasRow){
+        const colSpan = (tb.querySelectorAll('thead th').length || 1);
+        const tr = document.createElement('tr');
+        const td = document.createElement('td'); td.colSpan = colSpan; td.className='unified-empty';
+        td.innerHTML = '<div class="icon"></div><div>暂无数据</div>';
+        tr.appendChild(td); body.appendChild(tr);
+      }
+    });
+  }
+
+  // ===== 动作按钮意图着色（基于文本内容） =====
+  function colorizeActionButtons(){
+    const btns = Array.from(document.querySelectorAll('button, a.btn'));
+    btns.forEach(b=>{
+      const t = (b.textContent||'').trim();
+      if(/通过|同意|Approve/i.test(t)) b.classList.add('btn-intent-approve');
+      if(/驳回|拒绝|Reject/i.test(t)) b.classList.add('btn-intent-reject');
+      if(/打回|退回|Return/i.test(t)) b.classList.add('btn-intent-return');
+      if(/打款|已转账|Pay/i.test(t)) b.classList.add('btn-intent-pay');
+    });
+  }
+
+  // ===== 启动顺序 =====
+  document.addEventListener('DOMContentLoaded', function(){
+    ensureFilterUI();
+    unifyAmountFormat();
+    unifyTimeFormat();
+    fillEmptyStates();
+    colorizeActionButtons();
+  });
+})();
+</script>
+
+</body>
+</html>
